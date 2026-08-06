@@ -20,6 +20,7 @@ class FarmView:
     hour: int
     money: float
     tiles: list[list[Tile]]
+    unlocked_quadrants: tuple[str, ...]
     farmer: tuple[int, int]
     hands: list[tuple[int, int]]
     seeds: dict[str, int]
@@ -43,6 +44,7 @@ def parse_obs(obs: dict[str, Any]) -> FarmView:
         hour=step % 24,
         money=float(farm.get("money", 0.0)),
         tiles=farm["tiles"],
+        unlocked_quadrants=tuple(farm.get("unlocked_quadrants", ("NW",))),
         farmer=(int(farmer[0]), int(farmer[1])),
         hands=[(int(h[0]), int(h[1])) for h in farm.get("hands", [])],
         seeds=dict(private.get("seeds", {}) or {}),

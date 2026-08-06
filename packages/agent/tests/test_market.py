@@ -56,3 +56,57 @@ def test_sells_survive_the_ten_order_cap() -> None:
     assert orders[0] == ["SELL", "FERTILIZER", 99999]
     assert ["SELL", "EGG", 99999] in orders
     assert ["SELL", "WHEAT", 7] in orders
+
+
+def test_melon_sell_respects_price_floor() -> None:
+    below_floor = build_orders(
+        shed={"MELON": 5}, prices={"MELON": 180.0}, day=6, wheat_reserve=3, buys=[]
+    )
+    assert not any(o[1] == "MELON" for o in below_floor)
+
+    above_floor = build_orders(
+        shed={"MELON": 5}, prices={"MELON": 200.0}, day=6, wheat_reserve=3, buys=[]
+    )
+    assert above_floor[0] == ["SELL", "MELON", 2]
+
+
+def test_melon_sell_capped_per_turn_even_with_more_in_shed() -> None:
+    orders = build_orders(
+        shed={"MELON": 9}, prices={"MELON": 250.0}, day=6, wheat_reserve=3, buys=[]
+    )
+    assert orders[0] == ["SELL", "MELON", 2]
+
+
+def test_melon_sell_below_cap_sells_the_exact_shed_count() -> None:
+    orders = build_orders(
+        shed={"MELON": 1}, prices={"MELON": 250.0}, day=6, wheat_reserve=3, buys=[]
+    )
+    assert orders[0] == ["SELL", "MELON", 1]
+
+
+def test_melon_held_below_floor_but_dumped_fully_at_liquidation() -> None:
+    crashed = {"MELON": 50.0}
+    held = build_orders(shed={"MELON": 9}, prices=crashed, day=10, wheat_reserve=3, buys=[])
+    assert not any(o[1] == "MELON" for o in held)
+
+    dumped = build_orders(shed={"MELON": 9}, prices=crashed, day=29, wheat_reserve=3, buys=[])
+    assert dumped[0] == ["SELL", "MELON", 9]  # liquidation ignores both floor and per-turn cap
+
+
+def test_melon_sell_leads_even_fertilizer_at_index_zero() -> None:
+    orders = build_orders(
+        shed={"MELON": 2, "FERTILIZER": 3},
+        prices={"MELON": 250.0, "FERTILIZER": 100.0},
+        day=6,
+        wheat_reserve=3,
+        buys=[],
+    )
+    assert orders[0] == ["SELL", "MELON", 2]
+    assert orders[1] == ["SELL", "FERTILIZER", 99999]
+
+
+def test_no_melon_sell_when_shed_is_empty() -> None:
+    orders = build_orders(
+        shed={"FERTILIZER": 3}, prices={"MELON": 250.0}, day=6, wheat_reserve=3, buys=[]
+    )
+    assert not any(o[1] == "MELON" for o in orders)

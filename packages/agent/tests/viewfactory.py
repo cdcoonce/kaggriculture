@@ -4,15 +4,24 @@ from __future__ import annotations
 
 from typing import Any
 
+from agent.constants import QUADRANTS
 from agent.view import FarmView
 
 Tile = Any
 
 
-def empty_tiles() -> list[list[Tile]]:
-    """10x10 board: NW quadrant open, everything else locked (fresh farm)."""
+def _quadrant_of(x: int, y: int) -> str:
+    for name, (x_range, y_range) in QUADRANTS.items():
+        if x in x_range and y in y_range:
+            return name
+    raise ValueError(f"tile ({x}, {y}) is outside every quadrant")
+
+
+def empty_tiles(unlocked_quadrants: tuple[str, ...] = ("NW",)) -> list[list[Tile]]:
+    """10x10 board: unlocked quadrants open, everything else locked."""
+    unlocked = set(unlocked_quadrants)
     return [
-        [None if x < 5 and y < 5 else "LOCKED" for x in range(10)]  # noqa: B023
+        [None if _quadrant_of(x, y) in unlocked else "LOCKED" for x in range(10)]  # noqa: B023
         for y in range(10)
     ]
 
@@ -24,11 +33,13 @@ def make_view(
     hands: list[tuple[int, int]] | None = None,
     tiles: list[list[Tile]] | None = None,
     seeds: int = 0,
+    melon_seeds: int = 0,
     shed: dict[str, int] | None = None,
     inventories: list[dict[str, int]] | None = None,
     prices: dict[str, float] | None = None,
     money: float = 3000.0,
     hires_today: int = 0,
+    unlocked_quadrants: tuple[str, ...] = ("NW",),
 ) -> FarmView:
     hands = hands or []
     n_units = 1 + len(hands)
@@ -40,10 +51,11 @@ def make_view(
         day=step // 24,
         hour=step % 24,
         money=money,
-        tiles=tiles if tiles is not None else empty_tiles(),
+        tiles=tiles if tiles is not None else empty_tiles(unlocked_quadrants),
+        unlocked_quadrants=unlocked_quadrants,
         farmer=farmer,
         hands=hands,
-        seeds={"WHEAT": seeds},
+        seeds={"WHEAT": seeds, "MELON": melon_seeds},
         shed=shed or {},
         inventories=inv,
         prices=prices or {"WHEAT": 25.0, "EGG": 50.0, "FERTILIZER": 100.0},
