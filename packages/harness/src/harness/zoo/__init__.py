@@ -16,6 +16,8 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
+from harness.zoo.wheat_spam import make_agent as _make_wheat_spam
+
 Agent = Callable[..., Any] | str
 
 # Engine built-ins — free anchors, always in the gate zoo.
@@ -27,7 +29,9 @@ BUILTIN_ANCHORS: dict[str, str] = {
 # Scripted archetypes register here as they land (zoo design #5):
 # wheat-spam, melon-rusher, index-front-runner, meta-clone, land-rush-hoarder,
 # fert-market-crasher, chaos-legal-random, public-baseline-approx.
-SCRIPTED: dict[str, Agent] = {}
+SCRIPTED: dict[str, Agent] = {
+    "wheat-spam": _make_wheat_spam,
+}
 
 
 def gate_zoo() -> dict[str, Agent]:
