@@ -1,0 +1,20 @@
+[project]
+name = "harness"
+version = "0.1.0"
+description = "Kaggriculture home infrastructure — zoo, gates, ledger, parity (never ships)"
+requires-python = ">=3.11"
+dependencies = [
+    "kaggle-environments>=1.32.4",
+    "numpy>=1.26",
+    "agent",
+]
+
+[tool.uv.sources]
+agent = { workspace = true }
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/harness"]

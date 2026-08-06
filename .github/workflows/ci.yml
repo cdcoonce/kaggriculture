@@ -1,0 +1,24 @@
+# PR fast set (test-pyramid decision #3). The smoke-suite + reduced-H2H
+# strength jobs land with the CI-topology decision (#12) — this file is the
+# correctness half only.
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  fast-set:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.11"
+      - run: uv sync --all-packages --dev
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      - run: uv run mypy packages/agent/src
+      - run: uv run pytest -m "not slow" -q
+      - run: uv run pytest -m slow -q
