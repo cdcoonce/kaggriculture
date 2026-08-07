@@ -3,9 +3,9 @@ and how both widen once land purchases unlock more quadrants."""
 
 from __future__ import annotations
 
-from agent.constants import target_tiles
+from agent.constants import PASTURE_TILE_TARGET, target_tiles
 from agent.dispatch import dispatch
-from viewfactory import make_view, plant
+from viewfactory import built_pasture, make_view, pasture, plant
 
 NW_TILES = target_tiles(("NW",))
 
@@ -315,3 +315,213 @@ def test_endgame_mule_threshold_drops_to_one_carried_unit() -> None:
     # harvest, since goods harvested this late can't reach the shed in time.
     endgame = make_view(step=29 * 24, hands=[(2, 2)], tiles=tiles, inventories=[{}, {"WHEAT": 1}])
     assert dispatch(endgame, NW_TILES).hands[0] == ["EAST"]
+
+
+# --- Pasture husbandry (M2a) -------------------------------------------
+#
+# Pasture tiles are identified purely by position (membership in the
+# caller-supplied ``pasture_tiles`` frozenset), independent of
+# constants.pasture_tiles, exactly like the melon satellite above. Priority
+# numbers match the field-task classes: P0 FEED (escape + banked-care-bonus
+# risk), P1 HARVEST (amortize trips) / PLACE a bought animal, P2 CARE /
+# COLLECT_FERTILIZER, P3 BUILD_PASTURE, P4 DIG (shared with wheat/melon).
+
+
+def test_unfed_pasture_animal_gets_fed_when_carrying_wheat() -> None:
+    tiles = make_view().tiles
+    tiles[2][2] = pasture(fed_today=False)
+    view = make_view(hands=[(2, 2)], tiles=tiles, inventories=[{}, {"WHEAT": 2}])
+    actions = dispatch(view, NW_TILES, frozenset(), frozenset({(2, 2)}))
+    assert actions.hands[0] == ["FEED"]
+
+
+def test_unfed_pasture_animal_without_wheat_walks_to_shed_first() -> None:
+    # Mirrors the goose steward's fetch-before-carry pattern: no wheat in
+    # inventory but the shed has some, so the unit heads for shed access
+    # (EAST from (0, 0) toward (4, 4)) instead of straight for the pasture
+    # tile (which would be SOUTH from here).
+    # Farmer carries WHEAT so it's mule-bound (out of the field-task race) --
+    # otherwise the farmer, also fielded and idle, would win the sole P0 task
+    # via the greedy per-unit-index assignment before the hand gets a look.
+    tiles = make_view().tiles
+    tiles[3][0] = pasture(fed_today=False)  # (0, 3)
+    view = make_view(
+        hands=[(0, 0)], tiles=tiles, shed={"WHEAT": 5}, inventories=[{"WHEAT": 1}, {}]
+    )
+    actions = dispatch(view, NW_TILES, frozenset(), frozenset({(0, 3)}))
+    assert actions.hands[0] == ["EAST"]
+
+
+def test_unfed_pasture_animal_picks_up_wheat_at_shed_access() -> None:
+    tiles = make_view().tiles
+    tiles[3][0] = pasture(fed_today=False)
+    view = make_view(
+        hands=[(4, 4)], tiles=tiles, shed={"WHEAT": 5}, inventories=[{"WHEAT": 1}, {}]
+    )
+    actions = dispatch(view, NW_TILES, frozenset(), frozenset({(0, 3)}))
+    assert actions.hands[0] == ["PICKUP", "WHEAT", 1]
+
+
+def test_unfed_pasture_animal_with_no_wheat_anywhere_walks_toward_tile() -> None:
+    # Best-effort fallback when the feed-reserve top-up hasn't caught up yet:
+    # walk toward the animal rather than stall at the shed forever. FEED
+    # issued with an empty inventory is a harmless engine no-op.
+    tiles = make_view().tiles
+    tiles[3][0] = pasture(fed_today=False)
+    view = make_view(hands=[(0, 0)], tiles=tiles, shed={}, inventories=[{"WHEAT": 1}, {}])
+    actions = dispatch(view, NW_TILES, frozenset(), frozenset({(0, 3)}))
+    assert actions.hands[0] == ["SOUTH"]
+
+
+def test_pasture_harvest_at_two_or_more_yield_units() -> None:
+    tiles = make_view().tiles
+    tiles[2][2] = pasture(fed_today=True, yield_units=2)
+    view = make_view(hands=[(2, 2)], tiles=tiles)
+    actions = dispatch(view, NW_TILES, frozenset(), frozenset({(2, 2)}))
+    assert actions.hands[0] == ["HARVEST"]
+
+
+def test_pasture_no_harvest_below_two_yield_before_day_twenty_seven() -> None:
+    tiles = make_view().tiles
+    tiles[2][2] = pasture(fed_today=True, yield_units=1, cared_today=True)
+    view = make_view(step=10 * 24, hands=[(2, 2)], tiles=tiles)
+    actions = dispatch(view, NW_TILES, frozenset(), frozenset({(2, 2)}))
+    assert actions.hands[0] == ["PASS"]  # fed, cared, yield 1 (< 2 amortize threshold), day 10
+
+
+def test_pasture_harvest_at_one_yield_unit_on_or_after_day_twenty_seven() -> None:
+    tiles = make_view().tiles
+    tiles[2][2] = pasture(fed_today=True, yield_units=1, cared_today=True)
+    view = make_view(step=27 * 24, hands=[(2, 2)], tiles=tiles)
+    actions = dispatch(view, NW_TILES, frozenset(), frozenset({(2, 2)}))
+    assert actions.hands[0] == ["HARVEST"]
+
+
+def test_pasture_care_when_not_cared_today() -> None:
+    tiles = make_view().tiles
+    tiles[2][2] = pasture(fed_today=True, yield_units=0, cared_today=False)
+    view = make_view(hands=[(2, 2)], tiles=tiles)
+    actions = dispatch(view, NW_TILES, frozenset(), frozenset({(2, 2)}))
+    assert actions.hands[0] == ["CARE"]
+
+
+def test_pasture_collect_fertilizer_when_cared_and_available() -> None:
+    tiles = make_view().tiles
+    tiles[2][2] = pasture(fed_today=True, cared_today=True, fertilizer_available=True)
+    view = make_view(hands=[(2, 2)], tiles=tiles)
+    actions = dispatch(view, NW_TILES, frozenset(), frozenset({(2, 2)}))
+    assert actions.hands[0] == ["COLLECT_FERTILIZER"]
+
+
+def test_pasture_idle_when_fed_cared_and_no_fertilizer_or_yield() -> None:
+    tiles = make_view().tiles
+    tiles[2][2] = pasture(fed_today=True, cared_today=True, fertilizer_available=False)
+    view = make_view(hands=[(2, 2)], tiles=tiles)
+    actions = dispatch(view, NW_TILES, frozenset(), frozenset({(2, 2)}))
+    assert actions.hands[0] == ["PASS"]
+
+
+def test_empty_pasture_zone_tile_gets_build_pasture_task() -> None:
+    view = make_view(hands=[(2, 2)])  # tile is None by default
+    actions = dispatch(view, NW_TILES, frozenset(), frozenset({(2, 2)}))
+    assert actions.hands[0] == ["BUILD_PASTURE"]
+
+
+def test_build_pasture_stops_once_built_count_reaches_target() -> None:
+    tiles = make_view().tiles
+    built_positions = [(x, y) for y in range(3) for x in range(5)][:PASTURE_TILE_TARGET]
+    assert len(built_positions) == PASTURE_TILE_TARGET
+    for x, y in built_positions:
+        tiles[y][x] = built_pasture()
+    extra_empty = (0, 3)  # one more designated pasture position, still empty
+    pasture_zone = frozenset(built_positions) | frozenset({extra_empty})
+    view = make_view(hands=[extra_empty], tiles=tiles)
+    actions = dispatch(view, NW_TILES, frozenset(), pasture_zone)
+    assert actions.hands[0] == ["PASS"]  # cap reached; no BUILD_PASTURE beyond the target
+
+
+def test_empty_built_pasture_gets_place_cow_when_carrying_one() -> None:
+    tiles = make_view().tiles
+    tiles[2][2] = built_pasture()
+    view = make_view(hands=[(2, 2)], tiles=tiles, shed={"COW": 1}, inventories=[{}, {"COW": 1}])
+    actions = dispatch(view, NW_TILES, frozenset(), frozenset({(2, 2)}))
+    assert actions.hands[0] == ["PLACE", "COW"]
+
+
+def test_empty_built_pasture_gets_place_sheep_when_no_cow_available() -> None:
+    tiles = make_view().tiles
+    tiles[2][2] = built_pasture()
+    view = make_view(hands=[(2, 2)], tiles=tiles, shed={"SHEEP": 1}, inventories=[{}, {"SHEEP": 1}])
+    actions = dispatch(view, NW_TILES, frozenset(), frozenset({(2, 2)}))
+    assert actions.hands[0] == ["PLACE", "SHEEP"]
+
+
+def test_place_task_prefers_cow_over_sheep_when_both_available_in_shed() -> None:
+    tiles = make_view().tiles
+    tiles[2][2] = built_pasture()
+    view = make_view(
+        hands=[(2, 2)],
+        tiles=tiles,
+        shed={"COW": 1, "SHEEP": 1},
+        inventories=[{}, {"COW": 1, "SHEEP": 1}],
+    )
+    actions = dispatch(view, NW_TILES, frozenset(), frozenset({(2, 2)}))
+    assert actions.hands[0] == ["PLACE", "COW"]
+
+
+def test_place_cow_task_fetches_from_shed_first_when_not_carrying() -> None:
+    # Farmer sidelined (mule-bound) so the hand is the one competing for --
+    # and fetching for -- the sole PLACE task; see the FEED fetch tests above.
+    tiles = make_view().tiles
+    tiles[3][0] = built_pasture()  # (0, 3), far from shed
+    view = make_view(
+        hands=[(0, 0)], tiles=tiles, shed={"COW": 1}, inventories=[{"WHEAT": 1}, {}]
+    )
+    actions = dispatch(view, NW_TILES, frozenset(), frozenset({(0, 3)}))
+    assert actions.hands[0] == ["EAST"]  # toward shed (4,4) to PICKUP COW, not south to the pasture
+
+
+def test_weed_on_pasture_zone_tile_still_gets_dig() -> None:
+    tiles = make_view().tiles
+    tiles[2][2] = {"kind": "WEED"}
+    view = make_view(hands=[(2, 2)], tiles=tiles)
+    actions = dispatch(view, NW_TILES, frozenset(), frozenset({(2, 2)}))
+    assert actions.hands[0] == ["DIG"]
+
+
+def test_teeth_check_unfed_animal_feed_outranks_nearer_field_task() -> None:
+    # (0, 4) [FEED, P0] is farther from the hand (dist 4) than (3, 0) [an
+    # in-window water, P2] (dist 3); the P0 task must still win the unit.
+    tiles = make_view().tiles
+    tiles[4][0] = pasture(fed_today=False)  # (0, 4)
+    tiles[0][3] = plant(planted_day=2, watered_today=False)  # (3, 0): age 3, in-window water
+    view = make_view(
+        step=5 * 24,
+        farmer=(4, 4),
+        hands=[(0, 0)],
+        tiles=tiles,
+        inventories=[{"WHEAT": 1}, {"WHEAT": 1}],  # farmer loaded (mule-bound, out of the race)
+    )
+    actions = dispatch(view, NW_TILES, frozenset(), frozenset({(0, 4)}))
+    assert actions.hands[0] == ["SOUTH"]  # toward (0, 4) [FEED], not (3, 0) [water]
+
+
+def test_carrying_unit_keeps_place_task_after_shed_count_drops_to_zero() -> None:
+    # Regression: once a unit PICKUPs the last cow in the shed, the shed's
+    # own COW count drops to 0. If PLACE-task generation depended only on
+    # the shed count (not on what units are already carrying), the carrying
+    # unit would lose its task the very next turn -- nothing left to
+    # "budget" against -- fall through to the idle-cleanup path, get
+    # misclassified as carrying produce, and mule the cow straight back into
+    # the shed instead of finishing the walk to the empty pasture: a
+    # pickup-then-drop cycle that never actually places the animal.
+    tiles = make_view().tiles
+    tiles[2][2] = built_pasture()
+    view = make_view(
+        hands=[(2, 2)],
+        tiles=tiles,
+        shed={},  # the cow already left the shed -- it's in the hand's inventory now
+        inventories=[{}, {"COW": 1}],
+    )
+    actions = dispatch(view, NW_TILES, frozenset(), frozenset({(2, 2)}))
+    assert actions.hands[0] == ["PLACE", "COW"]

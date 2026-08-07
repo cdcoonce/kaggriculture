@@ -13,8 +13,9 @@ loop can apply melon's own task rules to those positions.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Any
 
-from agent.constants import COOP_TILE, SHED_TILE, nearest_shed_access
+from agent.constants import COOP_TILE, PASTURE_TILE_TARGET, SHED_TILE, nearest_shed_access
 from agent.view import FarmView, Tile
 
 UnitAction = list[object]
@@ -41,16 +42,35 @@ MELON_MAX_YIELD = 6
 ENDGAME_DAY = 29
 ENDGAME_MULE_THRESHOLD = 1
 
+# Pasture husbandry (M2a, engine-verified): cow $400, first_yield_day 8,
+# interval 2, max_held 6, product MILK; sheep $500, first_yield_day 6,
+# interval 3, max_held 6, product WOOL. Both use the PASTURE structure, so a
+# built-but-empty pasture tile can hold either species. HARVEST amortizes
+# trips (wait for >= 2 units) except very late in the game, when whatever's
+# sitting on the tile should just be swept up before the day-29 close.
+PASTURE_HARVEST_THRESHOLD = 2
+PASTURE_HARVEST_LATE_DAY = 27  # from here on, even a single yield unit is worth the trip
+
+
+_LIVESTOCK = ("GOOSE", "COW", "SHEEP")
+
 
 def _carry_load(inv: dict[str, int]) -> int:
-    """Sellable units carried (the goose is pipeline cargo, not produce)."""
-    return sum(n for item, n in inv.items() if item != "GOOSE")
+    """Sellable units carried (live animals in transit to PLACE are pipeline
+    cargo, not produce -- counting them here would let the mule-threshold
+    check misclassify a unit mid-carry and route it back to the shed)."""
+    return sum(n for item, n in inv.items() if item not in _LIVESTOCK)
 
 
-def _find_animal(view: FarmView) -> tuple[int, int] | None:
+def _find_goose_tile(view: FarmView) -> tuple[int, int] | None:
+    """The placed goose's tile, or None. Scoped to ``animal == "GOOSE"``
+    specifically (M2a: with cow/sheep pasture tiles also on the board, a
+    bare "any animal" scan would hijack the farmer into stewarding whatever
+    animal the row-major board scan finds first -- cow/sheep chores belong
+    to the general priority-task system in ``_field_tasks``, not here)."""
     for y, row in enumerate(view.tiles):
         for x, tile in enumerate(row):
-            if isinstance(tile, dict) and "animal" in tile:
+            if isinstance(tile, dict) and tile.get("animal") == "GOOSE":
                 return (x, y)
     return None
 
@@ -59,7 +79,7 @@ def _steward(view: FarmView) -> UnitAction | None:
     """The farmer's goose duty for this turn, or None if none is pending."""
     pos = view.farmer
     inv = view.inventories[0] if view.inventories else {}
-    goose_pos = _find_animal(view)
+    goose_pos = _find_goose_tile(view)
 
     if goose_pos is None:
         if inv.get("GOOSE", 0) > 0:
@@ -146,6 +166,7 @@ class _Task:
     priority: int  # 0 = most urgent
     uses_seed: bool = False
     crop: str = ""  # which seed pool uses_seed draws from; set whenever uses_seed is True
+    needs_carry: str = ""  # item that must be in the assigned unit's inventory before ``action``
 
 
 def plant_quota(day: int, active_tiles: int) -> int:
@@ -164,15 +185,61 @@ def plant_quota(day: int, active_tiles: int) -> int:
     return max(1, -(-active_tiles // 5))
 
 
+def _pasture_task(
+    x: int, y: int, tile: dict[str, Any], day: int, shed: dict[str, int]
+) -> _Task | None:
+    """The single most urgent chore for a placed animal, or a PLACE task for
+    an empty built pasture (drawn from the caller's own running shed-budget
+    dict, mutated in place exactly like ``plant_budget``/``melon_budget``).
+
+    P0 FEED an unfed animal — two consecutive unfed days makes it escape
+    (the structure survives, the animal doesn't), and skipping FEED on a
+    production day also zeroes that day's banked CARE bonus.
+    P1 HARVEST once yield_units >= PASTURE_HARVEST_THRESHOLD (amortize
+    trips — walking a shed round trip for a single MILK/WOOL unit is a
+    worse use of a turn than waiting one more production cycle), or for any
+    yield_units >= 1 from PASTURE_HARVEST_LATE_DAY on (the game is ending;
+    sweep up whatever's there). P1 also covers PLACE-ing a bought animal
+    from the shed onto an empty pasture — same tier as HARVEST: getting an
+    animal into production a day sooner is worth about as much as amortizing
+    a harvest trip, but neither is as urgent as an active escape risk.
+    P2 CARE if not cared today, else COLLECT_FERTILIZER if available.
+    """
+    if "animal" in tile:
+        if not tile.get("fed_today", False):
+            return _Task((x, y), ["FEED"], priority=0, needs_carry="WHEAT")
+        yield_units = int(tile.get("yield_units", 0))
+        if yield_units >= PASTURE_HARVEST_THRESHOLD or (
+            yield_units >= 1 and day >= PASTURE_HARVEST_LATE_DAY
+        ):
+            return _Task((x, y), ["HARVEST"], priority=1)
+        if not tile.get("cared_today", False):
+            return _Task((x, y), ["CARE"], priority=2)
+        if tile.get("fertilizer_available", False):
+            return _Task((x, y), ["COLLECT_FERTILIZER"], priority=2)
+        return None
+
+    # Built but empty: place a bought animal, cows before sheep.
+    if shed.get("COW", 0) > 0:
+        shed["COW"] -= 1
+        return _Task((x, y), ["PLACE", "COW"], priority=1, needs_carry="COW")
+    if shed.get("SHEEP", 0) > 0:
+        shed["SHEEP"] -= 1
+        return _Task((x, y), ["PLACE", "SHEEP"], priority=1, needs_carry="SHEEP")
+    return None
+
+
 def _field_tasks(
     view: FarmView,
     tiles: list[tuple[int, int]],
     melon_tiles: frozenset[tuple[int, int]] = frozenset(),
+    pasture_tiles: frozenset[tuple[int, int]] = frozenset(),
 ) -> list[_Task]:
     """Work needed on the target tiles, tagged with an urgency class.
 
     Priority 0 (most urgent) through 4 (least), first-match-wins per tile.
-    Wheat tiles (any tile not in ``melon_tiles``) keep the original rules:
+    Wheat tiles (any tile not in ``melon_tiles``/``pasture_tiles``) keep the
+    original rules:
       0 a same-day planting, unwatered — skipping it turns it into a WEED
         overnight, so it must be watered today no matter what else is near.
       1 a ripe tile: watered and age >= 4, or age >= 5 regardless of
@@ -206,11 +273,17 @@ def _field_tasks(
         own daily cap.
       4 a weed to dig (shared with wheat — a weed is a weed either way).
 
+    Pasture tiles (positions in ``pasture_tiles``) see ``_pasture_task``'s
+    FEED/HARVEST/PLACE/CARE/COLLECT_FERTILIZER rules for P0-P2, BUILD_PASTURE
+    at P3 while the zone's built count stays under ``PASTURE_TILE_TARGET``
+    (mirrors wheat/melon's own P3 planting gate), and the shared P4 DIG below
+    for a weed that spawned on a still-empty designated tile.
+
     Endgame: on the last day, after hour 20, no P1 (harvest) task is ever
-    emitted for either crop — the market reads shed contents pre-drop, so
-    anything harvested this late can't reach the shed before the game ends
-    and sells for $0 (``dispatch`` makes the matching change on the mule
-    side: any carried load at all becomes worth rushing home).
+    emitted for any crop or animal — the market reads shed contents
+    pre-drop, so anything harvested this late can't reach the shed before
+    the game ends and sells for $0 (``dispatch`` makes the matching change
+    on the mule side: any carried load at all becomes worth rushing home).
     """
     wheat_planted_today = 0
     melon_planted_today = 0
@@ -227,13 +300,34 @@ def _field_tasks(
                 wheat_planted_today += 1
     plant_budget = max(0, plant_quota(view.day, len(tiles)) - wheat_planted_today)
     melon_budget = max(0, MELON_PLANT_DAILY_CAP - melon_planted_today)
+    # Shed count PLUS whatever any unit is already carrying: once a unit
+    # PICKUPs the last shed animal, the shed's own count drops to 0, but the
+    # PLACE task for its target tile must keep being generated (by this same
+    # total staying put) or the carrying unit loses its assignment next turn,
+    # gets misclassified as idle, and mules the animal straight back into the
+    # shed instead of finishing the walk (regression -- see
+    # test_carrying_unit_keeps_place_task_after_shed_count_drops_to_zero).
+    animal_shed_budget = {
+        "COW": view.shed.get("COW", 0) + sum(inv.get("COW", 0) for inv in view.inventories),
+        "SHEEP": view.shed.get("SHEEP", 0) + sum(inv.get("SHEEP", 0) for inv in view.inventories),
+    }
+    built_count = sum(
+        1
+        for x, y in pasture_tiles
+        if isinstance(view.tiles[y][x], dict) and view.tiles[y][x].get("kind") == "PASTURE"
+    )
 
     tasks: list[_Task] = []
     for x, y in tiles:
         tile: Tile = view.tiles[y][x]
         is_melon = (x, y) in melon_tiles
+        is_pasture = (x, y) in pasture_tiles
         if tile is None:
-            if is_melon:
+            if is_pasture:
+                if built_count < PASTURE_TILE_TARGET:
+                    tasks.append(_Task((x, y), ["BUILD_PASTURE"], priority=3))
+                    built_count += 1
+            elif is_melon:
                 if view.day <= MELON_PLANT_CUTOFF_DAY and view.hour <= 20 and melon_budget > 0:
                     crop_task = _Task(
                         (x, y), ["PLANT", "MELON"], priority=3, uses_seed=True, crop="MELON"
@@ -273,16 +367,46 @@ def _field_tasks(
                     tasks.append(_Task((x, y), ["HARVEST"], priority=1))
                 elif 2 <= age <= 4 and not watered_today:
                     tasks.append(_Task((x, y), ["WATER"], priority=2))
+        elif is_pasture and isinstance(tile, dict) and tile.get("kind") == "PASTURE":
+            animal_task = _pasture_task(x, y, tile, view.day, animal_shed_budget)
+            if animal_task is not None:
+                tasks.append(animal_task)
 
     if view.day >= ENDGAME_DAY and view.hour > 20:
         tasks = [t for t in tasks if t.priority != 1]
     return tasks
 
 
+def _carry_leg(
+    pos: tuple[int, int], item: str, task_tile: tuple[int, int], view: FarmView
+) -> UnitAction:
+    """Fetch ``item`` from the shed before working ``task_tile``, mirroring
+    the goose steward's fetch-then-carry pattern: walk to shed access, then
+    PICKUP, for any task whose action needs something the unit isn't
+    already carrying (FEED needs WHEAT; PLACE needs the animal itself).
+
+    Best-effort when the shed is also empty (the feed-reserve top-up or an
+    animal purchase hasn't landed yet this turn): walk toward the task tile
+    anyway rather than stall — the eventual FEED/PLACE is a harmless no-op
+    at the engine level until the carry requirement is actually met.
+    """
+    shed_access = nearest_shed_access(pos, view.unlocked_quadrants)
+    if view.shed.get(item, 0) > 0:
+        if pos == shed_access:
+            return ["PICKUP", item, 1]
+        step = _step_toward(pos, shed_access)
+        if step is not None:
+            return step
+        return ["PICKUP", item, 1]
+    step = _step_toward(pos, task_tile)
+    return step if step is not None else ["PASS"]
+
+
 def dispatch(
     view: FarmView,
     tiles: list[tuple[int, int]],
     melon_tiles: frozenset[tuple[int, int]] = frozenset(),
+    pasture_tiles: frozenset[tuple[int, int]] = frozenset(),
 ) -> Actions:
     units: list[tuple[int, int]] = [view.farmer, *view.hands]
     chosen: list[UnitAction] = [["PASS"] for _ in units]
@@ -307,7 +431,7 @@ def dispatch(
             chosen[i] = _mule(units[i], view.unlocked_quadrants)
             fielded.discard(i)
 
-    tasks = _field_tasks(view, tiles, melon_tiles)
+    tasks = _field_tasks(view, tiles, melon_tiles, pasture_tiles)
     # Wheat and melon draw from separate seed pools; keyed by the task's own
     # crop so exhausting one never blocks the other's PLANT tasks.
     seed_budgets = {"WHEAT": view.seeds.get("WHEAT", 0), "MELON": view.seeds.get("MELON", 0)}
@@ -365,6 +489,10 @@ def dispatch(
     for i, pos in enumerate(units):
         task = assigned.get(i)
         if task is None:
+            continue
+        inv = view.inventories[i] if i < len(view.inventories) else {}
+        if task.needs_carry and inv.get(task.needs_carry, 0) <= 0:
+            chosen[i] = _carry_leg(pos, task.needs_carry, task.tile, view)
             continue
         move = _step_toward(pos, task.tile)
         chosen[i] = move if move is not None else task.action

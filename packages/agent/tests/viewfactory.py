@@ -99,3 +99,32 @@ def goose_tile(
         "fertilizer_available": fertilizer_available,
         "pending_care_bonus": 0,
     }
+
+
+def pasture(
+    *,
+    animal: str = "COW",
+    fed_today: bool = False,
+    cared_today: bool = False,
+    yield_units: int = 0,
+    fertilizer_available: bool = False,
+) -> dict[str, Any]:
+    """A built pasture with a placed cow/sheep -- same shape as ``goose_tile``
+    (engine's ``_new_animal``), just ``kind: PASTURE`` and a caller-chosen
+    species."""
+    return {
+        "kind": "PASTURE",
+        "animal": animal,
+        "placed_day": 0,
+        "yield_units": yield_units,
+        "consecutive_unfed": 0,
+        "fed_today": fed_today,
+        "cared_today": cared_today,
+        "fertilizer_available": fertilizer_available,
+        "pending_care_bonus": 0,
+    }
+
+
+def built_pasture() -> dict[str, Any]:
+    """A built pasture with no animal placed yet."""
+    return {"kind": "PASTURE"}

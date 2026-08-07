@@ -369,3 +369,333 @@ def test_melon_seed_buy_clamped_by_available_budget() -> None:
         active_tiles=99,
     )
     assert ["BUY_SEED", "MELON", 1] in plan.buys
+
+
+# --- Animals (M2a) -----------------------------------------------------
+#
+# Cows before sheep, at most ANIMAL_BUY_CAP_PER_TURN (2) total per turn,
+# never more than the observed empty-built-pasture count (trap: a bought
+# animal that can't be placed just sits in the shed, dead capital), and only
+# inside each species' own breakeven purchase window.
+
+
+def test_animals_buy_cows_before_sheep_until_targets() -> None:
+    plan = plan_day(
+        day=3,
+        money=10000.0,
+        wheat_seeds=50,
+        plantable_target_tiles=0,
+        wheat_on_hand=50,
+        goose_owned=True,
+        hires_today=0,
+        unlocked_quadrants=("NW", "NE", "SW", "SE"),
+        active_tiles=99,
+        cows_owned=0,
+        sheep_owned=0,
+        empty_pastures=15,
+    )
+    animal_buys = [b for b in plan.buys if b[0] == "BUY_ANIMAL"]
+    # The shared 2/turn cap is exhausted by cows before sheep gets a look-in.
+    assert animal_buys == [["BUY_ANIMAL", "COW", 2]]
+
+
+def test_animals_buy_sheep_once_cow_target_is_met() -> None:
+    plan = plan_day(
+        day=3,
+        money=10000.0,
+        wheat_seeds=50,
+        plantable_target_tiles=0,
+        wheat_on_hand=50,
+        goose_owned=True,
+        hires_today=0,
+        unlocked_quadrants=("NW", "NE", "SW", "SE"),
+        active_tiles=99,
+        cows_owned=6,
+        sheep_owned=0,
+        empty_pastures=15,
+    )
+    animal_buys = [b for b in plan.buys if b[0] == "BUY_ANIMAL"]
+    assert animal_buys == [["BUY_ANIMAL", "SHEEP", 2]]
+
+
+def test_no_animal_buy_when_no_empty_pastures() -> None:
+    # Trap: never BUY_ANIMAL without an already-built empty pasture to place
+    # it on -- a bought-but-unplaceable animal is pure dead capital.
+    plan = plan_day(
+        day=3,
+        money=10000.0,
+        wheat_seeds=50,
+        plantable_target_tiles=0,
+        wheat_on_hand=50,
+        goose_owned=True,
+        hires_today=0,
+        unlocked_quadrants=("NW", "NE", "SW", "SE"),
+        active_tiles=99,
+        cows_owned=0,
+        sheep_owned=0,
+        empty_pastures=0,
+    )
+    assert not any(b[0] == "BUY_ANIMAL" for b in plan.buys)
+
+
+def test_animal_buy_limited_by_empty_pasture_count() -> None:
+    plan = plan_day(
+        day=3,
+        money=10000.0,
+        wheat_seeds=50,
+        plantable_target_tiles=0,
+        wheat_on_hand=50,
+        goose_owned=True,
+        hires_today=0,
+        unlocked_quadrants=("NW", "NE", "SW", "SE"),
+        active_tiles=99,
+        cows_owned=0,
+        sheep_owned=0,
+        empty_pastures=1,
+    )
+    animal_buys = [b for b in plan.buys if b[0] == "BUY_ANIMAL"]
+    assert animal_buys == [["BUY_ANIMAL", "COW", 1]]
+
+
+def test_animal_purchase_nets_out_already_owned_toward_target() -> None:
+    plan = plan_day(
+        day=3,
+        money=10000.0,
+        wheat_seeds=50,
+        plantable_target_tiles=0,
+        wheat_on_hand=50,
+        goose_owned=True,
+        hires_today=0,
+        unlocked_quadrants=("NW", "NE", "SW", "SE"),
+        active_tiles=99,
+        cows_owned=5,
+        sheep_owned=9,  # already at target: contributes nothing
+        empty_pastures=15,
+    )
+    animal_buys = [b for b in plan.buys if b[0] == "BUY_ANIMAL"]
+    assert animal_buys == [["BUY_ANIMAL", "COW", 1]]  # only 1 needed to reach target 6
+
+
+def test_cow_purchase_window_closes_after_day_nine() -> None:
+    kwargs = dict(
+        money=10000.0,
+        wheat_seeds=50,
+        plantable_target_tiles=0,
+        wheat_on_hand=50,
+        goose_owned=True,
+        hires_today=0,
+        unlocked_quadrants=("NW", "NE", "SW", "SE"),
+        active_tiles=99,
+        cows_owned=0,
+        sheep_owned=9,
+        empty_pastures=15,
+    )
+    on_time = plan_day(day=9, **kwargs)  # type: ignore[arg-type]
+    assert any(b[0] == "BUY_ANIMAL" and b[1] == "COW" for b in on_time.buys)
+
+    late = plan_day(day=10, **kwargs)  # type: ignore[arg-type]
+    assert not any(b[0] == "BUY_ANIMAL" and b[1] == "COW" for b in late.buys)
+
+
+def test_sheep_purchase_window_closes_after_day_eleven() -> None:
+    kwargs = dict(
+        money=10000.0,
+        wheat_seeds=50,
+        plantable_target_tiles=0,
+        wheat_on_hand=50,
+        goose_owned=True,
+        hires_today=0,
+        unlocked_quadrants=("NW", "NE", "SW", "SE"),
+        active_tiles=99,
+        cows_owned=6,
+        sheep_owned=0,
+        empty_pastures=15,
+    )
+    on_time = plan_day(day=11, **kwargs)  # type: ignore[arg-type]
+    assert any(b[0] == "BUY_ANIMAL" and b[1] == "SHEEP" for b in on_time.buys)
+
+    late = plan_day(day=12, **kwargs)  # type: ignore[arg-type]
+    assert not any(b[0] == "BUY_ANIMAL" and b[1] == "SHEEP" for b in late.buys)
+
+
+def test_day_zero_sequence_includes_animals_between_melon_and_wheat() -> None:
+    plan = plan_day(
+        day=0,
+        money=5000.0,
+        wheat_seeds=0,
+        plantable_target_tiles=24,
+        melon_seeds=0,
+        empty_melon_tiles=8,
+        wheat_on_hand=0,
+        goose_owned=False,
+        hires_today=0,
+        unlocked_quadrants=("NW",),
+        active_tiles=24,
+        cows_owned=0,
+        sheep_owned=0,
+        empty_pastures=2,
+    )
+    op_order = [b[0] for b in plan.buys]
+    assert op_order == [
+        "BUY_ANIMAL",  # goose
+        "BUY_LAND",  # NE
+        "BUY_SEED",  # melon
+        "BUY_ANIMAL",  # cow
+        "BUY_SEED",  # wheat
+        "BUY_PRODUCT",  # feed top-up
+    ]
+    assert plan.buys[3] == ["BUY_ANIMAL", "COW", 2]
+
+
+# --- SW/SE reorder around animals (M2a) -------------------------------------
+
+
+def test_sw_land_waits_while_animal_windows_are_open_and_targets_unmet() -> None:
+    waiting = plan_day(
+        day=5,  # cow window (<=9) still open, target unmet
+        money=10000.0,
+        wheat_seeds=0,
+        plantable_target_tiles=0,
+        wheat_on_hand=0,
+        goose_owned=True,
+        hires_today=0,
+        unlocked_quadrants=("NW", "NE"),
+        active_tiles=49,
+        cows_owned=0,
+        sheep_owned=0,
+        empty_pastures=0,  # can't buy animals this turn either -- still must wait
+    )
+    assert ["BUY_LAND"] not in waiting.buys
+
+    unblocked = plan_day(
+        day=12,  # both windows closed (cow <=9, sheep <=11)
+        money=10000.0,
+        wheat_seeds=0,
+        plantable_target_tiles=0,
+        wheat_on_hand=0,
+        goose_owned=True,
+        hires_today=0,
+        unlocked_quadrants=("NW", "NE"),
+        active_tiles=49,
+        cows_owned=0,
+        sheep_owned=0,
+        empty_pastures=0,
+    )
+    assert ["BUY_LAND"] in unblocked.buys
+
+
+def test_sw_land_proceeds_once_animal_targets_are_met_even_within_windows() -> None:
+    plan = plan_day(
+        day=5,  # well within both purchase windows
+        money=10000.0,
+        wheat_seeds=0,
+        plantable_target_tiles=0,
+        wheat_on_hand=0,
+        goose_owned=True,
+        hires_today=0,
+        unlocked_quadrants=("NW", "NE"),
+        active_tiles=49,
+        cows_owned=6,
+        sheep_owned=9,  # both targets already met
+        empty_pastures=0,
+    )
+    assert ["BUY_LAND"] in plan.buys
+
+
+def test_se_land_not_bought_before_day_twelve_even_with_ample_budget() -> None:
+    kwargs = dict(
+        money=10000.0,
+        wheat_seeds=0,
+        plantable_target_tiles=0,
+        wheat_on_hand=0,
+        goose_owned=True,
+        hires_today=0,
+        unlocked_quadrants=("NW", "NE", "SW"),
+        active_tiles=74,
+        cows_owned=6,
+        sheep_owned=9,  # targets met so the animals-done gate isn't the blocker here
+        empty_pastures=0,
+    )
+    too_early = plan_day(day=11, **kwargs)  # type: ignore[arg-type]
+    assert ["BUY_LAND"] not in too_early.buys
+
+    on_time = plan_day(day=12, **kwargs)  # type: ignore[arg-type]
+    assert ["BUY_LAND"] in on_time.buys
+
+
+def test_se_land_requires_larger_reserve_than_other_quadrants() -> None:
+    # price(4000) + 2000 = 6000 is the affordability line, not the usual
+    # price + LAND_RESERVE(500) -- SE is demoted relative to NE/SW.
+    kwargs = dict(
+        day=15,
+        wheat_seeds=0,
+        plantable_target_tiles=0,
+        wheat_on_hand=0,
+        goose_owned=True,
+        hires_today=0,
+        unlocked_quadrants=("NW", "NE", "SW"),
+        active_tiles=74,
+        cows_owned=6,
+        sheep_owned=9,
+        empty_pastures=0,
+    )
+    too_poor = plan_day(money=5999.0, **kwargs)  # type: ignore[arg-type]
+    assert ["BUY_LAND"] not in too_poor.buys
+
+    affordable = plan_day(money=6000.0, **kwargs)  # type: ignore[arg-type]
+    assert ["BUY_LAND"] in affordable.buys
+
+
+# --- Hands + feed reserve scale with husbandry (M2a) ------------------------
+
+
+def test_hands_target_gets_a_husbandry_hand_at_eight_placed_animals() -> None:
+    # active_tiles=99 -> base target round(99/8)=12; +1 husbandry hand once
+    # animals_placed >= 8 -> target 13. hires_today pinned one below the
+    # target so the uncapped hire_count (1) reveals it exactly, mirroring
+    # the existing tile-scaling isolation pattern.
+    plan = plan_day(
+        day=0,
+        money=0.0,
+        wheat_seeds=0,
+        plantable_target_tiles=0,
+        wheat_on_hand=0,
+        goose_owned=True,
+        hires_today=12,
+        unlocked_quadrants=("NW", "NE", "SW", "SE"),
+        active_tiles=99,
+        animals_placed=8,
+    )
+    assert plan.hire_count == 1
+
+
+def test_hands_target_unaffected_below_eight_placed_animals() -> None:
+    plan = plan_day(
+        day=0,
+        money=0.0,
+        wheat_seeds=0,
+        plantable_target_tiles=0,
+        wheat_on_hand=0,
+        goose_owned=True,
+        hires_today=11,
+        unlocked_quadrants=("NW", "NE", "SW", "SE"),
+        active_tiles=99,
+        animals_placed=7,
+    )
+    assert plan.hire_count == 1  # target stays 12 (round(99/8)); no husbandry bonus yet
+
+
+def test_feed_reserve_scales_with_placed_animal_count() -> None:
+    plan = plan_day(
+        day=5,
+        money=5000.0,
+        wheat_seeds=0,
+        plantable_target_tiles=0,
+        wheat_on_hand=5,
+        goose_owned=True,
+        hires_today=0,
+        unlocked_quadrants=("NW",),
+        active_tiles=24,
+        animals_placed=10,
+    )
+    assert ["BUY_PRODUCT", "WHEAT", 8] in plan.buys  # target 10+3=13, gap 13-5=8

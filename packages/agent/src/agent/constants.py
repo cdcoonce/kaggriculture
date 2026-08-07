@@ -85,6 +85,67 @@ def melon_tiles(unlocked: tuple[str, ...]) -> list[tuple[int, int]]:
     return target_tiles(unlocked)[:MELON_TILE_TARGET]
 
 
+# M2a: cow + sheep targets sum to exactly the pasture zone size -- one
+# animal per pasture tile (BUILD_PASTURE, then PLACE, is a one-animal-per-
+# tile pipeline; there's no reason to reserve more tiles than animals we
+# ever intend to buy).
+COW_TARGET = 6
+SHEEP_TARGET = 9
+PASTURE_TILE_TARGET = COW_TARGET + SHEEP_TARGET  # 15
+
+# Pastures are anchored to this FIXED reference frame forever, never the
+# live/current ``unlocked_quadrants`` -- unlike melon_tiles (whose zone is
+# deliberately allowed to grow/shift towards whatever corner is newly
+# closest), a pasture position must stay stable for the entire game. Once an
+# animal is PLACEd there, ``dispatch`` only recognizes it as pasture-zone by
+# position membership; if a later SW/SE land purchase reshuffled
+# target_tiles' nearest-shed-first ordering (it does -- a new shed-access
+# corner changes every tile's "nearest open access" distance, including
+# already-unlocked NW/NE tiles), any pasture tile that fell out of a
+# recomputed window would silently stop receiving FEED/HARVEST/CARE forever:
+# a placed animal starves and escapes with no signal at all, and a built
+# empty pasture just becomes dead, permanently-invisible board space. Cow/
+# sheep purchase windows (day 9/11) both close well before SW ever unlocks
+# under the M2a budget order anyway, so pastures never needed to extend past
+# NW+NE in the first place. (Found via the M2a solo probe: cows silently
+# dropping from 4 to 2 mid-game, animals stranded unplaced in the shed at
+# day 29 -- see packages/agent/tests/test_policy.py's regression test.)
+PASTURE_REFERENCE_QUADRANTS: tuple[str, ...] = ("NW", "NE")
+
+
+@cache
+def pasture_tiles(unlocked: tuple[str, ...]) -> list[tuple[int, int]]:
+    """The pasture zone: the ``PASTURE_TILE_TARGET`` tiles right after melon's.
+
+    Same nearest-shed-first ordering as ``target_tiles``/``melon_tiles``, just
+    the next window instead of the prefix -- pastures claim the second-
+    shortest hauls (after melon's), well ahead of wheat's much larger, lower-
+    value-per-tile share of the universe. A slice of the same list as
+    ``melon_tiles`` when both are evaluated against the *same* ``unlocked``
+    argument (disjoint by construction in that case); callers deriving a
+    wheat-tile set should subtract both this and ``melon_tiles``. Memoized
+    for the same reason as ``target_tiles``: ``unlocked`` only changes on a
+    BUY_LAND purchase.
+
+    Caveat: because live callers must pin this to ``PASTURE_REFERENCE_
+    QUADRANTS`` while ``melon_tiles`` keeps tracking the *live*
+    ``unlocked_quadrants`` (see that constant's docstring), the two zones can
+    briefly overlap by a handful of tiles before NE actually unlocks (melon's
+    NW-only-basis "8 nearest" and pasture's NW+NE-basis window are different
+    orderings over the same small board). ``dispatch`` resolves any such
+    overlap deterministically -- pasture wins ties in the per-tile branch --
+    and the window closes the instant NE unlocks (turn 0 in every observed
+    game), so this costs at most a few of melon's day-0 planting slots.
+
+    Generic in ``unlocked`` (like ``melon_tiles``) so it stays directly
+    testable against every unlock state, but callers threading this into the
+    live dispatch loop MUST pass ``PASTURE_REFERENCE_QUADRANTS`` -- a fixed
+    frame -- not the game's current ``unlocked_quadrants`` (see that
+    constant's docstring for why passing a live value orphans tiles).
+    """
+    return target_tiles(unlocked)[MELON_TILE_TARGET : MELON_TILE_TARGET + PASTURE_TILE_TARGET]
+
+
 def nearest_shed_access(pos: tuple[int, int], unlocked: tuple[str, ...]) -> tuple[int, int]:
     """The closest shed-access tile among the currently-unlocked quadrants."""
     unlocked_set = set(unlocked)

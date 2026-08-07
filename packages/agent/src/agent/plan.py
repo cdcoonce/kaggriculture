@@ -1,21 +1,32 @@
 """Daily planner — Plan A opening (wheat rush + goose), land expansion, melon
-seed-buying, and hand-count scaling as the farmable universe grows.
+seed-buying, animal husbandry, and hand-count scaling as the farmable
+universe (and the chore load) grows.
 
 Pure and per-turn idempotent: quantities derive only from observable state, so
 re-running every turn never double-buys (market orders fill within the turn
 they are issued; the next observation already reflects them). Budget is spent
-sequentially in priority order: goose, then land, then melon seeds, then
-wheat seeds, then feed — melon goes ahead of wheat because it's the
-higher-value crop (seed $80 vs $10, and a mature melon sells for far more
-than a mature wheat harvest) and should never be starved of budget by
-wheat's larger, cheaper seed line.
+sequentially in priority order: goose, then NE land, then melon seeds, then
+animals (cows before sheep), then wheat seeds, then feed, then SW land, then
+SE land.
+
+Melon goes ahead of wheat because it's the higher-value crop (seed $80 vs
+$10, and a mature melon sells for far more than a mature wheat harvest) and
+should never be starved of budget by wheat's larger, cheaper seed line.
+Animals go ahead of wheat/SW/SE for the same reason, one rung up: replay
+evidence shows the two strongest observed opponents draw 40-69% of revenue
+from cow/sheep products, so the husbandry pipeline (bounded by each
+species' own breakeven purchase window) gets first claim on budget right
+after the melon satellite. SW is deliberately moved *after* animals (and
+SE after SW, further demoted behind an extra cash-reserve gate) so land
+expansion never crowds out the higher-return animal purchases while their
+windows are still open.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from agent.constants import LAND_ORDER, LAND_PRICES
+from agent.constants import COW_TARGET, LAND_ORDER, LAND_PRICES, SHEEP_TARGET
 from agent.dispatch import MELON_PLANT_CUTOFF_DAY, MELON_PLANT_DAILY_CAP, plant_quota
 
 FEED_RESERVE = 3
@@ -27,16 +38,33 @@ PLANT_CUTOFF_DAY = 25  # last profitable wheat planting day (4 growth days + sal
 
 LAND_RESERVE = 500  # cash floor kept in hand after any land purchase
 LAND_LAST_BUY_DAY = {"NE": 24, "SW": 23, "SE": 20}  # later buys don't pay back land's own cost
+SE_LAND_MIN_DAY = 12  # demoted: SE never pays back if the animal pipeline is still ramping
+SE_LAND_RESERVE = 2000  # demoted further: a bigger cash cushion than NE/SW's flat LAND_RESERVE
 
 HANDS_MIN = 3  # the Plan A opening crew, even on the 24-tile NW-only board
 HANDS_PER_TILES = 8  # roughly one hand per eight target tiles
 MAX_HIRES_PER_TURN = 4  # HIRE is one order slot each; caps the market-list cost of catching up
+HUSBANDRY_HAND_THRESHOLD = 8  # placed animals at which chore load earns a dedicated extra hand
+
+# Animal breakeven purchase windows (engine-verified): cow $400, first yield
+# day 8 after PLACE, every 2 days; sheep $500, first yield day 6, every 3
+# days. Buying past these windows can't recoup the purchase price before the
+# day-29 liquidation, so both cutoffs sit well before game end.
+COW_PRICE = 400
+SHEEP_PRICE = 500
+COW_LAST_BUY_DAY = 9
+SHEEP_LAST_BUY_DAY = 11
+ANIMAL_BUY_CAP_PER_TURN = 2  # shared across cow+sheep: paces the shed->pasture placement pipeline
 
 
 @dataclass(frozen=True)
 class DayPlan:
     hire_count: int = 0
     buys: list[list[object]] = field(default_factory=list)
+
+
+def _next_quadrant(unlocked_quadrants: tuple[str, ...]) -> str | None:
+    return next((q for q in LAND_ORDER if q not in unlocked_quadrants), None)
 
 
 def plan_day(
@@ -52,6 +80,10 @@ def plan_day(
     hires_today: int,
     unlocked_quadrants: tuple[str, ...],
     active_tiles: int,
+    cows_owned: int = 0,
+    sheep_owned: int = 0,
+    empty_pastures: int = 0,
+    animals_placed: int = 0,
 ) -> DayPlan:
     buys: list[list[object]] = []
     budget = money
@@ -60,9 +92,8 @@ def plan_day(
         buys.append(["BUY_ANIMAL", "GOOSE", 1])
         budget -= GOOSE_COST
 
-    next_quadrant = next((q for q in LAND_ORDER if q not in unlocked_quadrants), None)
-    if next_quadrant is not None and day <= LAND_LAST_BUY_DAY[next_quadrant]:
-        price = LAND_PRICES[next_quadrant]
+    if _next_quadrant(unlocked_quadrants) == "NE" and day <= LAND_LAST_BUY_DAY["NE"]:
+        price = LAND_PRICES["NE"]
         if budget >= price + LAND_RESERVE:
             buys.append(["BUY_LAND"])
             budget -= price
@@ -80,6 +111,32 @@ def plan_day(
             buys.append(["BUY_SEED", "MELON", n])
             budget -= n * MELON_SEED_PRICE
 
+    # Animals: cows before sheep, at most ANIMAL_BUY_CAP_PER_TURN total, never
+    # more than the empty-built-pasture count observed this turn (trap: a
+    # bought animal that can't be placed is dead capital sitting in the shed
+    # — it can never be sold), and only inside each species' own breakeven
+    # purchase window.
+    animal_room = empty_pastures
+    turn_cap_left = ANIMAL_BUY_CAP_PER_TURN
+
+    if day <= COW_LAST_BUY_DAY:
+        need = max(0, COW_TARGET - cows_owned)
+        n = min(need, animal_room, turn_cap_left, int(budget // COW_PRICE))
+        if n > 0:
+            buys.append(["BUY_ANIMAL", "COW", n])
+            budget -= n * COW_PRICE
+            animal_room -= n
+            turn_cap_left -= n
+
+    if day <= SHEEP_LAST_BUY_DAY:
+        need = max(0, SHEEP_TARGET - sheep_owned)
+        n = min(need, animal_room, turn_cap_left, int(budget // SHEEP_PRICE))
+        if n > 0:
+            buys.append(["BUY_ANIMAL", "SHEEP", n])
+            budget -= n * SHEEP_PRICE
+            animal_room -= n
+            turn_cap_left -= n
+
     if day <= PLANT_CUTOFF_DAY:
         # Hold at most two days of the dispatcher's plant quota: seeds beyond
         # that are dead cash that delays land purchases (day 0 exempt — the
@@ -93,12 +150,46 @@ def plan_day(
             buys.append(["BUY_SEED", "WHEAT", n])
             budget -= n * SEED_PRICE
 
-    feed_gap = FEED_RESERVE - wheat_on_hand
-    if goose_owned or any(b[0] == "BUY_ANIMAL" for b in buys):
-        if feed_gap > 0 and day <= 27:
-            buys.append(["BUY_PRODUCT", "WHEAT", feed_gap])
+    # Feed reserve/top-up sizes to *placed* animals only — a bought-but-not-
+    # yet-placed animal (still walking the shed->pasture pipeline) doesn't
+    # need feeding today. The trigger still fires as soon as any animal is
+    # owned in any state (matches the legacy goose-only trigger) so the shed
+    # stocks up ahead of that animal's eventual placement.
+    feed_gap = (animals_placed + FEED_RESERVE) - wheat_on_hand
+    any_animal_owned = (
+        goose_owned or cows_owned > 0 or sheep_owned > 0 or any(b[0] == "BUY_ANIMAL" for b in buys)
+    )
+    if any_animal_owned and feed_gap > 0 and day <= 27:
+        buys.append(["BUY_PRODUCT", "WHEAT", feed_gap])
 
-    hands_target = max(HANDS_MIN, round(active_tiles / HANDS_PER_TILES))
+    # SW moves after animals: only once each species' target is met or its
+    # window has closed, so land expansion never crowds out a still-open,
+    # higher-return animal purchase.
+    animals_done = (cows_owned >= COW_TARGET or day > COW_LAST_BUY_DAY) and (
+        sheep_owned >= SHEEP_TARGET or day > SHEEP_LAST_BUY_DAY
+    )
+    sw_next = _next_quadrant(unlocked_quadrants) == "SW"
+    if animals_done and sw_next and day <= LAND_LAST_BUY_DAY["SW"]:
+        price = LAND_PRICES["SW"]
+        if budget >= price + LAND_RESERVE:
+            buys.append(["BUY_LAND"])
+            budget -= price
+
+    # SE is demoted further still: a strong observed opponent (~151k) never
+    # bought it at all, so it needs both a later earliest-day and a much
+    # bigger cash cushion than NE/SW's flat reserve before it's worth it.
+    if (
+        _next_quadrant(unlocked_quadrants) == "SE"
+        and day >= SE_LAND_MIN_DAY
+        and day <= LAND_LAST_BUY_DAY["SE"]
+    ):
+        price = LAND_PRICES["SE"]
+        if budget >= price + SE_LAND_RESERVE:
+            buys.append(["BUY_LAND"])
+            budget -= price
+
+    husbandry_hand = 1 if animals_placed >= HUSBANDRY_HAND_THRESHOLD else 0
+    hands_target = max(HANDS_MIN, round(active_tiles / HANDS_PER_TILES) + husbandry_hand)
     hire_count = min(max(0, hands_target - hires_today), MAX_HIRES_PER_TURN)
 
     return DayPlan(hire_count=hire_count, buys=buys)

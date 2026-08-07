@@ -1,13 +1,19 @@
-"""Chassis v1 (M1 + melon satellite) against the real engine: structural
-floors at day 6, compounding by day 12, egg pipeline, full-game liquidation.
+"""Chassis v1 (M1 + melon satellite + M2a animal husbandry) against the real
+engine: structural floors at day 6, compounding by day 12, egg pipeline,
+full-game liquidation.
 
 Bars are behavioral floors, not tuned snapshots: day 6 checks structure (land
-unlocked, crew hired, crop on the ground) rather than a cash amount, since
-M1's land purchases and melon's seed line put day 6 mid-J-curve, cash-poor by
-design (the old day-6 cash bar assumed a pre-M1 pace that no longer holds).
-Day 12 and the full game check compounding cash instead, each calibrated to
-~70% of a real observed run so the bar is a genuine regression floor without
-being a brittle exact-match snapshot.
+unlocked, crew hired, crop/pasture/animals on the ground) rather than a cash
+amount, since land purchases and the melon/animal seed+purchase lines put day
+6 mid-J-curve, cash-poor by design. Day 12 and the full game check compounding
+cash instead, each calibrated to ~70% of a real observed run so the bar is a
+genuine regression floor without being a brittle exact-match snapshot.
+
+M2a re-calibration (this module's numbers changed from the M1a baseline):
+SW land is now deliberately deferred behind the animal-purchase windows (see
+plan.py), so day 6 -- well before either window closes (day 9/11) -- only has
+NE unlocked, not NE+SW; the day-6/day-12 cash floors both dropped accordingly
+since early cash increasingly buys cows/sheep instead of only seeds/land.
 """
 
 from __future__ import annotations
@@ -46,42 +52,74 @@ def _planted_counts(env: Any, player: int = 0) -> tuple[int, int]:
     return wheat, melon
 
 
-def test_day_six_structure() -> None:
-    """Land unlocked, crew hired, crop actually on the ground -- not a cash
-    snapshot (see module docstring for why day 6 is a cash trough by design).
+def _husbandry_counts(env: Any, player: int = 0) -> tuple[int, int, int]:
+    """(pastures built, cows placed, sheep placed) in the final observation."""
+    tiles = env.steps[-1][0].observation["farms"][player]["tiles"]
+    pastures_built = sum(
+        1 for row in tiles for t in row if isinstance(t, dict) and t.get("kind") == "PASTURE"
+    )
+    cows = sum(1 for row in tiles for t in row if isinstance(t, dict) and t.get("animal") == "COW")
+    sheep = sum(
+        1 for row in tiles for t in row if isinstance(t, dict) and t.get("animal") == "SHEEP"
+    )
+    return pastures_built, cows, sheep
 
-    Observed on seed 41 at day 6 (144 steps): 3 quadrants unlocked, 9 hands,
-    14 wheat + 7 melon tiles standing. Wheat's standing count is volatile
-    turn to turn -- the day-0 rush cohort (~40 tiles by day 3-4) matures and
-    gets harvested around day 4-5 (max_yield_day 4), so the snapshot dips
-    hard right before day 6 even though the pipeline is healthy (a cumulative
-    count of PLANT actions issued over the same window is 62). The floors
-    below sit with margin under the post-harvest dip, not the pre-harvest
-    peak. Melon can't be harvested before day 10 (first_yield_day), so its
-    standing count is monotonic through day 6 and is the cleaner signal that
-    the satellite crop is actually landing plants, not just buying seed.
+
+def test_day_six_structure() -> None:
+    """Land unlocked, crew hired, crop/pasture/animals actually on the
+    ground -- not a cash snapshot (see module docstring for why day 6 is a
+    cash trough by design).
+
+    Observed on seed 41 at day 6 (144 steps): 2 quadrants unlocked (NW + NE;
+    SW is deliberately deferred behind the still-open animal windows -- see
+    plan.py's SW-after-animals reorder), 6 hands, 3 wheat + 5 melon tiles
+    standing, 15/15 pastures already built, 4 cows placed, 0 sheep (expected
+    this early: sheep purchasing only ramps up once cow's target is met or
+    its own day-9 window closes -- proven separately in test_plan.py).
+    Wheat's standing count is volatile turn to turn (plant/harvest cycling)
+    and now also competes with the animal-purchase budget line, so its floor
+    stays loose; melon and the husbandry structure are the cleaner signals
+    that both satellites are actually landing plants/animals, not just
+    buying seed/stock.
     """
     env = _run(steps=144, seed=41)
     obs = env.steps[-1][0].observation
     farm = obs["farms"][0]
 
-    assert len(farm.get("unlocked_quadrants", ["NW"])) >= 3
-    assert len(farm.get("hands", [])) >= 6
+    assert len(farm.get("unlocked_quadrants", ["NW"])) >= 2
+    assert len(farm.get("hands", [])) >= 5  # observed 6; ~83% floor (hands is a small integer)
     assert [s.status for s in env.steps[-1]] == ["DONE", "DONE"]
 
     wheat, melon = _planted_counts(env)
-    assert wheat + melon >= 15  # observed 21 (14 wheat + 7 melon); ~70% floor
-    assert melon >= 5  # observed 7; proves the melon satellite is landing plants, not just buying
+    assert wheat + melon >= 6  # observed 8 (3 wheat + 5 melon); ~75% floor
+    assert melon >= 4  # observed 5; proves the melon satellite is landing plants, not just buying
+
+    pastures_built, cows, _sheep = _husbandry_counts(env)
+    assert pastures_built >= 10  # observed 15/15; proves BUILD_PASTURE isn't starved
+    assert cows >= 2  # observed 4; proves cows are actually landing on pasture, not just bought
 
 
 def test_day_twelve_compounds() -> None:
-    # Observed on seed 41 at day 12 (288 steps): money = 5169.0. Chassis-v1
-    # (pre-M1) pace was ~6.3k here, but M1's land purchases and melon's $80
-    # seed line both draw down cash earlier in exchange for a bigger payoff
-    # later (see test_full_game_beats_pass_and_liquidates) -- floor at ~70%
-    # of the observed number rather than the old pre-M1 pace.
+    # Observed on seed 41 at day 12 (288 steps): money = 1227.0 -- far lower
+    # than the pre-M2a M1a pace (was 5169 here), because a much bigger slice
+    # of early cash now buys durable, illiquid assets (land, up to 15
+    # pastures, up to 2 animals/turn at $400-500 each) instead of just seeds,
+    # and none of a placed animal's own value shows up as "money" until its
+    # MILK/WOOL actually sells. Shed residue at this same checkpoint is
+    # {WHEAT: 10} -- real value sitting un-cashed, not lost. The usual ~70%
+    # floor would be fragile against a number this small and turn-to-turn
+    # volatile (a single land purchase or animal batch swings it by 10x), so
+    # this floor is intentionally loose (~8%) and the cow/sheep counts below
+    # carry the real "compounds" proof at this checkpoint instead.
     env = _run(steps=288, seed=41)
-    assert _money(env) > 3600.0
+    assert _money(env) > 100.0
+
+    # By day 12 both animal windows have had real runway (cow's closes day
+    # 9, sheep's day 11): observed cows=5, sheep=7 -- proof the sheep line
+    # isn't just theoretically reachable but actually converts too.
+    _pastures_built, cows, sheep = _husbandry_counts(env)
+    assert cows >= 2
+    assert sheep >= 2
 
 
 def test_goose_eggs_are_sold_within_eleven_days() -> None:
@@ -94,13 +132,28 @@ def test_goose_eggs_are_sold_within_eleven_days() -> None:
 
 
 def test_full_game_beats_pass_and_liquidates() -> None:
-    # Observed on seed 43 at game end (720 steps): money = 36100.0, well
-    # above the ~25k expected-with-melon mark -- melon is converting, not
-    # just eating budget. Floor at ~70% of the observed number.
+    # Observed on seed 43 vs this test's own "pass" opponent (720 steps):
+    # money = 77767.0, well above the pre-M2a ~36k mark -- the animal layer
+    # is converting revenue, not just eating budget. Floor at ~70% of the
+    # observed number (rounded down to a clean 53000). (The task's own
+    # acceptance bar, solo vs "starter" -- 74205 on this same seed, 82654 on
+    # seed 41, both >= the 45k bar -- was confirmed separately via the M2a
+    # solo probe; it's a different number here because the day-end
+    # weed-spawn RNG is a single stream drawn sequentially across both
+    # players, so a different opponent shifts every subsequent draw even at
+    # the "same" seed.)
     env = _run(steps=720, seed=43)
     assert [s.status for s in env.steps[-1]] == ["DONE", "DONE"]
-    assert _money(env) > 25000.0
+    assert _money(env) > 53000.0
 
     shed = env.steps[-1][0].observation["private"]["shed"]
-    residue = sum(n for item, n in shed.items() if item in ("WHEAT", "EGG", "FERTILIZER", "MELON"))
+    # COW/SHEEP deliberately excluded: animals can never be sold (no
+    # SELL_ANIMAL op exists), so a purchased-but-unplaced animal sitting in
+    # the shed at game end is sunk cost, not a liquidation failure the way
+    # unsold PRODUCE is.
+    residue = sum(
+        n
+        for item, n in shed.items()
+        if item in ("WHEAT", "EGG", "FERTILIZER", "MELON", "MILK", "WOOL")
+    )
     assert residue <= 4  # feed reserve at most; unsold produce is $0 at game end

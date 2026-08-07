@@ -6,9 +6,13 @@ from __future__ import annotations
 
 from agent.constants import (
     COOP_TILE,
+    COW_TARGET,
     MELON_TILE_TARGET,
+    PASTURE_TILE_TARGET,
+    SHEEP_TARGET,
     melon_tiles,
     nearest_shed_access,
+    pasture_tiles,
     target_tiles,
 )
 
@@ -81,3 +85,60 @@ def test_melon_tiles_disjoint_from_the_rest_of_the_target_universe() -> None:
     assert melons <= set(tiles)
     # Every melon tile is a prefix element; nothing from the tail leaks in.
     assert melons == set(tiles[:MELON_TILE_TARGET])
+
+
+# --- Pasture zone ----------------------------------------------------------
+#
+# M2a: the pasture zone is the next-nearest ring after melon's prefix -- same
+# nearest-shed-first universe, just a different slice. cow + sheep targets
+# (6 + 9 = 15) exactly fill the reserved zone: one animal per pasture tile.
+
+
+def test_pasture_targets_sum_to_the_pasture_tile_target() -> None:
+    assert COW_TARGET + SHEEP_TARGET == PASTURE_TILE_TARGET
+    assert PASTURE_TILE_TARGET == 15
+
+
+def test_pasture_tiles_are_the_fifteen_after_melons_prefix() -> None:
+    unlocked = ("NW", "NE")
+    tiles = target_tiles(unlocked)
+    expected = tiles[MELON_TILE_TARGET : MELON_TILE_TARGET + PASTURE_TILE_TARGET]
+    assert pasture_tiles(unlocked) == expected
+    assert len(pasture_tiles(unlocked)) == PASTURE_TILE_TARGET
+
+
+def test_pasture_tiles_are_nearest_shed_first_across_multiple_quadrants() -> None:
+    # Same nearest-shed-first ordering as target_tiles/melon_tiles, just a
+    # different window: the pasture ring widens toward whichever new corner
+    # is closest as land opens, exactly like melon's prefix does.
+    unlocked = ("NW", "NE", "SW")
+    assert pasture_tiles(unlocked) == target_tiles(unlocked)[
+        MELON_TILE_TARGET : MELON_TILE_TARGET + PASTURE_TILE_TARGET
+    ]
+
+
+def test_pasture_tiles_disjoint_from_melon_and_the_rest_of_the_universe() -> None:
+    unlocked = ("NW", "NE", "SW", "SE")
+    tiles = target_tiles(unlocked)
+    melons = set(melon_tiles(unlocked))
+    pastures = set(pasture_tiles(unlocked))
+    assert len(pastures) == PASTURE_TILE_TARGET
+    assert pastures <= set(tiles)
+    assert pastures.isdisjoint(melons)
+    # Every pasture tile is drawn from the prefix immediately after melon's;
+    # nothing from further down the tail leaks in.
+    assert pastures == set(tiles[MELON_TILE_TARGET : MELON_TILE_TARGET + PASTURE_TILE_TARGET])
+
+
+def test_wheat_universe_excludes_both_melon_and_pasture_zones() -> None:
+    # The wheat tiles a caller derives (target_tiles minus melon minus
+    # pasture) must partition the full universe with no overlap and no gaps.
+    unlocked = ("NW", "NE", "SW", "SE")
+    tiles = target_tiles(unlocked)
+    melons = set(melon_tiles(unlocked))
+    pastures = set(pasture_tiles(unlocked))
+    wheat = tiles[MELON_TILE_TARGET + PASTURE_TILE_TARGET :]
+    assert set(wheat).isdisjoint(melons)
+    assert set(wheat).isdisjoint(pastures)
+    assert set(wheat) | melons | pastures == set(tiles)
+    assert len(wheat) + len(melons) + len(pastures) == len(tiles)
