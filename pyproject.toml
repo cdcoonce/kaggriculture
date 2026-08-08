@@ -3,12 +3,26 @@ name = "kaggriculture-workspace"
 version = "0.1.0"
 description = "Workspace root for the Kaggriculture competition agent and harness"
 requires-python = ">=3.11"
+# Members as root deps: a fresh worktree's bare `uv run` implicit sync only installs
+# the root project's deps + dev group — without these, `uv run pytest` collects into
+# ImportErrors anywhere .venv wasn't already explicitly synced (the afk gate runs in
+# exactly such a worktree, with no `uv sync` grant).
+dependencies = [
+    "agent",
+    "harness",
+    "rig",
+]
 
 [tool.uv]
 package = false
 
+[tool.uv.sources]
+agent = { workspace = true }
+harness = { workspace = true }
+rig = { workspace = true }
+
 [tool.uv.workspace]
-members = ["packages/agent", "packages/harness"]
+members = ["packages/agent", "packages/harness", "packages/rig"]
 
 [dependency-groups]
 dev = [
