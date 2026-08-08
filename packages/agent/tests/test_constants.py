@@ -112,9 +112,10 @@ def test_pasture_tiles_are_nearest_shed_first_across_multiple_quadrants() -> Non
     # different window: the pasture ring widens toward whichever new corner
     # is closest as land opens, exactly like melon's prefix does.
     unlocked = ("NW", "NE", "SW")
-    assert pasture_tiles(unlocked) == target_tiles(unlocked)[
-        MELON_TILE_TARGET : MELON_TILE_TARGET + PASTURE_TILE_TARGET
-    ]
+    assert (
+        pasture_tiles(unlocked)
+        == target_tiles(unlocked)[MELON_TILE_TARGET : MELON_TILE_TARGET + PASTURE_TILE_TARGET]
+    )
 
 
 def test_pasture_tiles_disjoint_from_melon_and_the_rest_of_the_universe() -> None:

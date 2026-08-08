@@ -345,9 +345,7 @@ def test_unfed_pasture_animal_without_wheat_walks_to_shed_first() -> None:
     # via the greedy per-unit-index assignment before the hand gets a look.
     tiles = make_view().tiles
     tiles[3][0] = pasture(fed_today=False)  # (0, 3)
-    view = make_view(
-        hands=[(0, 0)], tiles=tiles, shed={"WHEAT": 5}, inventories=[{"WHEAT": 1}, {}]
-    )
+    view = make_view(hands=[(0, 0)], tiles=tiles, shed={"WHEAT": 5}, inventories=[{"WHEAT": 1}, {}])
     actions = dispatch(view, NW_TILES, frozenset(), frozenset({(0, 3)}))
     assert actions.hands[0] == ["EAST"]
 
@@ -355,9 +353,7 @@ def test_unfed_pasture_animal_without_wheat_walks_to_shed_first() -> None:
 def test_unfed_pasture_animal_picks_up_wheat_at_shed_access() -> None:
     tiles = make_view().tiles
     tiles[3][0] = pasture(fed_today=False)
-    view = make_view(
-        hands=[(4, 4)], tiles=tiles, shed={"WHEAT": 5}, inventories=[{"WHEAT": 1}, {}]
-    )
+    view = make_view(hands=[(4, 4)], tiles=tiles, shed={"WHEAT": 5}, inventories=[{"WHEAT": 1}, {}])
     actions = dispatch(view, NW_TILES, frozenset(), frozenset({(0, 3)}))
     assert actions.hands[0] == ["PICKUP", "WHEAT", 1]
 
@@ -474,9 +470,7 @@ def test_place_cow_task_fetches_from_shed_first_when_not_carrying() -> None:
     # and fetching for -- the sole PLACE task; see the FEED fetch tests above.
     tiles = make_view().tiles
     tiles[3][0] = built_pasture()  # (0, 3), far from shed
-    view = make_view(
-        hands=[(0, 0)], tiles=tiles, shed={"COW": 1}, inventories=[{"WHEAT": 1}, {}]
-    )
+    view = make_view(hands=[(0, 0)], tiles=tiles, shed={"COW": 1}, inventories=[{"WHEAT": 1}, {}])
     actions = dispatch(view, NW_TILES, frozenset(), frozenset({(0, 3)}))
     assert actions.hands[0] == ["EAST"]  # toward shed (4,4) to PICKUP COW, not south to the pasture
 
