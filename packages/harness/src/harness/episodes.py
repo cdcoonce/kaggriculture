@@ -51,6 +51,27 @@ def resolve_agent(spec: str) -> Any:
         name = spec.removeprefix("zoo:")
         member = gate_zoo()[name]
         return member() if callable(member) else member
+    if spec.startswith("frozen:"):
+        import importlib
+        import os
+        import sys
+        from pathlib import Path
+
+        from harness.frozen import assert_disjoint, frozen_package_name
+
+        name = spec.removeprefix("frozen:")
+        pkg = frozen_package_name(name)
+
+        dest_root = Path(os.environ.get("KAGG_FROZEN_ROOT", Path.cwd() / "eval" / "frozen"))
+        dest_root_str = str(dest_root.resolve())
+        if dest_root_str not in sys.path:
+            sys.path.insert(0, dest_root_str)
+
+        policy = importlib.import_module(f"{pkg}.policy")
+        shell = importlib.import_module(f"{pkg}.shell")
+        assert_disjoint(name)
+
+        return shell.wrap(policy.make_policy())
     raise ValueError(f"unknown agent spec: {spec!r}")
 
 
