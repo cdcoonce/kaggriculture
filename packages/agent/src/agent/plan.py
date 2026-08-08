@@ -84,6 +84,9 @@ def plan_day(
     sheep_owned: int = 0,
     empty_pastures: int = 0,
     animals_placed: int = 0,
+    feed_reserve: int = FEED_RESERVE,
+    cow_target: int = COW_TARGET,
+    sheep_target: int = SHEEP_TARGET,
 ) -> DayPlan:
     buys: list[list[object]] = []
     budget = money
@@ -120,7 +123,7 @@ def plan_day(
     turn_cap_left = ANIMAL_BUY_CAP_PER_TURN
 
     if day <= COW_LAST_BUY_DAY:
-        need = max(0, COW_TARGET - cows_owned)
+        need = max(0, cow_target - cows_owned)
         n = min(need, animal_room, turn_cap_left, int(budget // COW_PRICE))
         if n > 0:
             buys.append(["BUY_ANIMAL", "COW", n])
@@ -129,7 +132,7 @@ def plan_day(
             turn_cap_left -= n
 
     if day <= SHEEP_LAST_BUY_DAY:
-        need = max(0, SHEEP_TARGET - sheep_owned)
+        need = max(0, sheep_target - sheep_owned)
         n = min(need, animal_room, turn_cap_left, int(budget // SHEEP_PRICE))
         if n > 0:
             buys.append(["BUY_ANIMAL", "SHEEP", n])
@@ -155,7 +158,7 @@ def plan_day(
     # need feeding today. The trigger still fires as soon as any animal is
     # owned in any state (matches the legacy goose-only trigger) so the shed
     # stocks up ahead of that animal's eventual placement.
-    feed_gap = (animals_placed + FEED_RESERVE) - wheat_on_hand
+    feed_gap = (animals_placed + feed_reserve) - wheat_on_hand
     any_animal_owned = (
         goose_owned or cows_owned > 0 or sheep_owned > 0 or any(b[0] == "BUY_ANIMAL" for b in buys)
     )
@@ -165,8 +168,8 @@ def plan_day(
     # SW moves after animals: only once each species' target is met or its
     # window has closed, so land expansion never crowds out a still-open,
     # higher-return animal purchase.
-    animals_done = (cows_owned >= COW_TARGET or day > COW_LAST_BUY_DAY) and (
-        sheep_owned >= SHEEP_TARGET or day > SHEEP_LAST_BUY_DAY
+    animals_done = (cows_owned >= cow_target or day > COW_LAST_BUY_DAY) and (
+        sheep_owned >= sheep_target or day > SHEEP_LAST_BUY_DAY
     )
     sw_next = _next_quadrant(unlocked_quadrants) == "SW"
     if animals_done and sw_next and day <= LAND_LAST_BUY_DAY["SW"]:

@@ -6,7 +6,7 @@ from __future__ import annotations
 from typing import Any
 
 from agent.constants import pasture_tiles
-from agent.policy import make_policy
+from agent.policy import PolicyConfig, make_policy
 from agent.shell import pass_action
 from viewfactory import built_pasture
 from viewfactory import pasture as animal_tile
@@ -88,6 +88,22 @@ def test_watchdog_returns_pass_when_budget_exhausted() -> None:
     ticks = iter([0.0, 100.0])
     policy = make_policy(clock=lambda: next(ticks))
     assert policy(raw_obs(), None) == pass_action()
+
+
+def test_policy_config_override_shrinks_soft_budget_and_truncates_actions() -> None:
+    # An overridden PolicyConfig actually reaches decide(): a zeroed soft
+    # budget trips the watchdog on the very first tick, where the default
+    # config's much larger budget lets the same observation produce a full
+    # opening turn.
+    obs = raw_obs()
+    default_action = make_policy()(obs, None)
+    assert len(default_action["market"]) > 0
+
+    ticks = iter([0.0, 0.1])
+    overridden_policy = make_policy(
+        clock=lambda: next(ticks), policy_config=PolicyConfig(soft_budget_seconds=0.0)
+    )
+    assert overridden_policy(obs, None) == pass_action()
 
 
 def test_step_zero_resets_for_process_reuse() -> None:
@@ -202,3 +218,11 @@ def test_placed_animal_keeps_receiving_tasks_after_more_land_unlocks() -> None:
         obs["private"]["inventories"] = [{}, {"WHEAT": 2}]
         action = make_policy()(obs, None)
         assert action["hands"][0] == ["FEED"], f"unlocked={unlocked}"
+
+
+def test_wheat_rush_tiles_caps_the_wheat_planting_zone() -> None:
+    # wheat_rush_tiles=0 shrinks the wheat zone to nothing, so day-zero's
+    # otherwise-guaranteed wheat seed buy (see test_day_zero_opening_orders)
+    # never fires -- proof the field actually gates plan_day's wheat line.
+    action = make_policy(policy_config=PolicyConfig(wheat_rush_tiles=0))(raw_obs(), None)
+    assert not any(order[:2] == ["BUY_SEED", "WHEAT"] for order in action["market"])

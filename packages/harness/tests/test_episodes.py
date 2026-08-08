@@ -33,6 +33,51 @@ class TestResolveAgent:
         finally:
             del zoo_module.SCRIPTED["_test_factory_member"]
 
+    def test_champion_spec_forwards_agent_config_as_policy_config(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # Wiring test for the resolve_agent -> make_policy seam: the dict
+        # handed to resolve_agent must arrive at make_policy as an actual
+        # PolicyConfig, not get silently dropped.
+        import agent.policy as policy_module
+
+        captured: dict[str, object] = {}
+
+        def fake_make_policy(clock: object = None, policy_config: object = None) -> object:
+            captured["policy_config"] = policy_config
+            return lambda obs, config=None: {"farmer": ["PASS"], "hands": [], "market": []}
+
+        monkeypatch.setattr(policy_module, "make_policy", fake_make_policy)
+        resolve_agent("champion", {"soft_budget_seconds": 0.0})
+        assert captured["policy_config"] == policy_module.PolicyConfig(soft_budget_seconds=0.0)
+
+    def test_champion_spec_with_no_agent_config_passes_none_through(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        import agent.policy as policy_module
+
+        captured: dict[str, object] = {}
+
+        def fake_make_policy(clock: object = None, policy_config: object = None) -> object:
+            captured["policy_config"] = policy_config
+            return lambda obs, config=None: {"farmer": ["PASS"], "hands": [], "market": []}
+
+        monkeypatch.setattr(policy_module, "make_policy", fake_make_policy)
+        resolve_agent("champion")
+        assert captured["policy_config"] is None
+
+    def test_agent_config_raises_for_builtin_spec(self) -> None:
+        with pytest.raises(ValueError, match="champion"):
+            resolve_agent("builtin:starter", {"soft_budget_seconds": 0.0})
+
+    def test_agent_config_raises_for_zoo_spec(self) -> None:
+        with pytest.raises(ValueError, match="champion"):
+            resolve_agent("zoo:starter", {"soft_budget_seconds": 0.0})
+
+    def test_agent_config_raises_for_frozen_spec(self) -> None:
+        with pytest.raises(ValueError, match="champion"):
+            resolve_agent("frozen:m1", {"soft_budget_seconds": 0.0})
+
 
 class TestClassifyOutcome:
     def test_candidate_wins_on_higher_money(self) -> None:

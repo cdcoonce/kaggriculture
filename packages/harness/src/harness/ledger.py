@@ -47,6 +47,7 @@ def write_ledger(
             "opponent": result.opponent,
             "gate_type": result.gate_type,
             "extra_config": result.extra_config,
+            "agent_config": result.agent_config,
         },
         "verdict": {
             "n_games": result.verdict.n_games,
