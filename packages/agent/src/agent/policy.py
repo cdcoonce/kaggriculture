@@ -18,7 +18,7 @@ from agent.dispatch import dispatch
 from agent.market import build_orders
 from agent.plan import FEED_RESERVE, plan_day
 from agent.shell import Action, Observation, pass_action
-from agent.state import StateTracker
+from agent.state import MelonMarketMemory, StateTracker
 from agent.view import FarmView, parse_obs
 
 SOFT_BUDGET_SECONDS = 0.5  # v1 logic runs in microseconds; this guards regressions
@@ -73,13 +73,31 @@ def _plantable_targets(view: FarmView, tiles: list[tuple[int, int]]) -> int:
     return count
 
 
+def _melon_sell_qty(orders: list[list[object]]) -> int:
+    """The quantity from this turn's own ``["SELL", "MELON", n]`` order, if
+    any -- fed back to ``MelonMarketMemory`` so next turn's opponent-sell
+    attribution can net our own sale out of the shared inventory delta."""
+    for order in orders:
+        if len(order) >= 3 and order[0] == "SELL" and order[1] == "MELON":
+            qty = order[2]
+            return qty if isinstance(qty, int) else 0
+    return 0
+
+
 def make_policy(clock: Callable[[], float] = time.monotonic) -> Any:
-    """Build the policy callable with its episode-scoped tracker closed over."""
+    """Build the policy callable with its episode-scoped trackers closed over."""
     tracker = StateTracker()
+    melon_memory = MelonMarketMemory()
 
     def decide(obs: Observation, config: dict[str, Any] | None = None) -> Action:
         start = clock()
         tracker.observe(obs)
+        # Runs here, ahead of the soft-budget check below, so melon-market
+        # continuity survives even a turn that later bails to pass_action()
+        # (mirrors StateTracker's own placement) -- a bailed turn issues no
+        # real market orders, so record_our_melon_sell is correctly never
+        # called for it, leaving next turn's "our_sold_last_turn" at 0.
+        melon_memory.observe(obs)
         view = parse_obs(obs)
 
         if clock() - start > SOFT_BUDGET_SECONDS:
@@ -131,9 +149,20 @@ def make_policy(clock: Callable[[], float] = time.monotonic) -> Any:
             shed=view.shed,
             prices=view.prices,
             day=view.day,
+            hour=view.hour,
             wheat_reserve=wheat_reserve,
             buys=buys,
+            melon_contested=melon_memory.contested,
+            melon_days_since_contested=melon_memory.days_since_contested(view.day),
+            melon_rolling_max=melon_memory.rolling_price_max,
         )
+        # Clamped to what we actually held, not just what we asked for --
+        # build_orders' own _capped_sell already enforces this (an order for
+        # more than the shed count never gets emitted), so the clamp here is
+        # redundant-but-cheap defensive insurance for next turn's attribution
+        # math, matching MelonMarketMemory's own contract.
+        melon_sold_this_turn = _melon_sell_qty(orders)
+        melon_memory.record_our_melon_sell(min(melon_sold_this_turn, view.shed.get("MELON", 0)))
         return {"farmer": actions.farmer, "hands": actions.hands, "market": orders}
 
     return decide
