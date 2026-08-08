@@ -9,3 +9,16 @@ __pycache__/
 # Materialized frozen-incumbent fixtures (harness.frozen) — transient build
 # artifacts regenerated on demand, never committed.
 eval/frozen/
+
+# afk operational records (enrolled 2026-08-08, #13). `.afk/config.toml` IS tracked —
+# it is the executor contract; everything the driver *writes* is machine-local noise.
+# `.afk/question.md` is deliberately NOT ignored: a parked slice's escalation has to
+# travel with its branch or the answer never reaches the executor.
+.afk/transcripts/
+.afk/worktrees/
+.afk/mailbox/
+.afk/parity/
+.afk/cycle.lock
+docs/dev-cycle/telemetry.jsonl
+docs/dev-cycle/last-run.md
+docs/dev-cycle/quarantine-log.md
