@@ -1,0 +1,100 @@
+# AFK config — kaggriculture. Enrollment shape decided on issue #13 (blueprint map #1);
+# enrolled 2026-08-08 at fleet resume. Executor is scoped to improvement-system
+# infrastructure (epic #21): rig, zoo fixtures, flywheel, CI/ops tooling, ledger tooling.
+#
+# What makes this repo autonomous-safe: every slice's acceptance criteria are
+# deterministic tests, guards are teeth-checked (inject defect -> red), and there is NO
+# strength measurement in the executor — H2H win rates under an uncontrolled-CPU drain
+# are exactly the distortion the rig's tripwire exists to catch (#7), and the citation
+# law (#9) makes unledgered numbers unciteable anyway. Strength verdicts belong to the
+# nightly gate sweep and the tuning rig, never to a drain.
+#
+# THE GATE IS CI's GATE, VERBATIM (.github/workflows/ci.yml, ubuntu) — running here on
+# darwin, which jointly with the ubuntu PR gate covers the platform blind spot from both
+# sides. mypy is scoped to packages/agent/src exactly as in CI.
+test_command = 'uv run ruff check . && uv run ruff format --check . && uv run mypy packages/agent/src && uv run pytest -m "not slow" -q && uv run pytest -m slow -q'
+permission_mode = "acceptEdits"
+
+# ---------------------------------------------------------------------------------------
+# BRANCH POSTURE (staging shape, per #13; mechanics verified in afk source via ragmark's
+# enrollment): slices fork from and land on `afk/staging` with no per-slice PR; F2 opens
+# ONE integration PR afk/staging -> main with a review packet; Charles reviews the diffs
+# (afk-merged slices still get a diff review) and merges by hand. Main's code stays
+# human-gated. Known drills: reset + force-push afk/staging after any squash integration;
+# `landed` is not `pushed` — confirm with `git ls-remote`; a bare `--execute` forks from
+# the LOCAL afk/staging ref — reset it to origin first (in `--cycle` the pre-drain reset
+# covers this).
+integration_target = "afk/staging"
+trunk_branch = "main"
+autonomy_frontier = "F2"
+
+# Forwarded to the headless agent as `--allowedTools` — load-bearing, not decoration.
+# A slice runs in a fresh untrusted worktree and Claude Code discards every
+# `permissions.allow` entry there; argv is the only grant channel that survives. Empty
+# list = the executor runs NO Bash at all: the gate never executes.
+#
+# Deviation from #13's sketch ("uv run / python / git / gh"): git and gh are deliberately
+# ABSENT, mirroring ragmark's enrollment posture — egress is a security surface and no
+# slice here needs it (afk's own machinery handles branch/commit/label operations; data a
+# slice needs gets transcribed into the issue body by a human). The repo is private until
+# Bradley-Terry completes (#14) — nothing autonomous should be able to publish anything.
+allowed_tools = [
+  "Bash(uv run ruff:*)",
+  "Bash(uv run pytest:*)",
+  "Bash(uv run mypy:*)",
+  "Bash(uv run python:*)",
+  "Bash(uv --version:*)",
+  "Bash(uv pip list:*)",
+  "Bash(python3:*)",
+  "Bash(python:*)",
+]
+
+agent_prompt = """Implement the linked GitHub issue using test-driven development \
+(red-green-refactor). This repo has no CLAUDE.md — this prompt is the contract.
+
+Repo shape: uv workspace, Python 3.11 pinned. packages/agent is the competition agent \
+(ships to Kaggle), packages/harness is the local eval harness. Gate ledgers live under \
+eval/ as committed JSON. The full CI gate must be green before you finish: ruff check, \
+ruff format --check, mypy on packages/agent/src, pytest (both the "not slow" and slow \
+marker legs).
+
+Six rules that override any instinct to make the suite green:
+1. ROLE FENCE: this slice delivers improvement-system infrastructure; it succeeds \
+without changing how the champion agent plays. Champion policy behavior, promotion \
+decisions, and anything executing the submission ritual are human-only. A slice may \
+touch packages/agent only when its issue explicitly says so (e.g. PolicyConfig \
+plumbing), and then only behavior-neutrally — existing gate and invariant tests pin \
+this.
+2. Zoo members are IMMUTABLE once registered: any behavior change is a NEW member under \
+a new name. Never edit an existing member in packages/harness/src/harness/zoo/.
+3. eval/ ledgers are append-only committed data. A gate run without a ledger entry \
+didn't happen; never edit or regenerate a committed ledger.
+4. packages/agent import law: pure stdlib + numpy only, lean imports — the import-walk \
+and import-time budget tests enforce this. Never add a dependency or module-scope \
+import cost to packages/agent.
+5. Any change under packages/agent requires regenerating the bundle with \
+`uv run python build.py` — the stale-bundle test enforces digest freshness.
+6. Every guard you build gets a teeth-check: inject the defect it exists to catch and \
+assert the guard goes red. A guard proven only by green tests is not done.
+
+Keep changes minimal and scoped to the issue's acceptance criteria. If something in the \
+issue contradicts the code you find, stop and flag it in your summary rather than \
+guessing."""
+
+[caps]
+max_retries = 2
+timeout_seconds = 1800
+
+# model.frontier is required unconditionally; model.cheap is required while any tier is
+# "cheap" — an absent [model] table fails config load outright.
+[model]
+cheap = "sonnet"
+frontier = "opus"
+default_tier = "cheap"
+reviewer_tier = "frontier"
+
+# Epic #21's decomposed children are the queue — `scout` would just compete with it.
+# `harvest` mines merged-PR review comments for prompt rules: inert until slices start
+# landing, harmless before then. No docs/ROADMAP.md here, so `expand` has nothing to read.
+[cycle]
+producers = ["harvest"]
