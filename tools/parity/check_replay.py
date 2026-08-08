@@ -1,27 +1,61 @@
 """
-Run all seedless parity checks against the captured server replay
-(probe-server-replay.json), using the LOCAL kaggle_environments package's
-constants and market_price() as the oracle.
+Run all seedless parity checks against a captured server replay, using the
+LOCAL kaggle_environments package's constants and market_price() as the
+oracle.
+
+Defaults to the committed own-episode fixture (M2b self-play, episode
+91087847 -- see packages/harness/tests/fixtures/replays/PROVENANCE.md) but
+accepts any replay path, plain .json or gzipped .json.gz, as an argument.
 
 Prints a JSON report to stdout.
 """
+import argparse
+import gzip
 import json
 import sys
 
 import importlib.metadata
 
-import kaggle_environments
+from pathlib import Path
+
 from kaggle_environments import make
 
-sys.path.insert(0, "/private/tmp/claude-501/-Users-cdcoonce-Developer-GitHub-the-vault/48f69011-acdd-44c8-850e-fae45901a79f/scratchpad/parity-check")
-import common_checks as cc
+REPO_ROOT = Path(__file__).resolve().parents[2]
+DEFAULT_REPLAY_PATH = (
+    REPO_ROOT
+    / "packages"
+    / "harness"
+    / "tests"
+    / "fixtures"
+    / "replays"
+    / "episode-91087847-m2b-selfplay.json.gz"
+)
 
-REPLAY_PATH = "/private/tmp/claude-501/-Users-cdcoonce-Developer-GitHub-the-vault/48f69011-acdd-44c8-850e-fae45901a79f/scratchpad/probe-server-replay.json"
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import common_checks as cc  # noqa: E402
+
+
+def load_replay(path: Path) -> dict:
+    opener = gzip.open if path.suffix == ".gz" else open
+    with opener(path, "rt") as f:
+        return json.load(f)
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "replay_path",
+        nargs="?",
+        type=Path,
+        default=DEFAULT_REPLAY_PATH,
+        help=f"Path to a replay .json or .json.gz (default: {DEFAULT_REPLAY_PATH.relative_to(REPO_ROOT)})",
+    )
+    return parser.parse_args()
 
 
 def main():
-    with open(REPLAY_PATH) as f:
-        data = json.load(f)
+    args = parse_args()
+    data = load_replay(args.replay_path)
 
     report = {}
 

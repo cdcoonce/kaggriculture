@@ -13,10 +13,12 @@ different data source and exercises the same code paths.
 import json
 import sys
 
+from pathlib import Path
+
 from kaggle_environments import make
 
-sys.path.insert(0, "/private/tmp/claude-501/-Users-cdcoonce-Developer-GitHub-the-vault/48f69011-acdd-44c8-850e-fae45901a79f/scratchpad/parity-check")
-import common_checks as cc
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import common_checks as cc  # noqa: E402
 
 
 def main():
