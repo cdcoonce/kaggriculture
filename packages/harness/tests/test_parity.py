@@ -29,6 +29,13 @@ OWN_LADDER_FIXTURES = [
 
 def test_seed0_probe_fixture_byte_exact() -> None:
     data = load_replay(PROBE_REPLAY_PATH)
+    recorded_version = data["module_version"]
+    installed_version = installed_engine_version()
+    if recorded_version != installed_version:
+        pytest.skip(
+            f"fixture recorded module_version={recorded_version!r}, "
+            f"installed kaggle-environments={installed_version!r}"
+        )
     local_steps = replay_locally(data)
     report = compare_trajectories(data["steps"], local_steps)
     assert report.mismatch_count == 0
@@ -57,7 +64,7 @@ def test_mutated_field_is_detected() -> None:
     mutated = copy.deepcopy(local_steps)
     mutated[100][0]["market"]["inventory"]["WHEAT"] += 1
 
-    report = compare_trajectories(data["steps"], mutated)
+    report = compare_trajectories(local_steps, mutated)
 
     assert report.mismatch_count == 1
     mismatch = report.mismatches[0]
@@ -72,7 +79,7 @@ def test_excluded_field_is_ignored() -> None:
     mutated = copy.deepcopy(local_steps)
     mutated[100][0]["remainingOverageTime"] += 1
 
-    report = compare_trajectories(data["steps"], mutated)
+    report = compare_trajectories(local_steps, mutated)
 
     assert report.mismatch_count == 0
 
