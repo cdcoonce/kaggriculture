@@ -10,6 +10,11 @@ __pycache__/
 # artifacts regenerated on demand, never committed.
 eval/frozen/
 
+# Replay JSONs — retained selectively, on demand, for named matchups only.
+# Un-committed by default; a retained replay is pointed to by path/hash from
+# a committed eval/gates/ ledger entry instead of being committed itself.
+eval/replays/
+
 # afk operational records (enrolled 2026-08-08, #13). `.afk/config.toml` IS tracked —
 # it is the executor contract; everything the driver *writes* is machine-local noise.
 # `.afk/question.md` is deliberately NOT ignored: a parked slice's escalation has to
