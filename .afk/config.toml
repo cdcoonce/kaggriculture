@@ -98,7 +98,13 @@ required_labels = ["proposed", "afk-sized", "cold-read:pass"]
 
 [caps]
 max_retries = 2
-timeout_seconds = 1800
+# Raised 1800 -> 3600 on 2026-08-09. The zoo-fixture slices are the long pole: #23
+# (meta-clone economy) wrote a complete 756-line implementation + test module and still
+# hit the 1800s ceiling, and #40 timed out once on the same shape. The cost is a
+# full-game engine gate — the slow leg replays 720-turn episodes, so a fixture slice
+# pays minutes per gate run on top of its build. The idle-timeout watchdog (unchanged)
+# is what actually catches a wedged agent; this ceiling only bounds a slow-but-alive one.
+timeout_seconds = 3600
 
 # model.frontier is required unconditionally; model.cheap is required while any tier is
 # "cheap" — an absent [model] table fails config load outright.
