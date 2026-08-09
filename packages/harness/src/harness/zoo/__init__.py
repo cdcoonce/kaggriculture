@@ -16,6 +16,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
+from harness.zoo.index_front_runner import make_agent as _make_index_front_runner
 from harness.zoo.melon_dumper import make_agent as _make_melon_dumper
 from harness.zoo.melon_rusher import make_agent as _make_melon_rusher
 from harness.zoo.wheat_spam import make_agent as _make_wheat_spam
@@ -35,6 +36,7 @@ SCRIPTED: dict[str, Agent] = {
     "wheat-spam": _make_wheat_spam,
     "melon-dumper": _make_melon_dumper,
     "melon-rusher": _make_melon_rusher,
+    "index-front-runner": _make_index_front_runner,
 }
 
 
