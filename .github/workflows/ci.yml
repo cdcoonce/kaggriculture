@@ -1,6 +1,9 @@
-# PR fast set (test-pyramid decision #3). The smoke-suite + reduced-H2H
-# strength jobs land with the CI-topology decision (#12) — this file is the
-# correctness half only.
+# PR fast set (test-pyramid decision #3) plus a path-filtered, crash-only
+# strength smoke check (CI-topology decision #12). strength-gate is NOT a
+# promotion verdict: it only fails on a raise, a bad seat status, or
+# GateResult.any_candidate_crash against the gate zoo's scripted members. The
+# statistical promotion bar (win-rate, Wilson CI lower bound) is the Mac
+# nightly orchestrator's job (#4), never this workflow's.
 name: ci
 
 on:
@@ -22,3 +25,211 @@ jobs:
       - run: uv run mypy packages/agent/src
       - run: uv run pytest -m "not slow" -q
       - run: uv run pytest -m slow -q
+
+  changed-paths:
+    runs-on: ubuntu-latest
+    outputs:
+      agent: ${{ steps.filter.outputs.agent }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: filter
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE="${{ github.event.pull_request.base.sha }}"
+          else
+            BASE="${{ github.event.before }}"
+          fi
+          # Fail safe, never fail shut: when the base commit is absent or
+          # unreachable (branch creation sends an all-zero `before`, force-push,
+          # shallow history) we cannot tell what changed, so run the job rather
+          # than skip it. A `git diff` that errors is treated the same way.
+          if [ -z "$BASE" ] || ! git rev-parse --verify --quiet "$BASE^{commit}" >/dev/null; then
+            echo "agent=true" >> "$GITHUB_OUTPUT"
+          elif CHANGED=$(git diff --name-only "$BASE" "${{ github.sha }}" -- packages/agent/); then
+            if [ -n "$CHANGED" ]; then
+              echo "agent=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "agent=false" >> "$GITHUB_OUTPUT"
+            fi
+          else
+            echo "agent=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  strength-gate:
+    needs: changed-paths
+    if: needs.changed-paths.outputs.agent == 'true'
+    runs-on: ubuntu-latest
+    # BUDGET DEVIATION (flagged in #29): the issue's <=8 min figure comes from
+    # docs/recon/ci-compute-budget.md §4, whose 1.019-1.427 eps/s Actions range
+    # was measured `starter` vs `starter` (§2.1). Measured here at workers=2,
+    # champion-vs-zoo costs 2.14x that per episode (starter/starter 1.94 eps/s
+    # vs champion/zoo 0.91 eps/s on the same box), which rescales §4 to
+    # 0.475-0.666 eps/s => 500 games = 12.5-17.5 min on a 2-vCPU runner. The
+    # 250-paired-seed count is kept as mandated and the timeout follows the
+    # measurement, so a red job means "crashed", not "ran slow". Resizing the
+    # seed count to fit 8 min is a human call -- see .afk/question.md.
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.11"
+      - run: uv sync --all-packages --dev
+      - name: Strength gate (crash-only smoke, not a promotion verdict)
+        # Bounds the games alone (see the job-level budget note); the job's own
+        # timeout adds headroom for checkout + `uv sync` on top.
+        timeout-minutes: 20
+        run: |
+          # Written to a real file rather than piped to `python -`: run_gate's
+          # ProcessPoolExecutor re-imports the caller's __main__ under the
+          # spawn/forkserver start methods, and a stdin-sourced __main__ cannot
+          # be re-imported (BrokenProcessPool). RUNNER_TEMP keeps it out of the
+          # checkout, so the job leaves no files behind in the repo.
+          cat > "$RUNNER_TEMP/strength_gate.py" <<'PY'
+          """Crash-only strength smoke for Actions CI (issue #29).
+
+          Two independent crash channels, neither of them a strength verdict:
+
+          1. Unwrapped-policy probe -- a few games driven by the RAW
+             ``agent.policy.make_policy()`` callable. ``agent.shell.wrap()``
+             turns any policy-level exception into a legal PASS, so channel 2
+             structurally CANNOT see a policy that raises on its first call;
+             this probe is the channel that can. Cheap, so it runs first.
+          2. Reduced H2H gate -- 250 paired seeds (500 games) split across the
+             zoo's scripted members, failing on
+             ``GateResult.any_candidate_crash`` (engine-side INVALID/TIMEOUT
+             seat statuses under the shipped, wrapped agent).
+
+          ``GateVerdict.passed`` / win rate / Wilson CI are never read: shared
+          Actions runners vary in speed, which changes how often the policy's
+          soft time budget trips, so a win-rate assertion here would flake for
+          reasons unrelated to code correctness. The statistical promotion bar
+          belongs to the Mac nightly orchestrator (#4). Nothing here writes to
+          eval/ or docs/meta/ -- ``run_gate`` is pure and the only output is
+          this log.
+          """
+
+          import sys
+
+          TOTAL_PAIRED_SEEDS = 250
+          PROBE_SEEDS_PER_OPPONENT = 2
+          GATE_SEED_STRIDE = 1_000_000
+          PROBE_SEED_BASE = 9_000_000
+          WORKERS = 2
+
+
+          def split_paired_seeds(total, n_opponents):
+              """Split `total` paired seeds across opponents, spreading the remainder.
+
+              Plain integer division would silently under-run the mandated total
+              once the scripted roster stops dividing it evenly (3 members would
+              give 249 paired seeds, not 250).
+              """
+              base, remainder = divmod(total, n_opponents)
+              return [base + (1 if i < remainder else 0) for i in range(n_opponents)]
+
+
+          def probe_unwrapped_policy(opponent, seed_base, n_seeds):
+              """Play paired games with the UNWRAPPED champion policy.
+
+              Returns the (seed, seat, statuses) tuples whose candidate seat left
+              the normal ACTIVE/DONE set. Exceptions are deliberately not caught:
+              whether the engine surfaces a raising policy as a bad seat status or
+              lets it propagate out of `env.run`, both outcomes fail this job.
+              """
+              from agent.policy import make_policy
+
+              # Private on purpose: reuse the harness's own crash definition
+              # rather than duplicating a status set that can drift from it.
+              from harness.episodes import _NON_CRASH_STATUSES, resolve_agent
+              from kaggle_environments import make
+
+              offenders = []
+              for seed in range(seed_base, seed_base + n_seeds):
+                  for seat in (0, 1):
+                      agents = [None, None]
+                      agents[seat] = make_policy()
+                      agents[1 - seat] = resolve_agent(opponent)
+                      env = make("kaggriculture", configuration={"seed": seed})
+                      env.run(agents)
+                      seen = {step[seat].status for step in env.steps}
+                      bad = seen - _NON_CRASH_STATUSES
+                      if bad:
+                          offenders.append((seed, seat, sorted(bad)))
+              return offenders
+
+
+          def main():
+              from harness.gate import run_gate
+              from harness.zoo import SCRIPTED
+
+              members = sorted(SCRIPTED)
+              per_opponent = split_paired_seeds(TOTAL_PAIRED_SEEDS, len(members))
+
+              probe_failures = []
+              for i, name in enumerate(members):
+                  offenders = probe_unwrapped_policy(
+                      f"zoo:{name}",
+                      PROBE_SEED_BASE + i * 1_000,
+                      PROBE_SEEDS_PER_OPPONENT,
+                  )
+                  print(
+                      f"[strength-gate] probe vs {name}: "
+                      f"{2 * PROBE_SEEDS_PER_OPPONENT} unwrapped games, "
+                      f"bad_seat_statuses={offenders}"
+                  )
+                  if offenders:
+                      probe_failures.append(
+                          f"unwrapped champion policy misbehaved vs {name}: {offenders}"
+                      )
+
+              # Fail before the 500-game gate: a raising policy is masked by the
+              # safety shell there, so it would only ever surface as a timeout.
+              if probe_failures:
+                  for reason in probe_failures:
+                      print(f"[strength-gate] FAIL: {reason}")
+                  return 1
+
+              crash_failures = []
+              for i, (name, n_seeds) in enumerate(zip(members, per_opponent)):
+                  result = run_gate(
+                      candidate="champion",
+                      opponent=f"zoo:{name}",
+                      n_seeds=n_seeds,
+                      seed_base=GATE_SEED_STRIDE * (i + 1),
+                      workers=WORKERS,
+                      gate_type="ci-crash-smoke",
+                  )
+                  print(
+                      f"[strength-gate] gate vs {name}: {n_seeds} paired seeds, "
+                      f"{len(result.rows)} games, "
+                      f"W{result.wins}/L{result.losses}/T{result.ties}, "
+                      f"any_candidate_crash={result.any_candidate_crash} "
+                      "(crash-only smoke -- win rate deliberately not asserted)"
+                  )
+                  if result.any_candidate_crash:
+                      crash_failures.append(f"candidate crashed vs {name}")
+
+              print(
+                  f"[strength-gate] {sum(per_opponent)} paired seeds total "
+                  f"across {members}"
+              )
+
+              if crash_failures:
+                  for reason in crash_failures:
+                      print(f"[strength-gate] FAIL: {reason}")
+                  return 1
+
+              print(
+                  "[strength-gate] PASS: no candidate crashes "
+                  "(crash-only smoke -- NOT a strength verdict)"
+              )
+              return 0
+
+
+          if __name__ == "__main__":
+              sys.exit(main())
+          PY
+          uv run python "$RUNNER_TEMP/strength_gate.py"
