@@ -4,13 +4,16 @@ version = "0.1.0"
 description = "Kaggriculture home infrastructure — zoo, gates, ledger, parity (never ships)"
 requires-python = ">=3.11"
 dependencies = [
-    "kaggle-environments>=1.32.4",
+    "kaggle-environments==1.32.6",
     "numpy>=1.26",
     "agent",
 ]
 
 [tool.uv.sources]
 agent = { workspace = true }
+
+[project.scripts]
+rerun-ledger = "harness.rerun_ledger:main"
 
 [build-system]
 requires = ["hatchling"]

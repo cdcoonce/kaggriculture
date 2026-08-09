@@ -16,7 +16,12 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
+from harness.zoo.chaos_legal_random import make_agent as _make_chaos_legal_random
+from harness.zoo.fert_market_crasher import make_agent as _make_fert_market_crasher
+from harness.zoo.index_front_runner import make_agent as _make_index_front_runner
+from harness.zoo.land_rush_hoarder import make_agent as _make_land_rush_hoarder
 from harness.zoo.melon_dumper import make_agent as _make_melon_dumper
+from harness.zoo.melon_rusher import make_agent as _make_melon_rusher
 from harness.zoo.wheat_spam import make_agent as _make_wheat_spam
 
 Agent = Callable[..., Any] | str
@@ -33,9 +38,24 @@ BUILTIN_ANCHORS: dict[str, str] = {
 SCRIPTED: dict[str, Agent] = {
     "wheat-spam": _make_wheat_spam,
     "melon-dumper": _make_melon_dumper,
+    "melon-rusher": _make_melon_rusher,
+    "index-front-runner": _make_index_front_runner,
+    "land-rush-hoarder": _make_land_rush_hoarder,
+    "fert-market-crasher": _make_fert_market_crasher,
 }
 
 
 def gate_zoo() -> dict[str, Agent]:
     """The current gate-zoo roster (anchors + registered scripted members)."""
     return {**BUILTIN_ANCHORS, **SCRIPTED}
+
+
+# Extended-only members: swept only by the nightly, not part of the gate zoo.
+EXTENDED: dict[str, Agent] = {
+    "chaos-legal-random": _make_chaos_legal_random,
+}
+
+
+def extended_zoo() -> dict[str, Agent]:
+    """Gate zoo plus extended-only members, swept only by the nightly."""
+    return {**BUILTIN_ANCHORS, **SCRIPTED, **EXTENDED}

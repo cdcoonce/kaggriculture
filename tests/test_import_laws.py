@@ -10,12 +10,10 @@ import subprocess
 import sys
 from pathlib import Path
 
-from harness.importlaw import find_violations
+from harness.importlaw import IMPORT_TIME_BUDGET_S, find_violations
 
 REPO = Path(__file__).resolve().parent.parent
 AGENT_TREE = REPO / "packages" / "agent" / "src"
-
-IMPORT_TIME_BUDGET_S = 1.0
 
 
 def test_agent_tree_imports_only_stdlib_and_numpy() -> None:

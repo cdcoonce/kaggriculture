@@ -13,6 +13,8 @@ from pathlib import Path
 
 ALLOWED_TOP_LEVEL = set(sys.stdlib_module_names) | {"numpy", "agent"}
 
+IMPORT_TIME_BUDGET_S = 1.0
+
 
 def find_violations(tree_root: Path, allowed: set[str] | None = None) -> list[tuple[Path, str]]:
     """Walk every .py under ``tree_root``; return (file, module) import violations."""
