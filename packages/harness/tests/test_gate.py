@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import pytest
 from harness.gate import run_gate
 
 TINY_CONFIG = {"episodeSteps": 48}
@@ -152,3 +153,83 @@ class TestGateResultIdentity:
             extra_config=TINY_CONFIG,
         )
         assert result.agent_config is None
+
+
+class TestChampionUnshelledCrashOnlySmoke:
+    """Teeth-check for the CI strength-gate job (issue #29): the unshelled
+    candidate spec must surface a raising policy as a crash, and must not
+    flag a merely-losing-but-legal policy as one -- the job gates on
+    crashes, not win rate."""
+
+    def test_raising_candidate_is_caught_as_a_crash(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        import agent.policy as policy_module
+
+        def _raising_policy(obs: object, config: object = None) -> dict[str, object]:
+            raise RuntimeError("boom")
+
+        monkeypatch.setattr(
+            policy_module, "make_policy", lambda clock=None, policy_config=None: _raising_policy
+        )
+
+        result = run_gate(
+            candidate="champion-unshelled",
+            opponent="builtin:starter",
+            n_seeds=1,
+            seed_base=5,
+            workers=1,
+            extra_config=TINY_CONFIG,
+        )
+        assert result.any_candidate_crash is True
+
+    def test_legal_losing_candidate_is_not_a_crash(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        import agent.policy as policy_module
+
+        def _passing_policy(obs: object, config: object = None) -> dict[str, object]:
+            return {"farmer": ["PASS"], "hands": [], "market": []}
+
+        monkeypatch.setattr(
+            policy_module, "make_policy", lambda clock=None, policy_config=None: _passing_policy
+        )
+
+        result = run_gate(
+            candidate="champion-unshelled",
+            opponent="builtin:starter",
+            n_seeds=1,
+            seed_base=5,
+            workers=1,
+            extra_config=TINY_CONFIG,
+        )
+        assert result.any_candidate_crash is False
+        assert len(result.rows) == 2
+
+    def test_workers_forced_to_one_for_champion_unshelled_candidate(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # A bound closure from make_policy() is not guaranteed picklable, so
+        # run_gate must force workers=1 (sequential path) regardless of what
+        # the caller requested -- prove it by making ProcessPoolExecutor
+        # blow up if run_gate ever tries to construct one.
+        import agent.policy as policy_module
+        import harness.gate as gate_module
+
+        def _blows_up_if_constructed(*args: object, **kwargs: object) -> object:
+            raise AssertionError("ProcessPoolExecutor should not be constructed")
+
+        monkeypatch.setattr(gate_module, "ProcessPoolExecutor", _blows_up_if_constructed)
+
+        def _passing_policy(obs: object, config: object = None) -> dict[str, object]:
+            return {"farmer": ["PASS"], "hands": [], "market": []}
+
+        monkeypatch.setattr(
+            policy_module, "make_policy", lambda clock=None, policy_config=None: _passing_policy
+        )
+
+        result = run_gate(
+            candidate="champion-unshelled",
+            opponent="builtin:starter",
+            n_seeds=1,
+            seed_base=5,
+            workers=8,
+            extra_config=TINY_CONFIG,
+        )
+        assert result.any_candidate_crash is False

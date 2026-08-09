@@ -78,6 +78,67 @@ class TestResolveAgent:
         with pytest.raises(ValueError, match="champion"):
             resolve_agent("frozen:m1", {"soft_budget_seconds": 0.0})
 
+    def test_champion_unshelled_spec_returns_a_fresh_callable(self) -> None:
+        agent = resolve_agent("champion-unshelled")
+        assert callable(agent)
+
+    def test_champion_unshelled_surfaces_a_raising_policy_where_champion_swallows_it(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # Teeth-check for the unshelled path, stated differentially against
+        # the shelled one: the same raising policy must propagate through
+        # "champion-unshelled" and be swallowed into PASS by "champion"'s
+        # shell.wrap boundary. Asserting only that shell.wrap goes uncalled
+        # would prove nothing -- the unshelled branch never imports
+        # agent.shell at all, so a patched wrap could not fire either way.
+        import agent.policy as policy_module
+
+        def raising_policy(obs: object, config: object = None) -> dict[str, object]:
+            raise RuntimeError("boom")
+
+        monkeypatch.setattr(
+            policy_module, "make_policy", lambda clock=None, policy_config=None: raising_policy
+        )
+
+        with pytest.raises(RuntimeError, match="boom"):
+            resolve_agent("champion-unshelled")({}, None)
+
+        assert resolve_agent("champion")({}, None) == {
+            "farmer": ["PASS"],
+            "hands": [],
+            "market": [],
+        }
+
+    def test_champion_unshelled_spec_forwards_agent_config_as_policy_config(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        import agent.policy as policy_module
+
+        captured: dict[str, object] = {}
+
+        def fake_make_policy(clock: object = None, policy_config: object = None) -> object:
+            captured["policy_config"] = policy_config
+            return lambda obs, config=None: {"farmer": ["PASS"], "hands": [], "market": []}
+
+        monkeypatch.setattr(policy_module, "make_policy", fake_make_policy)
+        resolve_agent("champion-unshelled", {"soft_budget_seconds": 0.0})
+        assert captured["policy_config"] == policy_module.PolicyConfig(soft_budget_seconds=0.0)
+
+    def test_champion_unshelled_spec_with_no_agent_config_passes_none_through(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        import agent.policy as policy_module
+
+        captured: dict[str, object] = {}
+
+        def fake_make_policy(clock: object = None, policy_config: object = None) -> object:
+            captured["policy_config"] = policy_config
+            return lambda obs, config=None: {"farmer": ["PASS"], "hands": [], "market": []}
+
+        monkeypatch.setattr(policy_module, "make_policy", fake_make_policy)
+        resolve_agent("champion-unshelled")
+        assert captured["policy_config"] is None
+
 
 class TestClassifyOutcome:
     def test_candidate_wins_on_higher_money(self) -> None:

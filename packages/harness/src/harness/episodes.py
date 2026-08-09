@@ -40,12 +40,23 @@ def resolve_agent(spec: str, agent_config: dict[str, Any] | None = None) -> Any:
 
     ``agent_config`` overrides the champion policy's tuning knobs
     (``agent.policy.PolicyConfig``) and is only meaningful for the
-    ``"champion"`` spec; passing it for any other spec raises, since a
-    silently-dropped override would be indistinguishable from one that took
-    effect.
+    ``"champion"`` and ``"champion-unshelled"`` specs; passing it for any
+    other spec raises, since a silently-dropped override would be
+    indistinguishable from one that took effect.
+
+    ``"champion-unshelled"`` returns the raw ``make_policy()`` callable
+    without ``agent.shell.wrap`` around it -- a crash-only smoke check (CI
+    strength-gate job, issue #29) needs the candidate's exceptions to
+    surface instead of being swallowed by the never-crash shell boundary.
+    Unlike every other spec, the returned callable is a bound closure that
+    is not guaranteed picklable; callers must not run it under
+    ``ProcessPoolExecutor``.
     """
-    if spec != "champion" and agent_config is not None:
-        raise ValueError(f"agent_config is only supported for the 'champion' spec, got {spec!r}")
+    if spec not in ("champion", "champion-unshelled") and agent_config is not None:
+        raise ValueError(
+            f"agent_config is only supported for the 'champion' and "
+            f"'champion-unshelled' specs, got {spec!r}"
+        )
     if spec.startswith("builtin:"):
         return spec.removeprefix("builtin:")
     if spec == "champion":
@@ -54,6 +65,11 @@ def resolve_agent(spec: str, agent_config: dict[str, Any] | None = None) -> Any:
 
         policy_config = PolicyConfig(**agent_config) if agent_config is not None else None
         return wrap(make_policy(policy_config=policy_config))
+    if spec == "champion-unshelled":
+        from agent.policy import PolicyConfig, make_policy
+
+        policy_config = PolicyConfig(**agent_config) if agent_config is not None else None
+        return make_policy(policy_config=policy_config)
     if spec.startswith("zoo:"):
         from harness.zoo import gate_zoo
 

@@ -1,6 +1,7 @@
-# PR fast set (test-pyramid decision #3). The smoke-suite + reduced-H2H
-# strength jobs land with the CI-topology decision (#12) — this file is the
-# correctness half only.
+# PR fast set (test-pyramid decision #3) plus a path-filtered strength-gate
+# smoke job (#29): a crash-only check over the zoo, not a statistical
+# promotion gate -- that full promotion gate is the Mac nightly's job (#4),
+# per the CI-topology decision (#12).
 name: ci
 
 on:
@@ -22,3 +23,38 @@ jobs:
       - run: uv run mypy packages/agent/src
       - run: uv run pytest -m "not slow" -q
       - run: uv run pytest -m slow -q
+
+  agent-changed:
+    runs-on: ubuntu-latest
+    # dorny/paths-filter lists a PR's changed files through the API, so it
+    # needs pull-requests:read; a job-level block replaces the defaults
+    # outright, hence contents:read for the checkout.
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      changed: ${{ steps.filter.outputs.agent }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            agent:
+              - 'packages/agent/**'
+
+  strength-gate:
+    needs: agent-changed
+    if: needs.agent-changed.outputs.changed == 'true'
+    runs-on: ubuntu-latest
+    # Makes the 8-minute budget (#4/#12) self-enforcing rather than advisory,
+    # and covers the "times out" half of this job's fail condition -- the
+    # default is GitHub's 360 minutes, which enforces nothing.
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.11"
+      - run: uv sync --all-packages --dev
+      - run: uv run python -m harness.strength_gate
