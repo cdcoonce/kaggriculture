@@ -16,6 +16,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
+from harness.zoo.chaos_legal_random import make_agent as _make_chaos_legal_random
 from harness.zoo.fert_market_crasher import make_agent as _make_fert_market_crasher
 from harness.zoo.index_front_runner import make_agent as _make_index_front_runner
 from harness.zoo.land_rush_hoarder import make_agent as _make_land_rush_hoarder
@@ -47,3 +48,14 @@ SCRIPTED: dict[str, Agent] = {
 def gate_zoo() -> dict[str, Agent]:
     """The current gate-zoo roster (anchors + registered scripted members)."""
     return {**BUILTIN_ANCHORS, **SCRIPTED}
+
+
+# Extended-only members: swept only by the nightly, not part of the gate zoo.
+EXTENDED: dict[str, Agent] = {
+    "chaos-legal-random": _make_chaos_legal_random,
+}
+
+
+def extended_zoo() -> dict[str, Agent]:
+    """Gate zoo plus extended-only members, swept only by the nightly."""
+    return {**BUILTIN_ANCHORS, **SCRIPTED, **EXTENDED}
