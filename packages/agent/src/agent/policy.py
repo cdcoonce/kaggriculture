@@ -11,9 +11,19 @@ from __future__ import annotations
 
 import time
 from collections.abc import Callable
+from dataclasses import dataclass
 from typing import Any
 
-from agent.constants import PASTURE_REFERENCE_QUADRANTS, melon_tiles, pasture_tiles, target_tiles
+from agent.constants import (
+    BOARD_SIZE,
+    COW_TARGET,
+    MELON_TILE_TARGET,
+    PASTURE_REFERENCE_QUADRANTS,
+    SHEEP_TARGET,
+    melon_tiles,
+    pasture_tiles,
+    target_tiles,
+)
 from agent.dispatch import dispatch
 from agent.market import build_orders
 from agent.plan import FEED_RESERVE, plan_day
@@ -22,6 +32,35 @@ from agent.state import MelonMarketMemory, StateTracker
 from agent.view import FarmView, parse_obs
 
 SOFT_BUDGET_SECONDS = 0.5  # v1 logic runs in microseconds; this guards regressions
+
+# No cap by default: the full board (BOARD_SIZE**2 tiles, minus COOP_TILE) can
+# never yield more wheat tiles than this once melon's and pasture's own zones
+# are carved out, so the default preserves today's uncapped remainder for
+# every unlock state.
+_WHEAT_RUSH_TILES_DEFAULT = (
+    BOARD_SIZE * BOARD_SIZE - 1 - MELON_TILE_TARGET - (COW_TARGET + SHEEP_TARGET)
+)
+
+
+@dataclass(frozen=True)
+class PolicyConfig:
+    """Tuning knobs for the chassis, lifted out of module-level constants so
+    an eval run can override them without editing source. Every field's
+    default reproduces today's hardcoded behavior exactly."""
+
+    soft_budget_seconds: float = SOFT_BUDGET_SECONDS
+    feed_reserve: int = FEED_RESERVE
+    melon_tile_target: int = MELON_TILE_TARGET
+    cow_target: int = COW_TARGET
+    sheep_target: int = SHEEP_TARGET
+    wheat_rush_tiles: int = _WHEAT_RUSH_TILES_DEFAULT
+
+    @property
+    def pasture_tile_target(self) -> int:
+        """Derived, not independently settable -- an override here would let
+        the pasture zone size drift out of sync with the animal targets it's
+        supposed to exactly cover (one animal per pasture tile)."""
+        return self.cow_target + self.sheep_target
 
 
 def _owned_count(view: FarmView, species: str) -> int:
@@ -84,8 +123,12 @@ def _melon_sell_qty(orders: list[list[object]]) -> int:
     return 0
 
 
-def make_policy(clock: Callable[[], float] = time.monotonic) -> Any:
+def make_policy(
+    clock: Callable[[], float] = time.monotonic,
+    policy_config: PolicyConfig | None = None,
+) -> Any:
     """Build the policy callable with its episode-scoped trackers closed over."""
+    resolved_config = policy_config if policy_config is not None else PolicyConfig()
     tracker = StateTracker()
     melon_memory = MelonMarketMemory()
 
@@ -100,22 +143,28 @@ def make_policy(clock: Callable[[], float] = time.monotonic) -> Any:
         melon_memory.observe(obs)
         view = parse_obs(obs)
 
-        if clock() - start > SOFT_BUDGET_SECONDS:
+        if clock() - start > resolved_config.soft_budget_seconds:
             return pass_action()
 
         tiles = target_tiles(view.unlocked_quadrants)
-        melons = melon_tiles(view.unlocked_quadrants)
+        melons = melon_tiles(view.unlocked_quadrants, target=resolved_config.melon_tile_target)
         # Fixed reference frame, NOT view.unlocked_quadrants -- pastures must
         # never migrate as SW/SE unlock later (constants.PASTURE_REFERENCE_
         # QUADRANTS explains why: a live value orphans built pastures and
         # placed animals the instant the nearest-shed-first ordering shifts).
-        pastures = pasture_tiles(PASTURE_REFERENCE_QUADRANTS)
+        pastures = pasture_tiles(
+            PASTURE_REFERENCE_QUADRANTS, target=resolved_config.pasture_tile_target
+        )
         melon_set = frozenset(melons)
         pasture_set = frozenset(pastures)
         # Set difference, not a positional slice: pasture_set's positions are
         # anchored to the fixed reference frame above and are not guaranteed
         # to occupy any particular prefix of the *live* tiles ordering.
-        wheat_tiles = [t for t in tiles if t not in melon_set and t not in pasture_set]
+        # Capped at wheat_rush_tiles -- an explicit, config-driven bound on
+        # wheat's own zone instead of an unbounded remainder.
+        wheat_tiles = [t for t in tiles if t not in melon_set and t not in pasture_set][
+            : resolved_config.wheat_rush_tiles
+        ]
         goose = _owned_count(view, "GOOSE") > 0
         cows_owned = _owned_count(view, "COW")
         sheep_owned = _owned_count(view, "SHEEP")
@@ -136,6 +185,9 @@ def make_policy(clock: Callable[[], float] = time.monotonic) -> Any:
             sheep_owned=sheep_owned,
             empty_pastures=_empty_built_pastures(view, pastures),
             animals_placed=animals_placed,
+            feed_reserve=resolved_config.feed_reserve,
+            cow_target=resolved_config.cow_target,
+            sheep_target=resolved_config.sheep_target,
         )
         actions = dispatch(view, tiles, melon_set, pasture_set)
 
@@ -144,7 +196,7 @@ def make_policy(clock: Callable[[], float] = time.monotonic) -> Any:
         buys: list[list[object]] = list(plan.buys)
         buys.extend([["HIRE"]] * plan.hire_count)
         any_animal_owned = goose or cows_owned > 0 or sheep_owned > 0
-        wheat_reserve = animals_placed + FEED_RESERVE if any_animal_owned else 0
+        wheat_reserve = animals_placed + resolved_config.feed_reserve if any_animal_owned else 0
         orders = build_orders(
             shed=view.shed,
             prices=view.prices,

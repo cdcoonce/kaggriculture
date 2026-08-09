@@ -72,8 +72,10 @@ MELON_TILE_TARGET = 8  # size of the melon zone carved out of the target-tile un
 
 
 @cache
-def melon_tiles(unlocked: tuple[str, ...]) -> list[tuple[int, int]]:
-    """The melon zone: the first ``MELON_TILE_TARGET`` tiles of ``target_tiles``.
+def melon_tiles(
+    unlocked: tuple[str, ...], target: int = MELON_TILE_TARGET
+) -> list[tuple[int, int]]:
+    """The melon zone: the first ``target`` tiles of ``target_tiles``.
 
     Melon is the premium crop (seed $80 vs wheat's $10, ten days to first
     yield instead of two) so it claims the shortest hauls -- the tiles
@@ -81,8 +83,10 @@ def melon_tiles(unlocked: tuple[str, ...]) -> list[tuple[int, int]]:
     ``target_tiles``' own ordering. The remaining tiles (``target_tiles``
     minus this prefix) stay wheat's. Memoized for the same reason as
     ``target_tiles``: ``unlocked`` only changes on a BUY_LAND purchase.
+    ``target`` defaults to ``MELON_TILE_TARGET`` so existing callers are
+    unaffected; a policy-config override passes a different size explicitly.
     """
-    return target_tiles(unlocked)[:MELON_TILE_TARGET]
+    return target_tiles(unlocked)[:target]
 
 
 # M2a: cow + sheep targets sum to exactly the pasture zone size -- one
@@ -114,8 +118,10 @@ PASTURE_REFERENCE_QUADRANTS: tuple[str, ...] = ("NW", "NE")
 
 
 @cache
-def pasture_tiles(unlocked: tuple[str, ...]) -> list[tuple[int, int]]:
-    """The pasture zone: the ``PASTURE_TILE_TARGET`` tiles right after melon's.
+def pasture_tiles(
+    unlocked: tuple[str, ...], target: int = PASTURE_TILE_TARGET
+) -> list[tuple[int, int]]:
+    """The pasture zone: the ``target`` tiles right after melon's.
 
     Same nearest-shed-first ordering as ``target_tiles``/``melon_tiles``, just
     the next window instead of the prefix -- pastures claim the second-
@@ -142,8 +148,10 @@ def pasture_tiles(unlocked: tuple[str, ...]) -> list[tuple[int, int]]:
     live dispatch loop MUST pass ``PASTURE_REFERENCE_QUADRANTS`` -- a fixed
     frame -- not the game's current ``unlocked_quadrants`` (see that
     constant's docstring for why passing a live value orphans tiles).
+    ``target`` defaults to ``PASTURE_TILE_TARGET`` so existing callers are
+    unaffected; a policy-config override passes a different size explicitly.
     """
-    return target_tiles(unlocked)[MELON_TILE_TARGET : MELON_TILE_TARGET + PASTURE_TILE_TARGET]
+    return target_tiles(unlocked)[MELON_TILE_TARGET : MELON_TILE_TARGET + target]
 
 
 def nearest_shed_access(pos: tuple[int, int], unlocked: tuple[str, ...]) -> tuple[int, int]:

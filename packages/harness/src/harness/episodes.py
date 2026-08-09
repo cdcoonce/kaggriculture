@@ -31,20 +31,29 @@ class GameRow:
     opponent_crashed: bool
 
 
-def resolve_agent(spec: str) -> Any:
+def resolve_agent(spec: str, agent_config: dict[str, Any] | None = None) -> Any:
     """Resolve an agent spec string to something ``env.run`` accepts.
 
     Import-and-construct happens lazily inside this function (not at module
     scope) so a fresh, stateless policy is built per call — required for
     correctness across worker processes and across games within one process.
+
+    ``agent_config`` overrides the champion policy's tuning knobs
+    (``agent.policy.PolicyConfig``) and is only meaningful for the
+    ``"champion"`` spec; passing it for any other spec raises, since a
+    silently-dropped override would be indistinguishable from one that took
+    effect.
     """
+    if spec != "champion" and agent_config is not None:
+        raise ValueError(f"agent_config is only supported for the 'champion' spec, got {spec!r}")
     if spec.startswith("builtin:"):
         return spec.removeprefix("builtin:")
     if spec == "champion":
-        from agent.policy import make_policy
+        from agent.policy import PolicyConfig, make_policy
         from agent.shell import wrap
 
-        return wrap(make_policy())
+        policy_config = PolicyConfig(**agent_config) if agent_config is not None else None
+        return wrap(make_policy(policy_config=policy_config))
     if spec.startswith("zoo:"):
         from harness.zoo import gate_zoo
 
@@ -99,17 +108,22 @@ def play_game(
     candidate: str,
     opponent: str,
     extra_config: dict[str, Any] | None = None,
+    agent_config: dict[str, Any] | None = None,
 ) -> GameRow:
     """Play one episode and return the outcome from the candidate's view.
 
     Module-level and picklable by design (specs are plain strings) so it can
     run under ``concurrent.futures.ProcessPoolExecutor``.
+
+    ``agent_config`` is forwarded only into the candidate's ``resolve_agent``
+    call, never the opponent's — a candidate-side override must never
+    silently retune the opponent in a self-play or champion-vs-champion gate.
     """
     from kaggle_environments import make
 
     opponent_seat = 1 - candidate_seat
     agents: list[Any] = [None, None]
-    agents[candidate_seat] = resolve_agent(candidate)
+    agents[candidate_seat] = resolve_agent(candidate, agent_config)
     agents[opponent_seat] = resolve_agent(opponent)
 
     configuration = {"seed": seed, **(extra_config or {})}

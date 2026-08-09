@@ -30,6 +30,7 @@ class GateResult:
     verdict: GateVerdict
     any_candidate_crash: bool
     extra_config: dict[str, Any] | None
+    agent_config: dict[str, Any] | None
     threshold: float
 
 
@@ -38,10 +39,11 @@ def _play_seed_pair(
     candidate: str,
     opponent: str,
     extra_config: dict[str, Any] | None,
+    agent_config: dict[str, Any] | None,
 ) -> list[GameRow]:
     return [
-        play_game(seed, 0, candidate, opponent, extra_config),
-        play_game(seed, 1, candidate, opponent, extra_config),
+        play_game(seed, 0, candidate, opponent, extra_config, agent_config),
+        play_game(seed, 1, candidate, opponent, extra_config, agent_config),
     ]
 
 
@@ -54,6 +56,7 @@ def run_gate(
     extra_config: dict[str, Any] | None = None,
     gate_type: str = "promotion",
     threshold: float = 0.5,
+    agent_config: dict[str, Any] | None = None,
 ) -> GateResult:
     """Run a candidate-vs-opponent gate over paired seeds, both seats.
 
@@ -66,17 +69,21 @@ def run_gate(
     entry point with ``if __name__ == "__main__":`` — spawn re-imports the
     caller's main module in every worker, and an unguarded module-level call
     recurses into a BrokenProcessPool.
+
+    ``agent_config`` overrides the candidate champion's ``PolicyConfig`` (see
+    ``harness.episodes.resolve_agent``); it is passed as a plain picklable
+    dict so it survives ``ProcessPoolExecutor`` worker re-import.
     """
     seeds = list(range(seed_base, seed_base + n_seeds))
     rows: list[GameRow] = []
 
     if workers <= 1:
         for seed in seeds:
-            rows.extend(_play_seed_pair(seed, candidate, opponent, extra_config))
+            rows.extend(_play_seed_pair(seed, candidate, opponent, extra_config, agent_config))
     else:
         with ProcessPoolExecutor(max_workers=workers) as pool:
             futures = [
-                pool.submit(play_game, seed, seat, candidate, opponent, extra_config)
+                pool.submit(play_game, seed, seat, candidate, opponent, extra_config, agent_config)
                 for seed in seeds
                 for seat in (0, 1)
             ]
@@ -102,5 +109,6 @@ def run_gate(
         verdict=verdict,
         any_candidate_crash=any_candidate_crash,
         extra_config=extra_config,
+        agent_config=agent_config,
         threshold=threshold,
     )

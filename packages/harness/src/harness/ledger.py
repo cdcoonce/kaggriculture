@@ -47,6 +47,7 @@ def write_ledger(
             "opponent": result.opponent,
             "gate_type": result.gate_type,
             "extra_config": result.extra_config,
+            "agent_config": result.agent_config,
         },
         "verdict": {
             "n_games": result.verdict.n_games,
@@ -81,3 +82,19 @@ def write_ledger(
 
     path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
     return path
+
+
+def find_passing_promotion(gates_dir: Path, candidate_sha: str) -> Path | None:
+    """Return the first ledger entry recording a passing champion promotion at
+    ``candidate_sha``, or ``None`` if no such entry exists. Read-only."""
+    for path in sorted(gates_dir.glob("*.json")):
+        entry = json.loads(path.read_text(encoding="utf-8"))
+        identity = entry["identity"]
+        if (
+            identity["gate_type"] == "promotion"
+            and identity["candidate"] == "champion"
+            and identity["candidate_commit"] == candidate_sha
+            and entry["verdict"]["passed"] is True
+        ):
+            return path
+    return None

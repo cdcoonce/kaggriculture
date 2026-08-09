@@ -58,6 +58,7 @@ class TestWriteLedger:
         assert identity["opponent"] == "builtin:pass"
         assert identity["gate_type"] == "promotion"
         assert identity["extra_config"] == TINY_CONFIG
+        assert identity["agent_config"] is None
 
         verdict = payload["verdict"]
         assert verdict["n_games"] == 4
@@ -87,3 +88,23 @@ class TestWriteLedger:
             "candidate_crashed",
             "opponent_crashed",
         }
+
+    def test_agent_config_round_trips_in_the_identity_block(self, tmp_path: Path) -> None:
+        agent_config = {"soft_budget_seconds": 0.0}
+        result = run_gate(
+            candidate="champion",
+            opponent="builtin:pass",
+            n_seeds=1,
+            seed_base=5,
+            workers=1,
+            extra_config=TINY_CONFIG,
+            agent_config=agent_config,
+        )
+        path = write_ledger(
+            result,
+            tmp_path,
+            candidate_commit="abc123",
+            timestamp="2026-08-05T21-14-03Z",
+        )
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        assert payload["identity"]["agent_config"] == agent_config
