@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import pytest
 from harness.gate import run_gate
 
 TINY_CONFIG = {"episodeSteps": 48}
@@ -113,6 +114,56 @@ class TestRunGateAgentConfig:
             (row.seed, row.candidate_seat, row.candidate_money, row.outcome)
             for row in sequential.rows
         }
+
+
+class TestChampionUnshelledCrashDetection:
+    # Teeth-check (#29): the candidate must run unshelled so a raising policy
+    # is observable as a crash instead of being coerced into a silent PASS by
+    # agent.shell.wrap. A shell-wrapped stub would NOT fail this check.
+
+    def test_raising_candidate_flags_any_candidate_crash(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        import agent.policy as policy_module
+
+        def fake_make_policy(clock: object = None, policy_config: object = None) -> object:
+            def raiser(obs: object, config: object = None) -> object:
+                raise RuntimeError("boom")
+
+            return raiser
+
+        monkeypatch.setattr(policy_module, "make_policy", fake_make_policy)
+        result = run_gate(
+            candidate="champion-unshelled",
+            opponent="builtin:pass",
+            n_seeds=1,
+            seed_base=5,
+            workers=1,
+            extra_config=TINY_CONFIG,
+        )
+        assert result.any_candidate_crash is True
+
+    def test_legal_losing_candidate_does_not_flag_a_crash(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        import agent.policy as policy_module
+
+        def fake_make_policy(clock: object = None, policy_config: object = None) -> object:
+            def passer(obs: object, config: object = None) -> object:
+                return {"farmer": ["PASS"], "hands": [], "market": []}
+
+            return passer
+
+        monkeypatch.setattr(policy_module, "make_policy", fake_make_policy)
+        result = run_gate(
+            candidate="champion-unshelled",
+            opponent="builtin:pass",
+            n_seeds=1,
+            seed_base=5,
+            workers=1,
+            extra_config=TINY_CONFIG,
+        )
+        assert result.any_candidate_crash is False
 
 
 class TestGateResultIdentity:

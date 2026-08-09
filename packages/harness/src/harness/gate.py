@@ -73,7 +73,14 @@ def run_gate(
     ``agent_config`` overrides the candidate champion's ``PolicyConfig`` (see
     ``harness.episodes.resolve_agent``); it is passed as a plain picklable
     dict so it survives ``ProcessPoolExecutor`` worker re-import.
+
+    The ``"champion-unshelled"`` candidate spec forces ``workers=1``
+    regardless of the ``workers`` argument: it resolves to a bound closure
+    from ``agent.policy.make_policy()``, which is not guaranteed picklable
+    across ``ProcessPoolExecutor`` worker re-import.
     """
+    if candidate == "champion-unshelled":
+        workers = 1
     seeds = list(range(seed_base, seed_base + n_seeds))
     rows: list[GameRow] = []
 

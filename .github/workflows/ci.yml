@@ -1,6 +1,7 @@
-# PR fast set (test-pyramid decision #3). The smoke-suite + reduced-H2H
-# strength jobs land with the CI-topology decision (#12) — this file is the
-# correctness half only.
+# PR fast set (test-pyramid decision #3), plus a path-filtered crash-only
+# strength smoke (#29, part of the CI-topology decision #12). The
+# strength-gate job is a crash-only smoke check, NOT a statistical strength
+# verdict -- see harness/strength_gate.py for why.
 name: ci
 
 on:
@@ -22,3 +23,34 @@ jobs:
       - run: uv run mypy packages/agent/src
       - run: uv run pytest -m "not slow" -q
       - run: uv run pytest -m slow -q
+
+  detect-agent-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      changed: ${{ steps.filter.outputs.changed }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: filter
+        run: |
+          BASE_SHA="${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}"
+          if ! git cat-file -e "$BASE_SHA" 2>/dev/null; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          elif git diff --name-only "$BASE_SHA" "${{ github.sha }}" -- packages/agent | grep -q .; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  strength-gate:
+    needs: detect-agent-changes
+    if: needs.detect-agent-changes.outputs.changed == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.11"
+      - run: uv sync --all-packages --dev
+      - run: time uv run python -m harness.strength_gate

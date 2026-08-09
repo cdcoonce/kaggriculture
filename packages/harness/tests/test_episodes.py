@@ -20,6 +20,10 @@ class TestResolveAgent:
         agent = resolve_agent("champion")
         assert callable(agent)
 
+    def test_champion_unshelled_spec_returns_a_fresh_callable(self) -> None:
+        agent = resolve_agent("champion-unshelled")
+        assert callable(agent)
+
     def test_zoo_prefix_resolves_a_plain_string_member(self) -> None:
         # "starter" is a BUILTIN_ANCHORS member that maps to itself.
         assert resolve_agent("zoo:starter") == "starter"
@@ -77,6 +81,10 @@ class TestResolveAgent:
     def test_agent_config_raises_for_frozen_spec(self) -> None:
         with pytest.raises(ValueError, match="champion"):
             resolve_agent("frozen:m1", {"soft_budget_seconds": 0.0})
+
+    def test_agent_config_raises_for_champion_unshelled_spec(self) -> None:
+        with pytest.raises(ValueError, match="champion"):
+            resolve_agent("champion-unshelled", {"soft_budget_seconds": 0.0})
 
 
 class TestClassifyOutcome:

@@ -54,6 +54,17 @@ def resolve_agent(spec: str, agent_config: dict[str, Any] | None = None) -> Any:
 
         policy_config = PolicyConfig(**agent_config) if agent_config is not None else None
         return wrap(make_policy(policy_config=policy_config))
+    if spec == "champion-unshelled":
+        # No agent/shell.wrap boundary -- a raw policy crash propagates to the
+        # caller instead of being coerced into a silent PASS. Exists solely so
+        # the Actions crash-only smoke job (#29) can observe real crashes;
+        # run_gate forces workers=1 for this spec since the bound closure
+        # make_policy() returns is not guaranteed picklable. agent_config is
+        # not supported here (the check above already rejected a non-None
+        # value for any spec other than "champion").
+        from agent.policy import make_policy
+
+        return make_policy()
     if spec.startswith("zoo:"):
         from harness.zoo import gate_zoo
 
