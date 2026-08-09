@@ -57,19 +57,56 @@ jobs:
             echo "agent=true" >> "$GITHUB_OUTPUT"
           fi
 
-  strength-gate:
+  # Emits the zoo's scripted member list so strength-gate can fan out one
+  # runner per opponent. Derived from `harness.zoo.SCRIPTED` at run time rather
+  # than hardcoded, so adding a zoo member adds a matrix leg automatically and
+  # the two can never drift (strength_gate.py fails loudly if they do).
+  zoo-members:
     needs: changed-paths
     if: needs.changed-paths.outputs.agent == 'true'
     runs-on: ubuntu-latest
-    # BUDGET DEVIATION (flagged in #29): the issue's <=8 min figure comes from
-    # docs/recon/ci-compute-budget.md §4, whose 1.019-1.427 eps/s Actions range
-    # was measured `starter` vs `starter` (§2.1). Measured here at workers=2,
-    # champion-vs-zoo costs 2.14x that per episode (starter/starter 1.94 eps/s
-    # vs champion/zoo 0.91 eps/s on the same box), which rescales §4 to
-    # 0.475-0.666 eps/s => 500 games = 12.5-17.5 min on a 2-vCPU runner. The
-    # 250-paired-seed count is kept as mandated and the timeout follows the
-    # measurement, so a red job means "crashed", not "ran slow". Resizing the
-    # seed count to fit 8 min is a human call -- see .afk/question.md.
+    timeout-minutes: 10
+    outputs:
+      members: ${{ steps.list.outputs.members }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.11"
+      - run: uv sync --all-packages --dev
+      - id: list
+        run: |
+          MEMBERS=$(uv run python -c "import json;from harness.zoo import SCRIPTED;print(json.dumps(sorted(SCRIPTED)))")
+          echo "members=$MEMBERS" >> "$GITHUB_OUTPUT"
+          echo "zoo members: $MEMBERS"
+
+  strength-gate:
+    needs: [changed-paths, zoo-members]
+    if: needs.changed-paths.outputs.agent == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      # One runner per opponent. `fail-fast: false` so a crash against one
+      # member does not cancel the others -- when the candidate is broken we
+      # want to know which opponents surface it, not just the first.
+      fail-fast: false
+      matrix:
+        opponent: ${{ fromJson(needs.zoo-members.outputs.members) }}
+    name: strength-gate (${{ matrix.opponent }})
+    # TOPOLOGY (revised 2026-08-09 after the serial version timed out).
+    #
+    # The issue's <=8 min budget came from docs/recon/ci-compute-budget.md §4,
+    # whose 1.019-1.427 eps/s range was measured `starter` vs `starter` (§2.1).
+    # Champion-vs-zoo costs 2.14x that per episode (1.94 eps/s vs 0.91 eps/s on
+    # the same box), so 500 games serially is 12.5-17.5 min -- and the first
+    # real run did 250 games in 13m17s and then hit the 20-minute step cap
+    # with the second opponent unfinished.
+    #
+    # Fixing that by shrinking the seed count would weaken the crash surface,
+    # and raising the timeout would put a ~27-minute gate on every
+    # agent-touching PR. Fanning out one runner per opponent keeps all 250
+    # paired seeds AND their exact seed allocation, while wall-clock drops to
+    # the slowest single opponent (~13-15 min) because each leg gets its own
+    # 2-vCPU box.
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
@@ -78,9 +115,11 @@ jobs:
           python-version: "3.11"
       - run: uv sync --all-packages --dev
       - name: Strength gate (crash-only smoke, not a promotion verdict)
-        # Bounds the games alone (see the job-level budget note); the job's own
-        # timeout adds headroom for checkout + `uv sync` on top.
+        # Bounds one opponent's games; the job timeout adds headroom for
+        # checkout + `uv sync` on top.
         timeout-minutes: 20
+        env:
+          STRENGTH_GATE_OPPONENT: ${{ matrix.opponent }}
         run: |
           # Written to a real file rather than piped to `python -`: run_gate's
           # ProcessPoolExecutor re-imports the caller's __main__ under the
@@ -111,6 +150,7 @@ jobs:
           this log.
           """
 
+          import os
           import sys
 
           TOTAL_PAIRED_SEEDS = 250
@@ -165,65 +205,67 @@ jobs:
               from harness.gate import run_gate
               from harness.zoo import SCRIPTED
 
+              # One opponent per matrix leg (see the job's topology note). The
+              # seed allocation is IDENTICAL to the serial version: the full
+              # member list and split are still computed here, and this leg
+              # takes the slice belonging to its own index. Sharding by index
+              # rather than re-deriving per-leg keeps every seed and seed_base
+              # byte-for-byte what a single-job run would have used, so a
+              # crash reproduces at the same seed either way.
               members = sorted(SCRIPTED)
               per_opponent = split_paired_seeds(TOTAL_PAIRED_SEEDS, len(members))
 
-              probe_failures = []
-              for i, name in enumerate(members):
-                  offenders = probe_unwrapped_policy(
-                      f"zoo:{name}",
-                      PROBE_SEED_BASE + i * 1_000,
-                      PROBE_SEEDS_PER_OPPONENT,
-                  )
+              name = os.environ.get("STRENGTH_GATE_OPPONENT", "")
+              if name not in members:
                   print(
-                      f"[strength-gate] probe vs {name}: "
-                      f"{2 * PROBE_SEEDS_PER_OPPONENT} unwrapped games, "
-                      f"bad_seat_statuses={offenders}"
+                      f"[strength-gate] FAIL: opponent {name!r} is not in the zoo "
+                      f"{members} -- the matrix and harness.zoo.SCRIPTED have "
+                      "drifted apart"
                   )
-                  if offenders:
-                      probe_failures.append(
-                          f"unwrapped champion policy misbehaved vs {name}: {offenders}"
-                      )
-
-              # Fail before the 500-game gate: a raising policy is masked by the
-              # safety shell there, so it would only ever surface as a timeout.
-              if probe_failures:
-                  for reason in probe_failures:
-                      print(f"[strength-gate] FAIL: {reason}")
                   return 1
+              i = members.index(name)
+              n_seeds = per_opponent[i]
 
-              crash_failures = []
-              for i, (name, n_seeds) in enumerate(zip(members, per_opponent)):
-                  result = run_gate(
-                      candidate="champion",
-                      opponent=f"zoo:{name}",
-                      n_seeds=n_seeds,
-                      seed_base=GATE_SEED_STRIDE * (i + 1),
-                      workers=WORKERS,
-                      gate_type="ci-crash-smoke",
-                  )
-                  print(
-                      f"[strength-gate] gate vs {name}: {n_seeds} paired seeds, "
-                      f"{len(result.rows)} games, "
-                      f"W{result.wins}/L{result.losses}/T{result.ties}, "
-                      f"any_candidate_crash={result.any_candidate_crash} "
-                      "(crash-only smoke -- win rate deliberately not asserted)"
-                  )
-                  if result.any_candidate_crash:
-                      crash_failures.append(f"candidate crashed vs {name}")
-
-              print(
-                  f"[strength-gate] {sum(per_opponent)} paired seeds total "
-                  f"across {members}"
+              offenders = probe_unwrapped_policy(
+                  f"zoo:{name}",
+                  PROBE_SEED_BASE + i * 1_000,
+                  PROBE_SEEDS_PER_OPPONENT,
               )
+              print(
+                  f"[strength-gate] probe vs {name}: "
+                  f"{2 * PROBE_SEEDS_PER_OPPONENT} unwrapped games, "
+                  f"bad_seat_statuses={offenders}"
+              )
+              # Fail before the gate: a raising policy is masked by the safety
+              # shell there, so it would only ever surface as a timeout.
+              if offenders:
+                  print(
+                      "[strength-gate] FAIL: unwrapped champion policy "
+                      f"misbehaved vs {name}: {offenders}"
+                  )
+                  return 1
 
-              if crash_failures:
-                  for reason in crash_failures:
-                      print(f"[strength-gate] FAIL: {reason}")
+              result = run_gate(
+                  candidate="champion",
+                  opponent=f"zoo:{name}",
+                  n_seeds=n_seeds,
+                  seed_base=GATE_SEED_STRIDE * (i + 1),
+                  workers=WORKERS,
+                  gate_type="ci-crash-smoke",
+              )
+              print(
+                  f"[strength-gate] gate vs {name}: {n_seeds} paired seeds, "
+                  f"{len(result.rows)} games, "
+                  f"W{result.wins}/L{result.losses}/T{result.ties}, "
+                  f"any_candidate_crash={result.any_candidate_crash} "
+                  "(crash-only smoke -- win rate deliberately not asserted)"
+              )
+              if result.any_candidate_crash:
+                  print(f"[strength-gate] FAIL: candidate crashed vs {name}")
                   return 1
 
               print(
-                  "[strength-gate] PASS: no candidate crashes "
+                  f"[strength-gate] PASS vs {name}: no candidate crashes "
                   "(crash-only smoke -- NOT a strength verdict)"
               )
               return 0
