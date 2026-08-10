@@ -1,7 +1,8 @@
-"""meta-clone: economy core (slice 1) plus animal husbandry mechanics -- NOT yet
-registered in the gate zoo -- pinned to Kaggle episode 90568437's converged
-ranch. See ``harness.zoo.meta_clone``'s module docstring for the full
-design. Registration (the freeze point) lands with the FEED/CARE cadence fix."""
+"""meta-clone: economy core plus animal husbandry mechanics, registered in the
+gate zoo -- pinned to Kaggle episode 90568437's converged ranch. See
+``harness.zoo.meta_clone``'s module docstring for the full design. This is
+the freeze point: ``meta_clone.py`` is now immutable, any behavior change is
+a new zoo member under a new name."""
 
 from __future__ import annotations
 
@@ -11,6 +12,7 @@ from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
+from harness.episodes import play_game
 from harness.zoo import gate_zoo
 from harness.zoo.meta_clone import COW_HERD_TARGET, SHEEP_HERD_TARGET, make_agent
 from kaggle_environments import make
@@ -93,21 +95,25 @@ class TestFactory:
         assert callable(agent)
 
 
-class TestNotYetRegistered:
-    """Registration is the FREEZE point: once ``meta-clone`` is in ``SCRIPTED``
-    the module is immutable, so it must not be registered while a known
-    behavioral gap remains (the FEED/CARE cadence xfail below). Registration
-    lands with the cadence fix, in that slice, not this one."""
+class TestRegistration:
+    def test_meta_clone_is_in_gate_zoo(self) -> None:
+        assert "meta-clone" in gate_zoo()
 
-    def test_meta_clone_is_not_registered_yet(self) -> None:
-        assert "meta-clone" not in gate_zoo()
+    def test_meta_clone_factory_is_callable(self) -> None:
+        roster = gate_zoo()
+        factory = roster["meta-clone"]
+        assert callable(factory)
 
-    def test_registering_would_not_breach_the_roster_cap(self) -> None:
-        # The parent issue's "with this member it reaches 5" was stale
-        # arithmetic: the roster is already at 9, so meta-clone brings it to
-        # exactly the cap of 10 and the NEXT member would breach it. The
-        # registering slice inherits that as a hard constraint.
-        assert len(gate_zoo()) + 1 <= 10
+    def test_calling_the_factory_returns_a_callable_agent(self) -> None:
+        roster = gate_zoo()
+        factory = roster["meta-clone"]
+        agent = factory()
+        assert callable(agent)
+
+    def test_registering_did_not_breach_the_roster_cap(self) -> None:
+        # meta-clone brought the roster from 9 to exactly the cap of 10 --
+        # any further member breaches it, a constraint for whoever's next.
+        assert len(gate_zoo()) <= 10
 
 
 class TestDeterminism:
@@ -282,18 +288,6 @@ class TestFeedAndCareCadence:
     not a hardcoded 17, so the assertion stays honest if an animal is lost."""
 
     @pytest.mark.slow
-    @pytest.mark.xfail(
-        strict=True,
-        reason=(
-            "Known late-game dispatch shortfall, measured 2026-08-10: FEED/CARE "
-            "run 1-3 short of the 17-head herd on days 20, 21, 22, 23, 24 and 26 "
-            "(e.g. day 20: herd 17, feeds 16, cares 15). The herd never shrinks "
-            "and the money floor is unaffected, so this is a ranch-crew dispatch "
-            "gap, not a survival or economy defect. Owned by the follow-up "
-            "cadence+registration slice; strict=True so that slice MUST delete "
-            "this marker rather than leave it masking a fixed test."
-        ),
-    )
     def test_feed_and_care_cover_the_whole_herd_daily_through_day_28(
         self, full_game_env: object
     ) -> None:
@@ -362,10 +356,11 @@ def live_agent_package() -> Iterator[None]:
         purge()
 
 
-# NOTE: the champion-matchup crash-free sweep (play_game vs "zoo:meta-clone",
-# seeds 0-4, both seats) lived here in the original single-slice attempt. It
-# addresses the fixture through its ZOO SPEC, which only resolves once the
-# member is registered in SCRIPTED -- and registration is deliberately deferred
-# to the cadence+registration slice (see TestNotYetRegistered above). The sweep
-# moves with it rather than being weakened here; its assertions are unchanged
-# and carried verbatim in that slice's acceptance criteria.
+class TestChampionMatchup:
+    @pytest.mark.slow
+    def test_champion_vs_meta_clone_completes_crash_free(self, live_agent_package: None) -> None:
+        for seat in (0, 1):
+            for seed in range(5):
+                row = play_game(seed, seat, "champion", "zoo:meta-clone")
+                assert not row.candidate_crashed
+                assert not row.opponent_crashed
