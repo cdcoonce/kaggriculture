@@ -66,6 +66,46 @@ class TestResolveAgent:
         resolve_agent("champion")
         assert captured["policy_config"] is None
 
+    def test_champion_unshelled_spec_returns_a_fresh_callable(self) -> None:
+        agent = resolve_agent("champion-unshelled")
+        assert callable(agent)
+
+    def test_champion_unshelled_forwards_agent_config_as_policy_config(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        import agent.policy as policy_module
+
+        captured: dict[str, object] = {}
+
+        def fake_make_policy(clock: object = None, policy_config: object = None) -> object:
+            captured["policy_config"] = policy_config
+            return lambda obs, config=None: {"farmer": ["PASS"], "hands": [], "market": []}
+
+        monkeypatch.setattr(policy_module, "make_policy", fake_make_policy)
+        resolve_agent("champion-unshelled", {"soft_budget_seconds": 0.0})
+        assert captured["policy_config"] == policy_module.PolicyConfig(soft_budget_seconds=0.0)
+
+    def test_champion_unshelled_propagates_exceptions_unlike_champion(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # The whole point of "champion-unshelled": no agent.shell.wrap
+        # boundary, so a raising policy call surfaces instead of degrading
+        # to PASS the way the shelled "champion" spec would.
+        import agent.policy as policy_module
+
+        def raising_policy(obs: object, config: object = None) -> object:
+            raise RuntimeError("boom")
+
+        monkeypatch.setattr(
+            policy_module, "make_policy", lambda clock=None, policy_config=None: raising_policy
+        )
+        unshelled = resolve_agent("champion-unshelled")
+        with pytest.raises(RuntimeError, match="boom"):
+            unshelled(None)
+
+        shelled = resolve_agent("champion")
+        assert shelled(None) == {"farmer": ["PASS"], "hands": [], "market": []}
+
     def test_agent_config_raises_for_builtin_spec(self) -> None:
         with pytest.raises(ValueError, match="champion"):
             resolve_agent("builtin:starter", {"soft_budget_seconds": 0.0})

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import pytest
 from harness.gate import run_gate
 
 TINY_CONFIG = {"episodeSteps": 48}
@@ -152,3 +153,73 @@ class TestGateResultIdentity:
             extra_config=TINY_CONFIG,
         )
         assert result.agent_config is None
+
+
+class TestRunGateChampionUnshelled:
+    def test_forces_workers_to_1_even_when_requested_higher(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # A bound closure from make_policy() isn't guaranteed picklable, so
+        # this spec must never reach the ProcessPoolExecutor branch.
+        import harness.gate as gate_module
+
+        def exploding_pool(*args: object, **kwargs: object) -> object:
+            raise AssertionError("ProcessPoolExecutor must not be constructed")
+
+        monkeypatch.setattr(gate_module, "ProcessPoolExecutor", exploding_pool)
+        result = run_gate(
+            candidate="champion-unshelled",
+            opponent="builtin:pass",
+            n_seeds=1,
+            seed_base=5,
+            workers=8,
+            extra_config=TINY_CONFIG,
+        )
+        assert result.any_candidate_crash is False
+
+    def test_raising_candidate_trips_any_candidate_crash(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # Teeth-check (issue #29): the raw, unshelled policy must let a
+        # crash surface as a real ERROR status, not get swallowed the way
+        # agent.shell.wrap's never-raise boundary would swallow it.
+        import agent.policy as policy_module
+
+        def raising_policy(obs: object, config: object = None) -> object:
+            raise RuntimeError("boom")
+
+        monkeypatch.setattr(
+            policy_module, "make_policy", lambda clock=None, policy_config=None: raising_policy
+        )
+        result = run_gate(
+            candidate="champion-unshelled",
+            opponent="builtin:pass",
+            n_seeds=1,
+            seed_base=5,
+            workers=1,
+            extra_config=TINY_CONFIG,
+        )
+        assert result.any_candidate_crash is True
+
+    def test_legal_losing_candidate_does_not_trip_any_candidate_crash(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # Companion to the crash teeth-check: a candidate that never raises
+        # and only ever returns a legal (if losing) move must pass clean.
+        import agent.policy as policy_module
+
+        def passing_policy(obs: object, config: object = None) -> object:
+            return {"farmer": ["PASS"], "hands": [], "market": []}
+
+        monkeypatch.setattr(
+            policy_module, "make_policy", lambda clock=None, policy_config=None: passing_policy
+        )
+        result = run_gate(
+            candidate="champion-unshelled",
+            opponent="builtin:pass",
+            n_seeds=1,
+            seed_base=5,
+            workers=1,
+            extra_config=TINY_CONFIG,
+        )
+        assert result.any_candidate_crash is False
