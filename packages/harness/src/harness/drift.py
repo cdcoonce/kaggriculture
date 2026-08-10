@@ -99,10 +99,12 @@ EXPECTED_MARKET_PARAMS: dict[str, dict[str, object]] = {
     },
 }
 
-# Transcribed from #11's resolution comment and the workspace's resolved lock
-# (kaggle-environments==1.32.4 via the >=1.32.4 constraint). NOT from #24 -- #24 pins
-# ==1.32.6 and will bump this constant when it lands (#24 AC 2).
-EXPECTED_ENGINE_VERSION = "1.32.4"
+# Pinned to 1.32.6 per #24's decision on #42's verification trail: ladder probe
+# (episodes 91106026/91105152, module_version=1.32.6, townCenterSellInterval=24),
+# source-level diff (TOWN_CENTER_DEMAND_SCHEDULE removed, MARKET_PARAMS unchanged),
+# and byte-exact local reproduction (0/1438 transitions mismatched on each of two
+# committed 1.32.6 fixtures).
+EXPECTED_ENGINE_VERSION = "1.32.6"
 
 
 @dataclass(frozen=True)
