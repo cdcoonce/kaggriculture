@@ -671,6 +671,23 @@ def make_agent() -> Callable[[Any], dict[str, Any]]:
 
         unit_positions: list[Position] = [tuple(farm["farmer"])] + [tuple(h) for h in farm["hands"]]
 
+        # The ranch crew: the low unit indices, sized off the herd (see
+        # ``RANCH_ANIMALS_PER_UNIT``). Only these units get pulled onto
+        # pasture work, so the rest never yo-yo between the NW pasture and
+        # an NE crop tile. Computed up front (not just at dispatch time)
+        # so the assignment-cleanup pass below can also consult it, to
+        # release a non-ranch carrier once a ranch one frees up.
+        herd_to_service = animals_placed + owned_unplaced
+        ranch_size = (
+            min(
+                len(unit_positions),
+                max(RANCH_CREW_MIN, -(-herd_to_service // RANCH_ANIMALS_PER_UNIT)),
+            )
+            if any(n in PASTURE_NEEDS for n in need_by_pos.values())
+            else 0
+        )
+        ranch_idxs = range(ranch_size)
+
         def _inv_of(idx: int) -> dict[str, Any]:
             inv = inventories[idx] if idx < len(inventories) else {}
             return inv if isinstance(inv, dict) else {}
@@ -766,6 +783,39 @@ def make_agent() -> Callable[[Any], dict[str, Any]]:
                 and shed.get(assigned_item, 0) <= 0
             ):
                 del assignments[idx]
+                continue
+            # A unit still travelling toward a carry-item pasture chore is
+            # released once some OTHER idle unit -- holding the same item --
+            # is strictly closer to that same target. Without this, the
+            # persistence rule above (right for locality in general, so a
+            # unit already working an animal keeps it) instead locks in
+            # whichever carrier happened to be nearest at the moment the
+            # need first appeared, for the rest of the day: a farmer that
+            # wandered off on crop work before FEED broke out, or a distant
+            # crop hand pressed into duty because no ranch member held any
+            # WHEAT yet (the whole-crew carrier search below exists for that
+            # bootstrap case), can end up walking the long way across the
+            # board while a ranch hand that frees up right next to the same
+            # animal sits idle rather than take over. Measured, this cost
+            # 1-3 of the day's FEED/CARE rounds on several late-game days.
+            # Scoped to units not yet AT the tile (once there, it is doing
+            # the actual chore, not walking) so this never interrupts real
+            # progress, only a walk that a closer alternative supersedes.
+            if (
+                assigned_need in PASTURE_NEEDS
+                and assigned_item is not None
+                and unit_positions[idx] != assignments[idx]
+            ):
+                tx, ty = assignments[idx]
+                my_dist = abs(unit_positions[idx][0] - tx) + abs(unit_positions[idx][1] - ty)
+                if any(
+                    r != idx
+                    and r not in assignments
+                    and _inv_of(r).get(assigned_item, 0) > 0
+                    and abs(unit_positions[r][0] - tx) + abs(unit_positions[r][1] - ty) < my_dist
+                    for r in range(len(unit_positions))
+                ):
+                    del assignments[idx]
         committed = set(assignments.values())
 
         # Pasture-first dispatch pass (issue #27). The per-unit loop below
@@ -798,20 +848,6 @@ def make_agent() -> Callable[[Any], dict[str, Any]]:
                 key=lambda p: (-unfed_risk.get(p, 0), TILE_INDEX.get(p, 0)),
             )
         ]
-        # The ranch crew: the low unit indices, sized off the herd (see
-        # ``RANCH_ANIMALS_PER_UNIT``). Only these units get pulled onto
-        # pasture work, so the rest never yo-yo between the NW pasture and
-        # an NE crop tile.
-        herd_to_service = animals_placed + owned_unplaced
-        ranch_size = (
-            min(
-                len(unit_positions),
-                max(RANCH_CREW_MIN, -(-herd_to_service // RANCH_ANIMALS_PER_UNIT)),
-            )
-            if pasture_queue
-            else 0
-        )
-        ranch_idxs = range(ranch_size)
         for pos in pasture_queue:
             if pos in committed or not unassigned_idxs:
                 continue
