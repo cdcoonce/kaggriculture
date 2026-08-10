@@ -22,6 +22,7 @@ from harness.zoo.index_front_runner import make_agent as _make_index_front_runne
 from harness.zoo.land_rush_hoarder import make_agent as _make_land_rush_hoarder
 from harness.zoo.melon_dumper import make_agent as _make_melon_dumper
 from harness.zoo.melon_rusher import make_agent as _make_melon_rusher
+from harness.zoo.meta_clone import make_agent as _make_meta_clone
 from harness.zoo.public_baseline_approx import make_agent as _make_public_baseline_approx
 from harness.zoo.wheat_spam import make_agent as _make_wheat_spam
 
@@ -44,6 +45,7 @@ SCRIPTED: dict[str, Agent] = {
     "land-rush-hoarder": _make_land_rush_hoarder,
     "fert-market-crasher": _make_fert_market_crasher,
     "public-baseline-approx": _make_public_baseline_approx,
+    "meta-clone": _make_meta_clone,
 }
 
 
