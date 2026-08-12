@@ -86,6 +86,8 @@ Wheat spikes fast on scarcity (good to _buy_ early if short on feed, bad if you'
 
 ### 2c. Town absorption capacity (expected, over the shop-unlock RNG)
 
+> **Engine-version note (2026-08-11):** the numbers in this section are 1.32.4-era and remain correct for that engine; for `kaggle-environments>=1.32.6` they are superseded by the addendum at the end of this section (flat town-center law).
+
 Shop unlock order is randomized (`rng.choice` among remaining shops every 3 days); modeled via the hypergeometric expectation — a product's demand ramps in proportion to `(shops unlocked so far)/8`. Town center scales 1x→2x (day 10)→4x (day 20).
 
 | Product    | # supporting shops | Full post-unlock demand/day | Expected 30-day cumulative town demand | −25%-band threshold | **Sustainable combined (both players) sell/day** |
@@ -102,6 +104,149 @@ Shop unlock order is randomized (`rng.choice` among remaining shops every 3 days
 MELON is not sold by _any_ town shop — its only town sink is the town-center's flat per-product draw. Combined with the tightest glut floor (158 units) of any product, melon is entirely dependent on selling into a market the opponent also has full access to, with almost no external demand cushion. This is the game's most fragile high-value product.
 
 Wheat and egg's "sustainable" figures above (~81 and ~59/day combined) look small only relative to their true ceiling — since their glut curve is log-bounded, in practice you can sell far more than this and stay well above the −25% band for the whole season; the number shown is just the volume that keeps price _exactly flat_ against town + opponent activity, not the volume before things go wrong.
+
+### Addendum (2026-08-11): §2c under 1.32.6's flat town-center law
+
+Recomputed from Part A's verified mechanics. `TOWN_CENTER_PRODUCTS` draw is **uniform
+across all 8 non-fertilizer products** (same flat `-1`, or under 1.32.4 the same
+schedule multiplier, applied identically to each) — only the town-**shop** component
+of total town demand is product-specific. `turnsPerDay=24` in both eras, so:
+1.32.4 (interval 12) ticks the town center **2×/day**; 1.32.6 (interval 24) ticks it
+**1×/day**, flat for the whole 30-day season.
+
+#### (a) Town-center-only absorption per product per day, by game phase
+
+| Game phase | Days  | 1.32.4 multiplier (§ Part A point 2) | 1.32.4 ticks/day | **1.32.4 units/day/product** | **1.32.6 units/day/product** | Drop        |
+| ---------- | ----- | ------------------------------------ | ---------------- | ---------------------------- | ---------------------------- | ----------- |
+| Early      | 0–9   | 1×                                   | 2                | **2**                        | **1**                        | 2× (−50%)   |
+| Mid        | 10–19 | 2×                                   | 2                | **4**                        | **1**                        | 4× (−75%)   |
+| Late       | 20–29 | 4×                                   | 2                | **8**                        | **1**                        | 8× (−87.5%) |
+
+This applies identically to WHEAT, CARROT, TOMATO, STRAWBERRY, MELON, EGG, MILK, WOOL
+(FERTILIZER is never a `TOWN_CENTER_PRODUCTS` member — never town-consumed at all,
+either version). The season-long **8× late-game drop is the headline number** from
+`#42` and is reproduced here directly from source (Part A points 1–4), not merely
+restated.
+
+#### (b) Per-product 30-day cumulative town demand (shop + town-center combined)
+
+Shop component held fixed at the existing §2c "Expected 30-day cumulative town
+demand" value minus its town-center contribution. Town-center's own 30-day
+contribution is uniform per product: 1.32.4 = `2×10 + 4×10 + 8×10 = 140` units
+(matches §2c's MELON row exactly, MELON's _only_ town sink); 1.32.6 = `1×30 = 30`
+units flat. So: **new total = old total − 110**, per product, exactly (only the
+uniform town-center term moved; the shop term is Part-A-point-6 unchanged).
+
+| Product    | Shop-only demand/30d (derived: old total − 140) | Old total (1.32.4, §2c as-is) | New total (1.32.6) | Δ    | % of old total lost |
+| ---------- | ----------------------------------------------- | ----------------------------- | ------------------ | ---- | ------------------- |
+| WHEAT      | 495                                             | 635                           | **525**            | −110 | −17.3%              |
+| CARROT     | 297                                             | 437                           | **327**            | −110 | −25.2%              |
+| TOMATO     | 198                                             | 338                           | **228**            | −110 | −32.5%              |
+| STRAWBERRY | 396                                             | 536                           | **426**            | −110 | −20.5%              |
+| MELON      | 0                                               | 140                           | **30**             | −110 | **−78.6%**          |
+| EGG        | 198                                             | 338                           | **228**            | −110 | −32.5%              |
+| MILK       | 297                                             | 437                           | **327**            | −110 | −25.2%              |
+| WOOL       | 198                                             | 338                           | **228**            | −110 | −32.5%              |
+
+**MELON absorbs the change hardest by far** (−78.6% of its total season town demand,
+vs. −17 to −33% for everything else) because it has zero supporting shops (§2c: "#
+supporting shops = 0") — its only town sink was ever the town-center draw, and that
+draw just lost most of its late-season strength. This sharpens, with a number, the
+existing §2c prose calling melon "the game's most fragile high-value product."
+
+**What this table does _not_ attempt to recompute**: the existing §2c "Sustainable
+combined (both players) sell/day" column (the −25%-band-safe volume derived from
+`town_demand.py`). The derivation script is committed at
+`tools/recon-scripts/town_demand.py`, but it targets the legacy law — it reads the
+removed `TOWN_CENTER_DEMAND_SCHEDULE` off the engine module at runtime and crashes
+under 1.32.6 (the graceful version guard and the parity-checker rework are #43; the
+flat-law re-derivation itself is the open item in (f) below). Re-deriving
+"sustainable sell/day" precisely needs that script re-run against the new flat law,
+not hand-arithmetic. Flagged as an open item below rather than asserted with
+borrowed precision.
+
+#### (c) The per-player planning convention, carried through
+
+Confirmed from existing §2c usage: every "~X each" figure in the current table is
+**combined ÷ 2** (e.g. WHEAT "81/day (~40 each)" = 81/2; MELON "7/day (~3.65 each)" =
+7/2), i.e. the strategy plans each player's own sustainable volume as half the
+two-player combined figure, then (per `docs/recon/economy.md:210`) **halves again** if
+the opponent is also concentrating in the same good. This addendum carries the same
+convention: halve part (a)'s and (b)'s combined numbers for a single player's planning
+baseline; a contested good needs a further halving on top, unchanged from the existing
+convention.
+
+#### (d) Endgame liquidation-pacing implications — the delta that matters
+
+The strategy accumulates inventory and liquidates late (days 20–29, the "late" band in
+(a)). Under 1.32.4, late game was the town center's _strongest_ window (4× multiplier —
+Part A point 2); under 1.32.6 it is flat at the _weakest_ setting the old schedule ever
+had. Per product, over the 10-day late window (days 20–29):
+
+- **1.32.4**: 8 units/day × 10 days = **80 units combined**, **40 units per player**,
+  town-center-only.
+- **1.32.6**: 1 unit/day × 10 days = **10 units combined**, **5 units per player**,
+  town-center-only.
+- **Delta: −70 units/product combined (−35/product per player) over exactly the
+  window the accumulate-then-liquidate plan depends on** — an 87.5% cut to the one
+  demand source that was previously _increasing_ to meet late-game supply.
+
+Practically: a build that planned to dump accumulated inventory in the last third of
+the season, expecting the town center to have ramped up to absorb it (as it did under
+1.32.4), will instead face a town center that never left its lowest gear. Inventory
+that would previously have cleared into town-center demand now sits on the market,
+extending glut exposure and pushing more of the liquidation onto the opponent-shared
+market curve (§2a) for longer. This does not change which products are fragile (§2c's
+melon/strawberry framing already correctly identifies them) — it makes the fragile
+window _longer and deeper_ than the existing model assumed, and removes the specific
+mechanism (the schedule's late-game ramp) that the old model was counting on to help
+absorb a late dump.
+
+#### (e) What this does NOT change
+
+- **`MARKET_PARAMS` / the price-impact math in §2a and §2b is untouched** — byte-
+  identical between 1.32.4 and 1.32.6 (`#42`, comment 2026-08-08T20:48:34Z; independently
+  cross-checked against the installed 1.32.6 source in Part A point 7). Every −25%/−50%/
+  floor threshold in §2a and every scarcity threshold in §2b stands as-is.
+- **Town-shop consumption law** (§2c's "# supporting shops" and "Full post-unlock
+  demand/day" columns) — unchanged (Part A point 6); only the town-center term inside
+  each product's _combined_ total demand moved.
+- **Everything outside §2c** — labor economics (§3), capital/land payback (§4), opening
+  build orders (§5), and the dominant-strategy ranking (§6) rest on per-tile/per-action
+  economics and glut-side price math, neither of which this engine change touches. They
+  do not need re-derivation from this addendum alone (though §6's ranking rationale
+  should be read alongside (d) above for endgame sequencing).
+- **Do not re-cite** the retracted 275–573/719 per-fixture mismatch counts as evidence
+  for any of the above (Part A, citation-law note).
+
+#### (f) Open questions for the champion (not answered here — champion-work items)
+
+- **Re-run the actual `town_demand.py` / equivalent absorption model** against the flat
+  1.32.6 law to get a real "sustainable combined sell/day" replacement for §2c's
+  column, rather than this addendum's hand-derived cumulative-demand delta. `#42`
+  (comment 2026-08-08T20:48:34Z) already flags `tools/parity/common_checks.py` as
+  hard-`ImportError`ing on the removed `TOWN_CENTER_DEMAND_SCHEDULE` — that needs a
+  version-aware fix before any tooling can recompute this cleanly.
+- **Does M2b's throttle/pacing logic survive the change?** `#42` (issue body and
+  comment 2026-08-08T21:00:17Z) explicitly names this as a champion-work assessment,
+  not resolved here. Given (d), any pacing tuned against the old late-game 4×
+  town-center ramp is tuned against a demand curve that no longer exists. (The
+  throttle ships in `packages/agent` per M2b's submission description — sub
+  55358390: opponent-volume estimator, decaying contested melon floor 195→120,
+  day-27 liquidation ramp, hour-4–9 sell blocklist. Assessing it against (d) is
+  champion work, out of scope for this doc.)
+- **Sell-timing / tick-arbitrage recalibration.** `docs/recon/engine-mechanics.md`
+  (lines 445–458) documents a "town-tick price-timing arbitrage" tied to the shared
+  `townShopSellInterval`(4)/`townCenterSellInterval` cadence (previously both firing
+  together every 12 steps since 12 is a multiple of 4). At interval 24, the shared
+  tick now fires every 24 steps instead of 12 — same "multiple of 4" property holds,
+  but half as often. Whether this materially changes the value of timing sells around
+  the tick is unassessed here. [UNVERIFIED]
+- **Realized (not expected) shop-unlock draws under the new law.** §2c's existing
+  caveat that the shop ramp is a hypergeometric _expectation_, not a specific seed's
+  draw, applies unchanged and compounds with the now-flat town-center term — a
+  particularly unlucky (late) shop-unlock draw combined with the flat town-center law
+  has no late-game ramp to fall back on the way 1.32.4 did.
 
 ---
 

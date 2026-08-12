@@ -555,6 +555,138 @@ CARROT <entire_stack>` regardless of current market price; zero price-awareness,
 
 ---
 
+## Addendum (2026-08-11): town-center consumption law, 1.32.4 → 1.32.6
+
+**Version history** (all engine-verified from replay `module_version`, `#42` comment
+at 2026-08-08T20:43:39Z):
+
+| Date     | Evidence                                | `module_version` | `townCenterSellInterval` |
+| -------- | --------------------------------------- | ---------------- | ------------------------ |
+| Aug 5    | probe ep 90301508                       | 1.32.4           | 12                       |
+| ~Aug 6–7 | M1 fixture ep 90563134                  | 1.32.5           | 12                       |
+| ~Aug 7–8 | M2a/M2b fixtures ep 90826392 / 91087847 | 1.32.6           | 24                       |
+| Aug 8    | live ladder eps 91106026 / 91105152     | **1.32.6**       | **24**                   |
+
+Live server config in full (`#42`, same comment): `townCenterSellInterval=24`,
+`townShopSellInterval=4`, `townShopUnlockInterval=3`, `episodeSteps=720`,
+`turnsPerDay=24` (⇒ 30-day season, `day = step // 24`), `boardSize=10`,
+`startingMoney=3000`, `shedCapacity=100`, `maxMarketOrdersPerTurn=10`,
+`weedSpawnChance=0.005`, `farmHandCostMult=1`.
+
+**What changed — source-verified on both sides: the installed `1.32.6` package, and
+the `1.32.4` wheel fetched from PyPI (2026-08-11)** (`kaggriculture.py`,
+`_town_consume`, lines 715–736 — quoted verbatim):
+
+```python
+def _town_consume(env, state, step):
+    obs0 = state[0].observation
+    market = obs0.market
+    town = obs0.town
+    cfg = env.configuration
+    shop_interval = max(1, int(get(cfg, "townShopSellInterval", 4)))
+    center_interval = max(1, int(get(cfg, "townCenterSellInterval", 24)))
+
+    if step % shop_interval == 0:
+        # unlocked_shops may list the same shop more than once (shops are drawn
+        # with replacement); each instance consumes independently.
+        for shop_name in town.get("unlocked_shops", []):
+            products = SHOPS[shop_name]
+            multiplier = 2 if len(products) == 1 else 1
+            for item in products:
+                market["inventory"][item] -= multiplier
+
+    if step % center_interval == 0:
+        for item in TOWN_CENTER_PRODUCTS:
+            market["inventory"][item] -= 1
+
+    _refresh_prices(market)
+```
+
+`TOWN_CENTER_PRODUCTS = [p for p in PRODUCTS if p != "FERTILIZER"]` (line 101) — the
+8 non-fertilizer products: WHEAT, CARROT, TOMATO, STRAWBERRY, MELON, EGG, MILK, WOOL.
+`grep -n "TOWN_CENTER_DEMAND_SCHEDULE" kaggriculture.py` on the installed `1.32.6`
+package returns **zero matches** — the constant is gone, confirmed directly (not just
+via `#42`'s narrative).
+
+1. **The day-scaled schedule is removed.** `#42` (comment at 2026-08-08T20:48:34Z)
+   quotes the **1.32.4 value verbatim**: `TOWN_CENTER_DEMAND_SCHEDULE = [(20, 4), (10, 2),
+(0, 1)]`. In `1.32.6` this constant does not exist; the `if step % center_interval
+== 0` block above simply decrements every `TOWN_CENTER_PRODUCTS` item by a flat `1`,
+   with no lookup, no day argument, no scaling of any kind.
+
+2. **Orientation of the removed schedule — source-verified against the 1.32.4 wheel**
+   (fetched from PyPI 2026-08-11). 1.32.4 carries `TOWN_CENTER_DEMAND_SCHEDULE =
+[(20, 4), (10, 2), (0, 1)]` (`kaggriculture.py:104`), consumed in `_town_consume`
+   as `center_mult = next(m for threshold, m in TOWN_CENTER_DEMAND_SCHEDULE if day >=
+threshold)` (line 723): day ≥ 20 → 4×, day ≥ 10 → 2×, else 1× — town-center demand
+   **ramped up** toward the end of the season under 1.32.4. Two pre-existing
+   artifacts corroborate the same orientation: `docs/recon/economy.md` §2c prose
+   ("Town center scales 1x→2x (day 10)→4x (day 20)") and #42's late-game 8×/day
+   arithmetic. 1.32.6 removes this ramp entirely, flattening the curve at the
+   _lowest_ point the old schedule ever reached. The same 1.32.4 source read also
+   confirms the in-code `townCenterSellInterval` default of 12 in `_town_consume`
+   (vs 24 in 1.32.6) — point 3's doubling holds at the code level, not just in
+   server config.
+
+3. **`townCenterSellInterval` default doubled 12 → 24**, both in the live server config
+   (table above) and in the package's own code-level default (`get(cfg,
+"townCenterSellInterval", 24)` at line 721, vs. the `1.32.4`-era default of 12 per
+   `docs/recon/economy.md:11` and `docs/recon/engine-mechanics.md:448`).
+
+4. **Cadence is a raw-step modulo, not a day-boundary check — pin this down precisely.**
+   `step` (line 897, `step = get(obs0, "step", 0)`) is the global turn counter,
+   incremented once per `interpreter()` call (once per `env.step()`), independent of
+   `turnsPerDay`. `center_interval` fires on `step % center_interval == 0` against that
+   raw counter. **It only reads as "once per day" because `turnsPerDay` is _also_
+   configured to 24 right now** — `step % 24 == 0` happens to coincide with day
+   boundaries (`day = step // turns_per_day`, line 898) purely because both constants
+   share the value 24. If `turnsPerDay` and `townCenterSellInterval` ever diverge, the
+   tick decouples from day boundaries; nothing in the code ties them together. Under
+   1.32.4 (interval 12, turnsPerDay 24), the tick fired twice per day — a "half-day"
+   cadence, not a daily one, matching `#42`'s own "1/half-day" phrasing.
+
+5. **Unconditional, no threshold, no floor.** The flat `-1` (and the old schedule's
+   multiplier draw) apply on every qualifying tick regardless of current town-center
+   stock — there is no `if market["inventory"][item] > 0` guard anywhere in
+   `_town_consume`, and `market["inventory"][item]` itself has no floor clamp (only the
+   _derived price_, via `market_price()` → `max(PRICE_FLOOR, ...)`, line 193, is
+   floored). In principle inventory can go negative; in practice `MARKET_I0 = 10000`
+   (line 38) as the reference stock level makes this a non-issue at any realistic
+   season length.
+
+6. **Town-SHOP consumption is unaffected.** `SHOPS` composition, `townShopSellInterval`
+   (unchanged at 4 across the whole `1.32.4`→`1.32.6` window per `#42`'s version table),
+   `townShopUnlockInterval` (3), and the "2× for single-product shop, else 1×" rule
+   (line 728) are all present, unchanged, in `1.32.6` and match the pre-existing
+   `docs/recon/economy.md` shop model exactly (cross-checked below). `#42`'s audit only
+   ever flags `townCenterSellInterval` as a changed config value — nothing in that
+   thread, or in this source read, indicates the shop law moved.
+
+7. **Price/market law untouched.** `MARKET_PARAMS` (lines 41–51 of `1.32.6`) is
+   byte-identical to the values already recorded in `docs/recon/economy.md` §2a/§2b
+   (base price and `T` per product match exactly — WHEAT 25/400, CARROT 35/450, TOMATO
+   60/200, STRAWBERRY 120/100, MELON 250/300, EGG 50/332, MILK 160/122, WOOL 200/105,
+   FERTILIZER 100/200). `#42` (comment at 2026-08-08T20:48:34Z) independently reports a
+   direct diff between `1.32.4` and `1.32.6` `MARKET_PARAMS` as empty (all 9 products ×
+   7 fields). Price law re-verified 0/6,480 across all four replay fixtures under
+   1.32.4. What changed is **inventory drain speed**, not the price formula that
+   consumes it.
+
+**Citation-law note — do not cite the following as drift evidence.** `#42`'s own body
+and its first comment originally cited "275–573 of 719 transitions mismatch per
+fixture" as town-law-drift evidence. `#42`'s second comment (2026-08-08T20:48:34Z)
+retracts that: `town_consumption_law_check` is PASS-only-episode-scoped and cannot
+distinguish real market trades from town consumption in the three own-episode
+fixtures (each holds 1,438 real trades), so those mismatch counts are **confounded**
+and must not be used as evidence. The only clean fixture (the 1.32.4 probe,
+PASS-only) replays 0/719 town-law mismatches under matching local 1.32.4 — consistent
+with, not contradicting, everything above. The actual verification for this addendum
+is the source-level diff (points 1–7) plus the independent byte-exact parity pass
+(`#42`, comment 2026-08-08T21:00:17Z: 0/1,440 mismatched transitions reproducing both
+1.32.6-recorded fixtures under local `1.32.6`).
+
+---
+
 ## Doc vs. Code discrepancies
 
 Overall the README/AGENTS.md pair is _more_ precise than typical competition docs — most
