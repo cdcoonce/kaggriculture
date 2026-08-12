@@ -226,3 +226,146 @@ def test_wheat_rush_tiles_caps_the_wheat_planting_zone() -> None:
     # never fires -- proof the field actually gates plan_day's wheat line.
     action = make_policy(policy_config=PolicyConfig(wheat_rush_tiles=0))(raw_obs(), None)
     assert not any(order[:2] == ["BUY_SEED", "WHEAT"] for order in action["market"])
+
+
+# --- M2c: two-tier shed valve + regime-conditional floors (kaggriculture#59) -
+#
+# The fix for #59: a floor that never yields against a floor-free ranch
+# dumper holds a crashed product's backlog forever, backing the shared
+# 100-unit shed up to full -- and the engine SILENTLY DESTROYS anything
+# DROPped (including the automatic end-of-day sweep) once the shed is full,
+# so healthy wheat/egg income evaporates right along with the crashed
+# backlog. policy.decide computes a shed-fill valve tier from view.shed each
+# turn and owns a pair of WOOL/MILK crash latches (agent.state.
+# ProductCrashLatch) that permanently waive the regime floor once a crash
+# has run long enough.
+
+
+def _sells(action: dict[str, object]) -> dict[str, int]:
+    market = action["market"]
+    assert isinstance(market, list)
+    return {o[1]: o[2] for o in market if o[0] == "SELL"}
+
+
+def test_config_none_and_shed_capacity_100_produce_the_same_valve_tier() -> None:
+    obs = raw_obs(step=6 * 24)
+    obs["private"]["shed"] = {"WOOL": 60}
+    obs["market"]["prices"]["WOOL"] = 1.0
+    action_none = make_policy()(obs, None)
+    action_100 = make_policy()(obs, {"shedCapacity": 100})
+    assert _sells(action_none).get("WOOL") == _sells(action_100).get("WOOL")
+
+
+def test_shed_capacity_scales_the_valve_thresholds() -> None:
+    # 30 units in a default 100-unit shed sits below the 55-unit soft
+    # threshold (tier 0, floor still applies) -- but the same 30 units in a
+    # config-reported 50-unit shed is 60% full, above the scaled 27-unit
+    # soft threshold (tier 1, floor waived).
+    obs = raw_obs(step=6 * 24)
+    obs["private"]["shed"] = {"WOOL": 30}
+    obs["market"]["prices"]["WOOL"] = 1.0  # far under the $200 floor, unlatched
+
+    default_action = make_policy()(obs, None)
+    assert "WOOL" not in _sells(default_action)
+
+    scaled_action = make_policy()(obs, {"shedCapacity": 50})
+    assert "WOOL" in _sells(scaled_action)
+
+
+def test_valve_soft_cap_config_reaches_build_orders() -> None:
+    obs = raw_obs(step=6 * 24)
+    obs["private"]["shed"] = {"WOOL": 20}
+    obs["market"]["prices"]["WOOL"] = 1.0
+    config = PolicyConfig(valve_soft_threshold=10, valve_hard_threshold=999_999, valve_soft_cap=3)
+    action = make_policy(policy_config=config)(obs, None)
+    assert _sells(action).get("WOOL") == 3
+
+
+def test_wool_floor_config_reaches_build_orders() -> None:
+    obs = raw_obs(step=6 * 24)
+    obs["private"]["shed"] = {"WOOL": 4}
+    obs["market"]["prices"]["WOOL"] = 90.0  # below the $200 default, above an $80 override
+    action = make_policy(policy_config=PolicyConfig(wool_floor=80.0))(obs, None)
+    assert "WOOL" in _sells(action)
+
+
+def test_milk_floor_config_reaches_build_orders() -> None:
+    obs = raw_obs(step=6 * 24)
+    obs["private"]["shed"] = {"MILK": 4}
+    obs["market"]["prices"]["MILK"] = 50.0  # below the $120 default, above a $40 override
+    action = make_policy(policy_config=PolicyConfig(milk_floor=40.0))(obs, None)
+    assert "MILK" in _sells(action)
+
+
+def test_fert_floor_config_reaches_build_orders() -> None:
+    obs = raw_obs(step=6 * 24)
+    obs["private"]["shed"] = {"FERTILIZER": 4}
+    obs["market"]["prices"]["FERTILIZER"] = 10.0  # below the $15 default, above a $5 override
+    action = make_policy(policy_config=PolicyConfig(fert_floor=5.0))(obs, None)
+    assert "FERTILIZER" in _sells(action)
+
+
+def test_wool_milk_sell_cap_config_reaches_build_orders() -> None:
+    obs = raw_obs(step=6 * 24)
+    obs["private"]["shed"] = {"MILK": 20}
+    obs["market"]["prices"]["MILK"] = 200.0  # above the floor, unlatched -- normal cap applies
+    action = make_policy(policy_config=PolicyConfig(wool_milk_sell_cap=7))(obs, None)
+    assert _sells(action).get("MILK") == 7
+
+
+def test_crash_trigger_config_reaches_the_latch_over_consecutive_turns() -> None:
+    # crash_trigger_ticks=2 with a well-under-trigger price latches on the
+    # second consecutive turn -- proof wool_crash_trigger/crash_trigger_ticks
+    # both reach the ProductCrashLatch instance policy.py owns, not just
+    # PolicyConfig's own dataclass fields.
+    config = PolicyConfig(wool_crash_trigger=50.0, crash_trigger_ticks=2)
+    policy = make_policy(policy_config=config)
+    action: dict[str, object] = {}
+    for step in (6 * 24, 6 * 24 + 1):
+        obs = raw_obs(step=step)
+        obs["private"]["shed"] = {"WOOL": 4}
+        obs["market"]["prices"]["WOOL"] = 10.0  # below both the trigger and the $200 floor
+        action = policy(obs, None)
+    assert _sells(action).get("WOOL") == 4
+
+
+def test_shed_crisis_teeth_check_emergency_valve_forces_wool_milk_sells() -> None:
+    """kaggriculture#59's actual defect, reproduced directly: with only a
+    static floor, a crashed WOOL/MILK price (here $5, far under either
+    floor) holds the backlog forever while the shared 100-unit shed keeps
+    filling -- the engine silently destroys anything DROPped at a full shed
+    (including the automatic end-of-day sweep), so the farm's other income
+    evaporates right along with it. The valve exists to force a sale anyway
+    once the shed is dangerously full, regardless of price.
+
+    Reverting the valve (e.g. deleting the ``valve_tier >= 2`` branches in
+    ``market.py``) turns the first assertion red: the pre-valve agent held
+    WOOL/MILK at any price below their floor, full stop, no matter how full
+    the shed got.
+    """
+    obs = raw_obs(step=6 * 24)
+    obs["private"]["shed"] = {"WOOL": 45, "MILK": 45}  # 90 total: past the 85-unit hard threshold
+    obs["market"]["prices"]["WOOL"] = 5.0
+    obs["market"]["prices"]["MILK"] = 5.0
+
+    action = make_policy()(obs, None)
+    sells = _sells(action)
+    assert "WOOL" in sells
+    assert "MILK" in sells
+
+    # Discrimination: with the valve thresholds pushed out of reach and the
+    # crash latches disabled (a $0 trigger price -- a real market price is
+    # never below it), the exact same scenario reproduces the pre-fix bug --
+    # proof this test is actually exercising the new machinery, not passing
+    # regardless of whether the valve/latch exist at all.
+    disabled_config = PolicyConfig(
+        valve_soft_threshold=999_999,
+        valve_hard_threshold=999_999,
+        wool_crash_trigger=0.0,
+        milk_crash_trigger=0.0,
+        crash_trigger_ticks=999_999,
+    )
+    disabled_action = make_policy(policy_config=disabled_config)(obs, None)
+    disabled_sells = _sells(disabled_action)
+    assert "WOOL" not in disabled_sells
+    assert "MILK" not in disabled_sells
