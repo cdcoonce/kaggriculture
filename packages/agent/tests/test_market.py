@@ -720,3 +720,35 @@ def test_valve_tier_two_still_defers_to_liquidation_day_semantics() -> None:
         shed={"MELON": 9}, prices={"MELON": 1.0}, day=29, hour=0, wheat_reserve=3, buys=[]
     )
     assert orders[0] == ["SELL", "MELON", 9]
+
+
+def test_valve_tier_two_bypasses_the_batching_window_but_tier_one_does_not() -> None:
+    # Batching is a price-timing optimization; it must never be allowed to
+    # delay a destruction-prevention sale. Tier 2 (hard) sells in a blocked
+    # hour (6, deep-morning); tier 1 (soft) -- an optimization trade, not an
+    # emergency -- still respects the window, same as before.
+    hour = 6
+    assert hour in MELON_MILK_WOOL_BATCH_BLOCKED_HOURS
+
+    tier_two = build_orders(
+        shed={"MELON": 5, "MILK": 5, "WOOL": 5},
+        prices={"MELON": 1.0, "MILK": 1.0, "WOOL": 1.0},
+        day=6,
+        hour=hour,
+        wheat_reserve=3,
+        buys=[],
+        valve_tier=2,
+    )
+    sold = {o[1] for o in tier_two if o[0] == "SELL"}
+    assert {"MELON", "MILK", "WOOL"} <= sold
+
+    tier_one = build_orders(
+        shed={"MELON": 5, "MILK": 5, "WOOL": 5},
+        prices={"MELON": 1.0, "MILK": 1.0, "WOOL": 1.0},
+        day=6,
+        hour=hour,
+        wheat_reserve=3,
+        buys=[],
+        valve_tier=1,
+    )
+    assert not any(o[1] in ("MELON", "MILK", "WOOL") for o in tier_one)

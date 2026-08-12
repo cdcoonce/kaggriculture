@@ -161,11 +161,21 @@ def _capped_sell(item: str, shed: Mapping[str, int], cap: int, liquidating: bool
     return ["SELL", item, qty]
 
 
-def _satellite_sell_allowed(day: int, hour: int) -> bool:
+def _satellite_sell_allowed(day: int, hour: int, valve_tier: int = 0) -> bool:
     """MELON/MILK/WOOL sell in every hour except the blocked mid-morning
     window, except once the endgame liquidation window opens (day >= 27),
     when every hour is fair game -- maximum exit flexibility beats batching
-    discipline that late."""
+    discipline that late.
+
+    M2c (kaggriculture#59): valve tier 2 (hard) also bypasses the window
+    unconditionally, same as the liquidation exemption -- batching is a
+    price-timing optimization, and it must never be allowed to delay a
+    destruction-prevention sale. Tier 1 (soft) still respects the window
+    (it's an optimization trade, not an emergency), matching the existing
+    liquidation precedent of "the more severe the exit, the less batching
+    discipline applies."""
+    if valve_tier >= 2:
+        return True
     if day >= MELON_MILK_WOOL_BATCH_EXEMPT_DAY:
         return True
     return hour not in MELON_MILK_WOOL_BATCH_BLOCKED_HOURS
@@ -252,7 +262,7 @@ def build_orders(
     liquidating = day >= final_day
 
     melon = shed.get("MELON", 0)
-    if melon > 0 and _satellite_sell_allowed(day, hour):
+    if melon > 0 and _satellite_sell_allowed(day, hour, valve_tier):
         melon_price = prices.get("MELON", 0.0)
         if day >= final_day:
             orders.append(_capped_sell("MELON", shed, MELON_SELL_CAP, liquidating=True))
@@ -273,7 +283,7 @@ def build_orders(
         elif melon_price >= MELON_MIN_PRICE:
             orders.append(_capped_sell("MELON", shed, MELON_SELL_CAP, liquidating=False))
 
-    if shed.get("MILK", 0) > 0 and _satellite_sell_allowed(day, hour):
+    if shed.get("MILK", 0) > 0 and _satellite_sell_allowed(day, hour, valve_tier):
         milk_order = _valve_sell(
             "MILK",
             shed,
@@ -288,7 +298,7 @@ def build_orders(
         if milk_order is not None:
             orders.append(milk_order)
 
-    if shed.get("WOOL", 0) > 0 and _satellite_sell_allowed(day, hour):
+    if shed.get("WOOL", 0) > 0 and _satellite_sell_allowed(day, hour, valve_tier):
         wool_order = _valve_sell(
             "WOOL",
             shed,
