@@ -76,11 +76,20 @@ above:
    defect). Once ``agent.state.ProductCrashLatch`` sees enough consecutive
    below-trigger price ticks, that product's floor waives permanently for
    the rest of the episode -- same discipline, and the same never-unlatch
-   rationale, as melon's own CONTESTED latch. WOOL's floor also moves from
-   $150 to $200 and FERTILIZER's from $55 to $15 (fertilizer's floor now
-   only gates whether it's worth selling versus feeding back in as a
-   wheat-yield input, since the valve -- not the floor -- is what handles a
-   genuine backlog), and WOOL/MILK's per-turn cap goes from 2 to a shared 4.
+   rationale, as melon's own CONTESTED latch. FERTILIZER's floor also moves
+   from $55 to $15 (fertilizer's floor now only gates whether it's worth
+   selling versus feeding back in as a wheat-yield input, since the valve --
+   not the floor -- is what handles a genuine backlog), and WOOL/MILK's
+   per-turn cap goes from 2 to a shared 4.
+
+   M2c also moved WOOL's floor from $150 to $200 -- this was itself a
+   regression, caught and reverted back to $150: $200 is exactly WOOL's
+   engine ``base`` (its equilibrium quote), so it permitted only ~3 units of
+   cumulative oversupply before latching shut, backlogging wool in the
+   shared shed instead of selling steadily -- partially undoing this same
+   section's own shed-valve fix. See ``WOOL_MIN_PRICE`` below and
+   ``test_market.py::test_shipped_floors_permit_meaningful_volume_before_equilibrium``
+   for the general guard against any floor landing at/above equilibrium.
 """
 
 from __future__ import annotations
@@ -95,11 +104,24 @@ MAX_ORDERS = 10  # maxMarketOrdersPerTurn — extras silently dropped by the eng
 FERT_MIN_PRICE = 15.0
 MELON_MIN_PRICE = 195.0  # ~22% off the $250 base — roughly where the crash starts biting
 MILK_MIN_PRICE = 120.0  # 25% off the $160 base — linear crash starts at ~+19 oversupply
-# M2c: raised from $150 -- the old floor never yielded against a floor-free
-# opponent (kaggriculture#59), so ProductCrashLatch (agent.state) now waives
-# it once the price crashes hard enough for long enough; see the module
-# docstring's M2c section.
-WOOL_MIN_PRICE = 200.0
+# Invariant: a sell floor must sit meaningfully below its product's own
+# equilibrium quote (``market_price(item, I0) == base`` always) so it permits
+# a real volume of sales before latching shut -- not just the handful of
+# units a floor pinned at/above equilibrium allows (see
+# test_market.py::test_shipped_floors_permit_meaningful_volume_before_equilibrium,
+# which re-derives the permitted-unit count from the real engine for every
+# shipped floor).
+#
+# M2c (kaggriculture#59) briefly raised this to $200 -- exactly WOOL's base,
+# i.e. exactly its equilibrium quote -- reasoning that ProductCrashLatch
+# (agent.state) would waive it once the price crashed hard enough. But $200
+# permits only ~3 cumulative units of oversupply before the quote dips a
+# single dollar under the floor and it latches shut, so wool backlogged in
+# the shared shed well before any crash ever got the latch to trip --
+# partially undoing M2c's own shed-valve fix. $150 (this module's original,
+# pre-M2c value) permits ~30 units, restoring steady near-equilibrium selling
+# while the crash latch still exists for a genuine floor-free-opponent dump.
+WOOL_MIN_PRICE = 150.0
 LIQUIDATION_DAY = 29  # unsold inventory is $0 at game end — dump everything
 
 # --- M2b: melon liquidation ramp (replaces the day-29 cliff for MELON only) --

@@ -284,7 +284,7 @@ def test_valve_soft_cap_config_reaches_build_orders() -> None:
 def test_wool_floor_config_reaches_build_orders() -> None:
     obs = raw_obs(step=6 * 24)
     obs["private"]["shed"] = {"WOOL": 4}
-    obs["market"]["prices"]["WOOL"] = 90.0  # below the $200 default, above an $80 override
+    obs["market"]["prices"]["WOOL"] = 90.0  # below the $150 default, above an $80 override
     action = make_policy(policy_config=PolicyConfig(wool_floor=80.0))(obs, None)
     assert "WOOL" in _sells(action)
 
