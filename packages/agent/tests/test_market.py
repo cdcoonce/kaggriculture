@@ -14,11 +14,15 @@ window (``MELON_MILK_WOOL_BATCH_BLOCKED_HOURS``), so it reproduces the pre-M2b
 from __future__ import annotations
 
 from agent.market import (
+    FERT_MIN_PRICE,
     MELON_MILK_WOOL_BATCH_BLOCKED_HOURS,
     MELON_MILK_WOOL_BATCH_EXEMPT_DAY,
     MELON_MIN_PRICE,
+    MILK_MIN_PRICE,
+    WOOL_MIN_PRICE,
     build_orders,
 )
+from kaggle_environments.envs.kaggriculture.kaggriculture import MARKET_PARAMS, market_price
 
 
 def test_crashable_fertilizer_sell_is_index_zero() -> None:
@@ -170,12 +174,14 @@ def test_no_melon_sell_when_shed_is_empty() -> None:
 #
 # M2c (kaggriculture#59) replaces the old static-forever floors with a
 # regime-conditional one: unlatched, the floor still holds exactly as before
-# (just at new default levels -- WOOL raised $150 -> $200, MILK unchanged at
-# $120, cap raised 2 -> a shared 4); once ``wool_crashed``/``milk_crashed``
-# latches true (``agent.state.ProductCrashLatch``, driven by policy.py), the
-# floor is waived and the product sells at any price. This is what actually
-# fixes #59: a floor-free ranch dumper crashing the price no longer holds
-# the backlog forever.
+# (WOOL stays at $150 -- a brief $200 default was itself a regression, since
+# $200 is exactly WOOL's equilibrium quote; see
+# test_shipped_floors_permit_meaningful_volume_before_equilibrium below --
+# MILK unchanged at $120, cap raised 2 -> a shared 4); once
+# ``wool_crashed``/``milk_crashed`` latches true (``agent.state.
+# ProductCrashLatch``, driven by policy.py), the floor is waived and the
+# product sells at any price. This is what actually fixes #59: a floor-free
+# ranch dumper crashing the price no longer holds the backlog forever.
 
 
 def test_milk_sell_respects_floor_while_unlatched() -> None:
@@ -223,13 +229,16 @@ def test_milk_sells_floorless_once_crash_latched() -> None:
 
 
 def test_wool_sell_respects_floor_while_unlatched() -> None:
+    # Prices mirror the $150 default floor (below_floor = floor - 10, at the
+    # exact boundary for above_floor), same convention as the old $200-floor
+    # version of this test.
     below_floor = build_orders(
-        shed={"WOOL": 4}, prices={"WOOL": 190.0}, day=6, hour=0, wheat_reserve=3, buys=[]
+        shed={"WOOL": 4}, prices={"WOOL": 140.0}, day=6, hour=0, wheat_reserve=3, buys=[]
     )
     assert not any(o[1] == "WOOL" for o in below_floor)
 
     above_floor = build_orders(
-        shed={"WOOL": 4}, prices={"WOOL": 200.0}, day=6, hour=0, wheat_reserve=3, buys=[]
+        shed={"WOOL": 4}, prices={"WOOL": 150.0}, day=6, hour=0, wheat_reserve=3, buys=[]
     )
     assert above_floor[0] == ["SELL", "WOOL", 4]
 
@@ -615,8 +624,10 @@ def test_melon_min_price_constant_is_the_uncontested_floor() -> None:
 
 
 def test_valve_tier_zero_is_the_default_and_changes_nothing() -> None:
+    # 140.0 is below the $150 default wool_floor -- unaffected by the exact
+    # floor value, just needs to be genuinely below whatever it is.
     orders = build_orders(
-        shed={"WOOL": 4}, prices={"WOOL": 190.0}, day=6, hour=0, wheat_reserve=3, buys=[]
+        shed={"WOOL": 4}, prices={"WOOL": 140.0}, day=6, hour=0, wheat_reserve=3, buys=[]
     )
     assert not any(o[1] == "WOOL" for o in orders)
 
@@ -752,3 +763,70 @@ def test_valve_tier_two_bypasses_the_batching_window_but_tier_one_does_not() -> 
         valve_tier=1,
     )
     assert not any(o[1] in ("MELON", "MILK", "WOOL") for o in tier_one)
+
+
+# --- General guard: a shipped floor must sit meaningfully below equilibrium -
+#
+# kaggriculture#59 (M2c regression): WOOL_MIN_PRICE was raised to $200, which
+# is exactly WOOL's engine `base` -- and `market_price(item, I0)` always
+# equals `base` (I0 is the params' own equilibrium inventory point). A floor
+# pinned at equilibrium clears for only the first couple of oversupply units
+# before the quote dips a single dollar below it and the floor latches shut,
+# so wool backlogs in the shared shed instead of selling steadily near $200.
+#
+# This isn't a wool-specific fact to pin -- it's a class of bug ("a floor at
+# or above its own product's equilibrium quote") that can recur for MILK or
+# FERTILIZER just as easily if either is ever retuned without checking this.
+# The guard below re-derives "how many units does this floor actually permit"
+# straight from the real engine for every floor the agent ships, so it fires
+# on ANY of the three landing at/near equilibrium again -- not just wool's.
+
+# Minimum cumulative units a shipped floor must permit before the engine's
+# own quote drops below it. Calibrated against wool's own worst case: a
+# 9-sheep ranch nets roughly 45 wool over a season, so a floor that only
+# permits a double-digit fraction of that is already leaving real production
+# unsellable at any price above the floor. 15 is chosen well under that full
+# season number (so it doesn't demand near-full-season liquidity from a
+# floor) but comfortably above both today's passing floors' margins of error
+# and the ~3 units an equilibrium-pinned floor permits -- MILK_MIN_PRICE
+# permits 20 units and FERT_MIN_PRICE permits in the hundreds, so 15 leaves
+# real headroom without coming close to either boundary, while a floor even a
+# few dollars off equilibrium (like the buggy $200 wool floor, which permits
+# only 3) trips it immediately.
+MIN_PERMITTED_UNITS = 15
+
+
+def _permitted_units(item: str, floor: float) -> int:
+    """How many units of cumulative oversupply (I0, I0+1, I0+2, ...) the real
+    engine lets sell before `market_price(item, I0 + n)` drops below `floor`.
+    """
+    i0 = MARKET_PARAMS[item]["I0"]
+    n = 0
+    while market_price(item, i0 + n) >= floor:
+        n += 1
+    return n
+
+
+def test_shipped_floors_permit_meaningful_volume_before_equilibrium() -> None:
+    """Every static sell floor the agent ships (wool/milk/fert) must sit far
+    enough below its product's own equilibrium quote (`market_price` at I0,
+    which always equals the engine's `base`) to permit selling a meaningful
+    volume -- not just the handful of units a floor pinned at or above
+    equilibrium allows before it latches shut and the product backlogs the
+    shared shed (see market.py's module docstring, M2c section, point 4).
+
+    MELON is deliberately excluded: its floor is a dynamic, decaying value
+    (``_melon_dynamic_floor``), not one of the static ``PolicyConfig``
+    floors this guard covers.
+    """
+    floors = {"WOOL": WOOL_MIN_PRICE, "MILK": MILK_MIN_PRICE, "FERTILIZER": FERT_MIN_PRICE}
+    for item, floor in floors.items():
+        base = MARKET_PARAMS[item]["base"]
+        permitted = _permitted_units(item, floor)
+        assert permitted >= MIN_PERMITTED_UNITS, (
+            f"{item}: base=${base} (equilibrium quote), floor=${floor} permits "
+            f"only {permitted} cumulative units before market_price(item, I0 + n) "
+            f"drops below the floor (need >= {MIN_PERMITTED_UNITS}) -- floor is "
+            "too close to (or at/above) equilibrium and will latch shut almost "
+            "immediately, backlogging the shared shed instead of selling"
+        )

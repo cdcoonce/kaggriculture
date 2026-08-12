@@ -56,7 +56,7 @@ VALVE_SOFT_THRESHOLD = 55
 VALVE_HARD_THRESHOLD = 85
 
 # M2c: WOOL/MILK crash-latch defaults (agent.state.ProductCrashLatch). Tuned
-# well under each product's regime floor (wool_floor=200, milk_floor=120) so
+# well under each product's regime floor (wool_floor=150, milk_floor=120) so
 # the latch only fires once the price has genuinely crashed, not merely
 # dipped below the floor -- see market.py's module docstring, M2c section.
 WOOL_CRASH_TRIGGER = 100.0
