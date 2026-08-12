@@ -67,7 +67,7 @@ class TestMalformedJson:
             read_submission(path)
 
 
-def _backfilled_entries() -> list[dict[str, object]]:
+def _ledger_entries() -> list[dict[str, object]]:
     return [
         json.loads(path.read_text(encoding="utf-8"))
         for path in sorted(SUBMISSIONS_DIR.glob("sub-*.json"))
@@ -75,23 +75,34 @@ def _backfilled_entries() -> list[dict[str, object]]:
 
 
 class TestBackfilledLedger:
-    def test_five_entries_present(self) -> None:
-        entries = _backfilled_entries()
-        ids = {entry["submission_id"] for entry in entries}
-        assert ids == {"55284206", "55286903", "55309517", "55334684", "55358390"}
+    def test_backfilled_entries_all_present(self) -> None:
+        """The five #30-backfilled records can never be lost or renamed.
 
-    def test_non_null_bundle_sha256_is_well_formed_hex(self) -> None:
-        entries = _backfilled_entries()
-        non_null = [e for e in entries if e["bundle_sha256"] is not None]
-        assert len(non_null) == 4
-        for entry in non_null:
+        The ledger is append-only by design (every upload appends a record),
+        so the backfill is pinned as a required subset — not as the ledger's
+        exact contents, which would go red on every legitimate new upload."""
+        entries = _ledger_entries()
+        ids = {entry["submission_id"] for entry in entries}
+        assert {"55284206", "55286903", "55309517", "55334684", "55358390"} <= ids
+
+    def test_bundle_sha256_well_formed_for_every_entry_but_the_probe(self) -> None:
+        """Only the backfilled probe (55284206) may lack a bundle digest; every
+        other record — including all future uploads — must carry 64 lowercase
+        hex. Strictly stronger than the old exactly-4-of-5 count: it binds new
+        appends to the digest requirement instead of breaking on them."""
+        entries = _ledger_entries()
+        null_ids = {e["submission_id"] for e in entries if e["bundle_sha256"] is None}
+        assert null_ids == {"55284206"}
+        for entry in entries:
             digest = entry["bundle_sha256"]
+            if digest is None:
+                continue
             assert isinstance(digest, str)
             assert len(digest) == 64
             assert _HEX64.fullmatch(digest), f"{entry['submission_id']}: not 64 lowercase hex"
 
     def test_probe_entry_has_no_bundle(self) -> None:
-        entries = _backfilled_entries()
+        entries = _ledger_entries()
         probe = next(e for e in entries if e["submission_id"] == "55284206")
         assert probe["candidate_sha"] is None
         assert probe["bundle_sha256"] is None
@@ -102,7 +113,7 @@ class TestBackfilledLedger:
     def test_teeth_corrupted_hex_char_is_caught(self) -> None:
         """Mutation guard: a single corrupted hex character must fail the
         well-formedness check — proves the regex actually inspects every char."""
-        entries = _backfilled_entries()
+        entries = _ledger_entries()
         entry = next(e for e in entries if e["submission_id"] == "55286903")
         digest = entry["bundle_sha256"]
         assert isinstance(digest, str)
