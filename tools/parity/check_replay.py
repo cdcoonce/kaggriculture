@@ -98,14 +98,21 @@ def main():
     )
     report["step_index_sanity"] = {"contiguous_0_indexed": step_field_ok, "n_steps": len(obs_list)}
 
+    engine_version = data.get("module_version")
+    default_center_interval = (
+        12
+        if (engine_version and cc.parse_version(engine_version) < cc.FLAT_LAW_MIN_VERSION)
+        else 24
+    )
     turns_per_day = int(replay_cfg.get("turnsPerDay", 24))
     shop_interval = int(replay_cfg.get("townShopSellInterval", 4))
-    center_interval = int(replay_cfg.get("townCenterSellInterval", 12))
+    center_interval = int(replay_cfg.get("townCenterSellInterval", default_center_interval))
     unlock_interval = int(replay_cfg.get("townShopUnlockInterval", 3))
     board_size = int(replay_cfg.get("boardSize", 10))
     starting_money = int(replay_cfg.get("startingMoney", 3000))
 
     # --- action PASS-only verification ---
+    action_steps = [[ag.get("action") for ag in step] for step in steps_raw]
     non_pass = []
     for i, step in enumerate(steps_raw):
         for ag_idx, ag in enumerate(step):
@@ -126,13 +133,31 @@ def main():
     report["price_law"] = cc.price_law_check(obs_list, turns_per_day=turns_per_day)
 
     # --- 4. Town-consumption law ---
-    report["town_law"] = cc.town_consumption_law_check(
-        obs_list,
-        shop_interval=shop_interval,
-        center_interval=center_interval,
-        unlock_interval=unlock_interval,
-        turns_per_day=turns_per_day,
-    )
+    # The town-law model is only checkable on a PASS-only episode: any
+    # market/shop/hands action moves inventory in ways the law check cannot
+    # distinguish from town consumption, so trading episodes are reported as
+    # skipped rather than run against mismatch-counting logic they cannot
+    # interpret (see issue #43 / retracted mismatch counts from #42).
+    if cc.episode_is_pass_only(action_steps):
+        report["town_law"] = cc.town_consumption_law_check(
+            obs_list,
+            engine_version,
+            shop_interval=shop_interval,
+            center_interval=center_interval,
+            unlock_interval=unlock_interval,
+            turns_per_day=turns_per_day,
+        )
+    else:
+        report["town_law"] = {
+            "applicable": False,
+            "law_model": None,
+            "reason": (
+                "episode contains non-PASS actions (market/shop/hands "
+                "activity moves inventory); town_consumption_law_check "
+                "can only attribute inventory deltas to town consumption "
+                "on a PASS-only episode, so this leg was skipped"
+            ),
+        }
 
     # --- 5. Structural spot-checks ---
     report["structural"] = cc.structural_checks(

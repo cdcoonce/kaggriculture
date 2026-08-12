@@ -14,14 +14,43 @@ import math
 # Import the real, installed local engine's constants/law so we are always
 # comparing against "what the local package actually does", not a hand
 # transcription of it.
+#
+# NOTE: TOWN_CENTER_DEMAND_SCHEDULE was REMOVED from the engine in 1.32.6
+# (kaggle-environments), so it can no longer be imported here -- a 1.32.4
+# replay must remain checkable under a 1.32.6 venv. The legacy day-scaled
+# schedule is vendored locally below instead.
 from kaggle_environments.envs.kaggriculture.kaggriculture import (
     MARKET_PARAMS,
     PRODUCTS,
     SHOPS,
     TOWN_CENTER_PRODUCTS,
-    TOWN_CENTER_DEMAND_SCHEDULE,
     market_price,
 )
+
+# Vendored from the 1.32.4 wheel's kaggle_environments/envs/kaggriculture/
+# kaggriculture.py:104 (verified 2026-08-11, see issue #42). Removed
+# outright in 1.32.6 in favor of a flat per-tick consumption law -- see
+# _town_center_multiplier()/town_consumption_law_check() below for dispatch.
+TOWN_CENTER_DEMAND_SCHEDULE_LEGACY = [(20, 4), (10, 2), (0, 1)]
+
+# First engine version to use the flat (-1 per product per tick) town-center
+# consumption law instead of the legacy day-scaled schedule.
+FLAT_LAW_MIN_VERSION = (1, 32, 6)
+
+
+def parse_version(version_str):
+    parts = []
+    for chunk in version_str.split(".")[:3]:
+        digits = ""
+        for ch in chunk:
+            if ch.isdigit():
+                digits += ch
+            else:
+                break
+        parts.append(int(digits) if digits else 0)
+    while len(parts) < 3:
+        parts.append(0)
+    return tuple(parts)
 
 
 def price_law_check(steps, turns_per_day=24):
@@ -71,24 +100,71 @@ def price_law_check(steps, turns_per_day=24):
 
 
 def _town_center_multiplier(day):
-    return next(m for threshold, m in TOWN_CENTER_DEMAND_SCHEDULE if day >= threshold)
+    return next(
+        m for threshold, m in TOWN_CENTER_DEMAND_SCHEDULE_LEGACY if day >= threshold
+    )
+
+
+def episode_is_pass_only(action_steps):
+    """
+    Verify every recorded action across the episode is a no-op PASS, i.e.
+    the episode never moved inventory via market orders or shop/hands
+    activity (a precondition for town_consumption_law_check, which can only
+    attribute inventory deltas to town consumption if nothing else touched
+    inventory).
+
+    `action_steps` is a list (per step) of lists (per agent) of raw action
+    dicts with keys farmer/hands/market -- OR None for an agent with no
+    action recorded that step (treated as PASS, matching check_replay.py's
+    existing `if act is None: continue` scan). This is the RAW action shape,
+    not the observation-only `steps` every other function in this module
+    consumes -- observations carry no action data.
+    """
+    for step in action_steps:
+        for act in step:
+            if act is None:
+                continue
+            farmer_a = act.get("farmer")
+            hands_a = act.get("hands") or []
+            market_a = act.get("market") or []
+            if farmer_a != ["PASS"] or hands_a != [] or market_a != []:
+                return False
+    return True
 
 
 def town_consumption_law_check(
     steps,
+    engine_version,
     shop_interval=4,
     center_interval=12,
     unlock_interval=3,
     turns_per_day=24,
+    force_legacy_law=False,
 ):
     """
     Verify inventory deltas between consecutive steps are fully explained by
     town shop + town center consumption (valid only when BOTH agents PASS
-    every step, i.e. no market sell/buy orders ever move inventory).
+    every step, i.e. no market sell/buy orders ever move inventory -- callers
+    should gate on episode_is_pass_only() before calling this).
 
     `steps` is a list of per-step observation dicts in step order
     (obs["step"] must be present and contiguous), each with
     obs["market"]["inventory"] and obs["town"]["unlocked_shops"].
+
+    `engine_version` is the kaggle-environments version string the episode
+    was produced under (e.g. a replay's `module_version`, or the locally
+    installed package version). It selects which town-center consumption
+    law applies:
+      - >= 1.32.6: the flat law (-1 per TOWN_CENTER_PRODUCTS item per tick).
+      - <  1.32.6: the legacy day-scaled law (TOWN_CENTER_DEMAND_SCHEDULE_LEGACY).
+    If `engine_version` is falsy (e.g. a replay with no `module_version`),
+    the law is undeterminable and this returns an inapplicable result rather
+    than silently defaulting to either law.
+
+    `force_legacy_law`, if True, overrides the dispatch to always use the
+    legacy schedule regardless of `engine_version` -- a debug knob to prove
+    the checker actually discriminates the two laws on real >=1.32.6 data
+    (see check_local.py's --force-legacy-law).
 
     Checks, per transition from step s -> s+1 (post-interpreter state of s
     is what's recorded as the observation AT s+1 in kaggle_environments'
@@ -98,16 +174,31 @@ def town_consumption_law_check(
         dict visible at step s, i.e. BEFORE any same-day unlock) consumes
         1 unit of each of its products (2 units if it only sells one
         product), from inventory.
-      - if (s % center_interval == 0): the town center consumes
-        center_mult units of every non-FERTILIZER product, where
-        center_mult depends on day = s // turns_per_day via
-        TOWN_CENTER_DEMAND_SCHEDULE.
+      - if (s % center_interval == 0): the town center consumes units of
+        every non-FERTILIZER product per the dispatched law model above.
       - shop unlock cadence: town["unlocked_shops"] length can only grow,
         and only at day boundaries where (day+1) % unlock_interval == 0
         (i.e. transitioning into next_day where next_day % unlock_interval
         == 0), by exactly one shop per qualifying boundary until all 8 are
         unlocked.
     """
+    if not engine_version:
+        return {
+            "applicable": False,
+            "law_model": None,
+            "reason": (
+                "engine_version not provided (e.g. replay is missing "
+                "module_version) -- cannot determine which town-center "
+                "consumption law applies, so the town-law check was not run"
+            ),
+        }
+
+    law_model = (
+        "legacy"
+        if force_legacy_law or parse_version(engine_version) < FLAT_LAW_MIN_VERSION
+        else "flat"
+    )
+
     mismatches = []
     checked_transitions = 0
     unlock_mismatches = []
@@ -141,9 +232,13 @@ def town_consumption_law_check(
                     expected_delta[item] -= mult
 
         if s % center_interval == 0:
-            center_mult = _town_center_multiplier(day)
-            for item in TOWN_CENTER_PRODUCTS:
-                expected_delta[item] -= center_mult
+            if law_model == "flat":
+                for item in TOWN_CENTER_PRODUCTS:
+                    expected_delta[item] -= 1
+            else:
+                center_mult = _town_center_multiplier(day)
+                for item in TOWN_CENTER_PRODUCTS:
+                    expected_delta[item] -= center_mult
 
         checked_transitions += 1
         for item in PRODUCTS:
@@ -191,6 +286,8 @@ def town_consumption_law_check(
         prev_day = obs_s.get("day")
 
     return {
+        "applicable": True,
+        "law_model": law_model,
         "transitions_checked": checked_transitions,
         "delta_mismatch_count": len(mismatches),
         "delta_mismatches": mismatches[:50],

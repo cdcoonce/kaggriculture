@@ -6,7 +6,19 @@ product's supporting shops unlocked by day d via the hypergeometric mean
 (shops unlock uniformly at random from the remaining pool), which is exact in
 expectation over the random seed.
 """
+import sys
+
 from kaggle_environments.envs.kaggriculture import kaggriculture as kagg
+
+if not hasattr(kagg, "TOWN_CENTER_DEMAND_SCHEDULE"):
+    sys.exit(
+        "town_demand.py reproduces the 1.32.4/1.32.5-era §2c town-center "
+        "demand derivations (TOWN_CENTER_DEMAND_SCHEDULE day-scaled law); "
+        "the installed kaggle-environments no longer has that constant "
+        "(removed in 1.32.6, see issue #43). Run this script under "
+        "kaggle-environments<=1.32.5."
+    )
+
 from market_curves import delta_for_price
 
 SHOPS = kagg.SHOPS
