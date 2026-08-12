@@ -687,6 +687,26 @@ is the source-level diff (points 1–7) plus the independent byte-exact parity p
 
 ---
 
+## Addendum (2026-08-11): DROP at a full shed destroys the carried inventory
+
+Engine-verified against the installed `1.32.6` source, `_apply_unit_action`'s DROP
+branch (`kaggriculture.py:329–343`): for each carried item, `take = min(n, room)` is
+deposited — and then `del inv[item]` runs **unconditionally**. Whatever does not fit
+is not returned to the carrying unit; with `room = 0` an entire harvest load is
+silently destroyed. There is no error, no partial carry-over, no signal.
+
+Consequence: letting the shared 100-unit shed (`shedCapacity`, one pool for all
+produce + fertilizer + unplaced animals) saturate converts every subsequent harvest
+into a total loss even when the harvested product's market price is healthy. This is
+the terminal stage of the champion-vs-meta-clone collapse diagnosed on #59
+(instrumented replays, seeds 89377/89181/89356: crashed wool/milk held at static
+floors → 100-unit backlog → wheat/egg harvests destroyed from ~day 20 → income zero,
+hands 13→0, final money $65). Shed headroom is a **hard economic invariant**: a
+destroyed harvest is worth $0, so any clearing price beats holding when headroom runs
+out.
+
+---
+
 ## Doc vs. Code discrepancies
 
 Overall the README/AGENTS.md pair is _more_ precise than typical competition docs — most
