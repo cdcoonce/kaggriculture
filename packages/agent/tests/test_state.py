@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from agent.state import MelonMarketMemory, StateTracker
+from agent.state import MelonMarketMemory, ProductCrashLatch, StateTracker
 
 
 def obs_at(step: int, *, inv: int = 10000, price: float = 250.0) -> dict[str, Any]:
@@ -226,3 +226,67 @@ def test_malformed_observation_after_a_real_latch_does_not_unlatch() -> None:
     # not just the defensive "or {}" fallback.
     mem.observe({"step": 103, "market": {"inventory": "garbage"}})
     assert mem.contested is True  # still latched
+
+
+# --- ProductCrashLatch (M2c, kaggriculture#59) --------------------------------
+#
+# WOOL/MILK's regime-conditional floor latch: unlike MelonMarketMemory, this
+# is price-only (no opponent-inventory attribution) and takes (price, step)
+# directly rather than parsing a raw observation dict.
+
+
+def test_crash_latch_counts_consecutive_below_trigger_ticks() -> None:
+    latch = ProductCrashLatch(trigger_price=100.0, ticks_required=3)
+    latch.observe(90.0, step=0)
+    assert latch.latched is False
+    latch.observe(90.0, step=1)
+    assert latch.latched is False
+    latch.observe(90.0, step=2)
+    assert latch.latched is True
+
+
+def test_crash_latch_resets_the_streak_on_an_above_trigger_tick() -> None:
+    latch = ProductCrashLatch(trigger_price=100.0, ticks_required=3)
+    latch.observe(90.0, step=0)
+    latch.observe(90.0, step=1)
+    latch.observe(105.0, step=2)  # at/above trigger -- resets the streak to zero
+    latch.observe(90.0, step=3)
+    latch.observe(90.0, step=4)
+    assert latch.latched is False  # only 2 consecutive since the reset, not 4
+
+
+def test_crash_latch_price_equal_to_trigger_does_not_count_as_below() -> None:
+    latch = ProductCrashLatch(trigger_price=100.0, ticks_required=1)
+    latch.observe(100.0, step=0)
+    assert latch.latched is False
+
+
+def test_crash_latch_never_unlatches_mid_episode() -> None:
+    latch = ProductCrashLatch(trigger_price=100.0, ticks_required=2)
+    latch.observe(90.0, step=0)
+    latch.observe(90.0, step=1)
+    assert latch.latched is True
+    latch.observe(500.0, step=2)  # price fully recovers
+    assert latch.latched is True
+    latch.observe(500.0, step=3)
+    assert latch.latched is True
+
+
+def test_crash_latch_resets_on_episode_boundary() -> None:
+    latch = ProductCrashLatch(trigger_price=100.0, ticks_required=2)
+    latch.observe(90.0, step=0)
+    latch.observe(90.0, step=1)
+    assert latch.latched is True
+    # A fresh episode reusing the same process (step 0 again) must start
+    # unlatched -- un-resetting here would resurrect the exact
+    # never-recovers bug this class exists to fix, just for a new game.
+    latch.observe(250.0, step=0)
+    assert latch.latched is False
+
+
+def test_crash_latch_malformed_observation_never_raises() -> None:
+    latch = ProductCrashLatch(trigger_price=100.0, ticks_required=2)
+    latch.observe("not-a-number", step=0)  # type: ignore[arg-type]
+    assert latch.latched is False
+    latch.observe(90.0, step="banana")  # type: ignore[arg-type]
+    assert latch.latched is False
