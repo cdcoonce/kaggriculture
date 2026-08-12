@@ -25,10 +25,17 @@ from agent.constants import (
     target_tiles,
 )
 from agent.dispatch import dispatch
-from agent.market import build_orders
+from agent.market import (
+    FERT_MIN_PRICE,
+    MILK_MIN_PRICE,
+    VALVE_SOFT_CAP,
+    WOOL_MILK_SELL_CAP,
+    WOOL_MIN_PRICE,
+    build_orders,
+)
 from agent.plan import FEED_RESERVE, plan_day
 from agent.shell import Action, Observation, pass_action
-from agent.state import MelonMarketMemory, StateTracker
+from agent.state import MelonMarketMemory, ProductCrashLatch, StateTracker
 from agent.view import FarmView, parse_obs
 
 SOFT_BUDGET_SECONDS = 0.5  # v1 logic runs in microseconds; this guards regressions
@@ -40,6 +47,21 @@ SOFT_BUDGET_SECONDS = 0.5  # v1 logic runs in microseconds; this guards regressi
 _WHEAT_RUSH_TILES_DEFAULT = (
     BOARD_SIZE * BOARD_SIZE - 1 - MELON_TILE_TARGET - (COW_TARGET + SHEEP_TARGET)
 )
+
+# M2c (kaggriculture#59): two-tier shed valve. Absolute-unit thresholds
+# against the engine's default 100-unit shed -- policy.decide scales them by
+# the real shedCapacity/100 before comparing against shed_total, so a
+# non-default capacity still trips the valve at the same *fraction* full.
+VALVE_SOFT_THRESHOLD = 55
+VALVE_HARD_THRESHOLD = 85
+
+# M2c: WOOL/MILK crash-latch defaults (agent.state.ProductCrashLatch). Tuned
+# well under each product's regime floor (wool_floor=200, milk_floor=120) so
+# the latch only fires once the price has genuinely crashed, not merely
+# dipped below the floor -- see market.py's module docstring, M2c section.
+WOOL_CRASH_TRIGGER = 100.0
+MILK_CRASH_TRIGGER = 60.0
+CRASH_TRIGGER_TICKS = 12
 
 
 @dataclass(frozen=True)
@@ -54,6 +76,20 @@ class PolicyConfig:
     cow_target: int = COW_TARGET
     sheep_target: int = SHEEP_TARGET
     wheat_rush_tiles: int = _WHEAT_RUSH_TILES_DEFAULT
+
+    # M2c (kaggriculture#59): two-tier shed valve + WOOL/MILK crash latches.
+    # See the VALVE_*/*_CRASH_TRIGGER module constants above and market.py's
+    # module docstring (M2c section) for the full behavior this drives.
+    valve_soft_threshold: int = VALVE_SOFT_THRESHOLD
+    valve_hard_threshold: int = VALVE_HARD_THRESHOLD
+    valve_soft_cap: int = VALVE_SOFT_CAP
+    wool_floor: float = WOOL_MIN_PRICE
+    milk_floor: float = MILK_MIN_PRICE
+    fert_floor: float = FERT_MIN_PRICE
+    wool_crash_trigger: float = WOOL_CRASH_TRIGGER
+    milk_crash_trigger: float = MILK_CRASH_TRIGGER
+    crash_trigger_ticks: int = CRASH_TRIGGER_TICKS
+    wool_milk_sell_cap: int = WOOL_MILK_SELL_CAP
 
     @property
     def pasture_tile_target(self) -> int:
@@ -112,6 +148,33 @@ def _plantable_targets(view: FarmView, tiles: list[tuple[int, int]]) -> int:
     return count
 
 
+def _shed_capacity(config: dict[str, Any] | None) -> int:
+    """The engine's real per-episode shed capacity, defaulting to 100 (the
+    engine's own default) when no config is supplied -- every existing unit
+    test calls ``decide`` with ``config=None``, so this must be None-safe."""
+    if config is None:
+        return 100
+    return int(config.get("shedCapacity", 100))
+
+
+def _valve_tier(shed: dict[str, int], config: dict[str, Any] | None, resolved: PolicyConfig) -> int:
+    """M2c (kaggriculture#59): 0/1/2 shed-fill tier from total shed contents.
+
+    Thresholds are absolute units against the engine's default 100-unit
+    shed; scaled by the real ``shedCapacity``/100 so a non-default capacity
+    still trips the valve at the same *fraction* full, keeping integer
+    semantics (floor division, not a float threshold)."""
+    capacity = _shed_capacity(config)
+    shed_total = sum(shed.values())
+    soft_threshold = (resolved.valve_soft_threshold * capacity) // 100
+    hard_threshold = (resolved.valve_hard_threshold * capacity) // 100
+    if shed_total >= hard_threshold:
+        return 2
+    if shed_total >= soft_threshold:
+        return 1
+    return 0
+
+
 def _melon_sell_qty(orders: list[list[object]]) -> int:
     """The quantity from this turn's own ``["SELL", "MELON", n]`` order, if
     any -- fed back to ``MelonMarketMemory`` so next turn's opponent-sell
@@ -131,6 +194,12 @@ def make_policy(
     resolved_config = policy_config if policy_config is not None else PolicyConfig()
     tracker = StateTracker()
     melon_memory = MelonMarketMemory()
+    wool_latch = ProductCrashLatch(
+        resolved_config.wool_crash_trigger, resolved_config.crash_trigger_ticks
+    )
+    milk_latch = ProductCrashLatch(
+        resolved_config.milk_crash_trigger, resolved_config.crash_trigger_ticks
+    )
 
     def decide(obs: Observation, config: dict[str, Any] | None = None) -> Action:
         start = clock()
@@ -142,6 +211,12 @@ def make_policy(
         # called for it, leaving next turn's "our_sold_last_turn" at 0.
         melon_memory.observe(obs)
         view = parse_obs(obs)
+        # Same continuity argument as melon_memory above: a turn that later
+        # bails to pass_action() still needs its price tick counted, or a
+        # crash spanning a budget-exhausted turn would under-count toward
+        # crash_trigger_ticks.
+        wool_latch.observe(view.prices.get("WOOL", 0.0), view.step)
+        milk_latch.observe(view.prices.get("MILK", 0.0), view.step)
 
         if clock() - start > resolved_config.soft_budget_seconds:
             return pass_action()
@@ -207,6 +282,14 @@ def make_policy(
             melon_contested=melon_memory.contested,
             melon_days_since_contested=melon_memory.days_since_contested(view.day),
             melon_rolling_max=melon_memory.rolling_price_max,
+            valve_tier=_valve_tier(view.shed, config, resolved_config),
+            valve_soft_cap=resolved_config.valve_soft_cap,
+            wool_floor=resolved_config.wool_floor,
+            milk_floor=resolved_config.milk_floor,
+            fert_floor=resolved_config.fert_floor,
+            wool_crashed=wool_latch.latched,
+            milk_crashed=milk_latch.latched,
+            wool_milk_sell_cap=resolved_config.wool_milk_sell_cap,
         )
         # Clamped to what we actually held, not just what we asked for --
         # build_orders' own _capped_sell already enforces this (an order for

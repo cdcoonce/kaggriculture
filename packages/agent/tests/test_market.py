@@ -37,7 +37,9 @@ def test_crashable_fertilizer_sell_is_index_zero() -> None:
 
 
 def test_fertilizer_held_when_price_crashed_but_dumped_at_liquidation() -> None:
-    crashed = {"FERTILIZER": 40.0, "WHEAT": 25.0, "EGG": 50.0}
+    # M2c: FERT_MIN_PRICE dropped from $55 to $15 (the valve, not the floor,
+    # now covers a genuine backlog) -- $10 is below even the lowered floor.
+    crashed = {"FERTILIZER": 10.0, "WHEAT": 25.0, "EGG": 50.0}
     held = build_orders(
         shed={"FERTILIZER": 5}, prices=crashed, day=10, hour=0, wheat_reserve=3, buys=[]
     )
@@ -159,15 +161,24 @@ def test_no_melon_sell_when_shed_is_empty() -> None:
     assert not any(o[1] == "MELON" for o in orders)
 
 
-# --- Milk + wool (M2a) ------------------------------------------------------
+# --- Milk + wool (M2c: regime-conditional floors) --------------------------
 #
 # Same shape as melon's floor+cap: MILK is linear above-curve (base $160,
 # -25% at ~+19 net oversupply), WOOL is quadratic (base $200, -25% at ~+29) --
 # both currently under-supplied by the field, but crash-prone enough to earn
 # their own per-turn cap the moment husbandry starts producing at scale.
+#
+# M2c (kaggriculture#59) replaces the old static-forever floors with a
+# regime-conditional one: unlatched, the floor still holds exactly as before
+# (just at new default levels -- WOOL raised $150 -> $200, MILK unchanged at
+# $120, cap raised 2 -> a shared 4); once ``wool_crashed``/``milk_crashed``
+# latches true (``agent.state.ProductCrashLatch``, driven by policy.py), the
+# floor is waived and the product sells at any price. This is what actually
+# fixes #59: a floor-free ranch dumper crashing the price no longer holds
+# the backlog forever.
 
 
-def test_milk_sell_respects_price_floor() -> None:
+def test_milk_sell_respects_floor_while_unlatched() -> None:
     below_floor = build_orders(
         shed={"MILK": 4}, prices={"MILK": 110.0}, day=6, hour=0, wheat_reserve=3, buys=[]
     )
@@ -176,14 +187,14 @@ def test_milk_sell_respects_price_floor() -> None:
     above_floor = build_orders(
         shed={"MILK": 4}, prices={"MILK": 130.0}, day=6, hour=0, wheat_reserve=3, buys=[]
     )
-    assert above_floor[0] == ["SELL", "MILK", 2]
+    assert above_floor[0] == ["SELL", "MILK", 4]
 
 
-def test_milk_sell_capped_per_turn_even_with_more_in_shed() -> None:
+def test_milk_sell_capped_at_four_per_turn_even_with_more_in_shed() -> None:
     orders = build_orders(
         shed={"MILK": 6}, prices={"MILK": 160.0}, day=6, hour=0, wheat_reserve=3, buys=[]
     )
-    assert orders[0] == ["SELL", "MILK", 2]
+    assert orders[0] == ["SELL", "MILK", 4]
 
 
 def test_milk_held_below_floor_but_dumped_fully_at_liquidation() -> None:
@@ -197,23 +208,37 @@ def test_milk_held_below_floor_but_dumped_fully_at_liquidation() -> None:
     assert dumped[0] == ["SELL", "MILK", 6]
 
 
-def test_wool_sell_respects_price_floor() -> None:
+def test_milk_sells_floorless_once_crash_latched() -> None:
+    # Latched: even $1 -- far under the $120 floor -- sells anyway.
+    orders = build_orders(
+        shed={"MILK": 4},
+        prices={"MILK": 1.0},
+        day=10,
+        hour=0,
+        wheat_reserve=3,
+        buys=[],
+        milk_crashed=True,
+    )
+    assert orders[0] == ["SELL", "MILK", 4]
+
+
+def test_wool_sell_respects_floor_while_unlatched() -> None:
     below_floor = build_orders(
-        shed={"WOOL": 4}, prices={"WOOL": 140.0}, day=6, hour=0, wheat_reserve=3, buys=[]
+        shed={"WOOL": 4}, prices={"WOOL": 190.0}, day=6, hour=0, wheat_reserve=3, buys=[]
     )
     assert not any(o[1] == "WOOL" for o in below_floor)
 
     above_floor = build_orders(
         shed={"WOOL": 4}, prices={"WOOL": 200.0}, day=6, hour=0, wheat_reserve=3, buys=[]
     )
-    assert above_floor[0] == ["SELL", "WOOL", 2]
+    assert above_floor[0] == ["SELL", "WOOL", 4]
 
 
-def test_wool_sell_capped_per_turn_even_with_more_in_shed() -> None:
+def test_wool_sell_capped_at_four_per_turn_even_with_more_in_shed() -> None:
     orders = build_orders(
-        shed={"WOOL": 6}, prices={"WOOL": 200.0}, day=6, hour=0, wheat_reserve=3, buys=[]
+        shed={"WOOL": 6}, prices={"WOOL": 250.0}, day=6, hour=0, wheat_reserve=3, buys=[]
     )
-    assert orders[0] == ["SELL", "WOOL", 2]
+    assert orders[0] == ["SELL", "WOOL", 4]
 
 
 def test_wool_held_below_floor_but_dumped_fully_at_liquidation() -> None:
@@ -225,6 +250,35 @@ def test_wool_held_below_floor_but_dumped_fully_at_liquidation() -> None:
         shed={"WOOL": 6}, prices=crashed, day=29, hour=0, wheat_reserve=3, buys=[]
     )
     assert dumped[0] == ["SELL", "WOOL", 6]
+
+
+def test_wool_sells_floorless_once_crash_latched() -> None:
+    orders = build_orders(
+        shed={"WOOL": 4},
+        prices={"WOOL": 1.0},
+        day=10,
+        hour=0,
+        wheat_reserve=3,
+        buys=[],
+        wool_crashed=True,
+    )
+    assert orders[0] == ["SELL", "WOOL", 4]
+
+
+def test_wool_floor_and_cap_are_independently_configurable() -> None:
+    # A caller-supplied floor/cap (as policy.py threads from PolicyConfig)
+    # overrides the module defaults.
+    orders = build_orders(
+        shed={"WOOL": 9},
+        prices={"WOOL": 90.0},
+        day=6,
+        hour=0,
+        wheat_reserve=3,
+        buys=[],
+        wool_floor=80.0,
+        wool_milk_sell_cap=5,
+    )
+    assert orders[0] == ["SELL", "WOOL", 5]
 
 
 def test_full_sell_priority_order_is_melon_milk_wool_fertilizer_egg_wheat() -> None:
@@ -305,8 +359,8 @@ def test_batching_also_gates_milk_and_wool() -> None:
         wheat_reserve=3,
         buys=[],
     )
-    assert ["SELL", "MILK", 2] in orders
-    assert ["SELL", "WOOL", 2] in orders
+    assert ["SELL", "MILK", 4] in orders
+    assert ["SELL", "WOOL", 4] in orders
 
 
 def test_batching_does_not_gate_wheat_egg_or_fertilizer() -> None:
@@ -549,3 +603,152 @@ def test_peak_gate_only_applies_while_contested() -> None:
 
 def test_melon_min_price_constant_is_the_uncontested_floor() -> None:
     assert MELON_MIN_PRICE == 195.0
+
+
+# --- M2c: two-tier shed valve (kaggriculture#59) ------------------------------
+#
+# valve_tier=0 (the default) reproduces every test above exactly. Tier 1
+# (soft) ignores every floor below -- melon's ramp/contested/peak-gate logic
+# included -- and sells at market on a shared soft cap; tier 2 (hard) ignores
+# floors AND per-product caps and sells the entire shed, except WHEAT, which
+# keeps its feed reserve even at tier 2.
+
+
+def test_valve_tier_zero_is_the_default_and_changes_nothing() -> None:
+    orders = build_orders(
+        shed={"WOOL": 4}, prices={"WOOL": 190.0}, day=6, hour=0, wheat_reserve=3, buys=[]
+    )
+    assert not any(o[1] == "WOOL" for o in orders)
+
+
+def test_valve_tier_one_ignores_every_floor_including_melons_with_soft_cap() -> None:
+    orders = build_orders(
+        shed={"MELON": 20, "MILK": 20, "WOOL": 20, "FERTILIZER": 20},
+        prices={"MELON": 1.0, "MILK": 1.0, "WOOL": 1.0, "FERTILIZER": 1.0},
+        day=6,
+        hour=0,
+        wheat_reserve=3,
+        buys=[],
+        valve_tier=1,
+    )
+    assert orders[0] == ["SELL", "MELON", 10]
+    assert orders[1] == ["SELL", "MILK", 10]
+    assert orders[2] == ["SELL", "WOOL", 10]
+    assert orders[3] == ["SELL", "FERTILIZER", 10]
+
+
+def test_valve_tier_one_uses_a_configurable_soft_cap() -> None:
+    orders = build_orders(
+        shed={"WOOL": 20},
+        prices={"WOOL": 1.0},
+        day=6,
+        hour=0,
+        wheat_reserve=3,
+        buys=[],
+        valve_tier=1,
+        valve_soft_cap=3,
+    )
+    assert orders[0] == ["SELL", "WOOL", 3]
+
+
+def test_valve_tier_two_sells_the_entire_shed_ignoring_floors_and_caps() -> None:
+    orders = build_orders(
+        shed={"MELON": 20, "MILK": 20, "WOOL": 20, "FERTILIZER": 20},
+        prices={"MELON": 1.0, "MILK": 1.0, "WOOL": 1.0, "FERTILIZER": 1.0},
+        day=6,
+        hour=0,
+        wheat_reserve=3,
+        buys=[],
+        valve_tier=2,
+    )
+    assert orders[0] == ["SELL", "MELON", 20]
+    assert orders[1] == ["SELL", "MILK", 20]
+    assert orders[2] == ["SELL", "WOOL", 20]
+    assert orders[3] == ["SELL", "FERTILIZER", 20]
+
+
+def test_valve_tier_two_preserves_the_wheat_feed_reserve() -> None:
+    # Explicit teeth-check for the wheat carve-out: tier 2 must sell only
+    # the surplus above the feed reserve, not the whole stock -- unlike
+    # every other product, which sells uncapped at tier 2.
+    orders = build_orders(
+        shed={"WHEAT": 10},
+        prices={"WHEAT": 25.0},
+        day=6,
+        hour=0,
+        wheat_reserve=3,
+        buys=[],
+        valve_tier=2,
+    )
+    assert orders == [["SELL", "WHEAT", 7]]
+
+
+def test_valve_tier_ordering_is_still_melon_milk_wool_fert_egg_wheat() -> None:
+    orders = build_orders(
+        shed={"MELON": 2, "MILK": 2, "WOOL": 2, "FERTILIZER": 2, "EGG": 2, "WHEAT": 10},
+        prices={"MELON": 1.0, "MILK": 1.0, "WOOL": 1.0, "FERTILIZER": 1.0},
+        day=6,
+        hour=0,
+        wheat_reserve=3,
+        buys=[],
+        valve_tier=2,
+    )
+    items_in_order = [o[1] for o in orders]
+    assert items_in_order == ["MELON", "MILK", "WOOL", "FERTILIZER", "EGG", "WHEAT"]
+
+
+def test_valve_tier_sells_still_survive_the_ten_order_cap() -> None:
+    buys: list[list[object]] = [["BUY_SEED", "WHEAT", 1] for _ in range(9)]
+    orders = build_orders(
+        shed={"MELON": 5, "MILK": 5, "WOOL": 5, "FERTILIZER": 5, "EGG": 1, "WHEAT": 10},
+        prices={"MELON": 1.0, "MILK": 1.0, "WOOL": 1.0, "FERTILIZER": 1.0},
+        day=6,
+        hour=0,
+        wheat_reserve=3,
+        buys=buys,
+        valve_tier=1,
+    )
+    assert len(orders) == 10
+    assert orders[0][1] == "MELON"
+
+
+def test_valve_tier_two_still_defers_to_liquidation_day_semantics() -> None:
+    # day >= final_day is still the unconditional dump -- valve_tier is
+    # irrelevant once liquidation itself is in effect (C in the design: day
+    # 29 behavior is unchanged).
+    orders = build_orders(
+        shed={"MELON": 9}, prices={"MELON": 1.0}, day=29, hour=0, wheat_reserve=3, buys=[]
+    )
+    assert orders[0] == ["SELL", "MELON", 9]
+
+
+def test_valve_tier_two_bypasses_the_batching_window_but_tier_one_does_not() -> None:
+    # Batching is a price-timing optimization; it must never be allowed to
+    # delay a destruction-prevention sale. Tier 2 (hard) sells in a blocked
+    # hour (6, deep-morning); tier 1 (soft) -- an optimization trade, not an
+    # emergency -- still respects the window, same as before.
+    hour = 6
+    assert hour in MELON_MILK_WOOL_BATCH_BLOCKED_HOURS
+
+    tier_two = build_orders(
+        shed={"MELON": 5, "MILK": 5, "WOOL": 5},
+        prices={"MELON": 1.0, "MILK": 1.0, "WOOL": 1.0},
+        day=6,
+        hour=hour,
+        wheat_reserve=3,
+        buys=[],
+        valve_tier=2,
+    )
+    sold = {o[1] for o in tier_two if o[0] == "SELL"}
+    assert {"MELON", "MILK", "WOOL"} <= sold
+
+    tier_one = build_orders(
+        shed={"MELON": 5, "MILK": 5, "WOOL": 5},
+        prices={"MELON": 1.0, "MILK": 1.0, "WOOL": 1.0},
+        day=6,
+        hour=hour,
+        wheat_reserve=3,
+        buys=[],
+        valve_tier=1,
+    )
+    assert not any(o[1] in ("MELON", "MILK", "WOOL") for o in tier_one)

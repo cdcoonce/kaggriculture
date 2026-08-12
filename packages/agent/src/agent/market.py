@@ -53,6 +53,34 @@ policy layer computes ``melon_contested``/``melon_days_since_contested``/
    parity or a small gain across 9 seeds (41/43/44/47/50/60/70/90/123: worst
    case +0.00%, best +2.47%) while still keeping hours 1/13 (post-tick) and
    18-23 (day's end) meaningfully concentrated within the *allowed* set.
+
+M2c (kaggriculture#59) adds a shed-overflow safety valve and replaces WOOL/
+MILK's static floors with regime-conditional ones, on top of everything
+above:
+
+4. **Two-tier shed valve.** A floor that never yields against a ranch dumper
+   with no floors of its own eventually backs the shared 100-unit shed up to
+   full -- and the engine SILENTLY DESTROYS anything DROPped (including the
+   automatic end-of-day sweep) at a full shed, so healthy wheat/egg income
+   evaporates right along with the unsellable backlog. ``policy.decide``
+   computes a shed-fill ``valve_tier`` from ``view.shed`` each turn (0 below
+   a soft threshold, 1 above it, 2 above a hard threshold -- both thresholds
+   scaled to the engine's actual ``shedCapacity``) and threads it straight
+   in. Tier 1 ignores every floor below (melon's included) and sells at
+   market on a shared soft cap; tier 2 ignores floors AND per-product caps
+   and sells the entire shed for MELON/MILK/WOOL/FERTILIZER (WHEAT still
+   keeps its feed reserve -- the valve exists to save the farm's OTHER
+   income, not to starve the animals it's trying to protect).
+5. **Regime-conditional WOOL/MILK floors.** The old static floors held
+   forever against a floor-free opponent (the actual shape of the #59
+   defect). Once ``agent.state.ProductCrashLatch`` sees enough consecutive
+   below-trigger price ticks, that product's floor waives permanently for
+   the rest of the episode -- same discipline, and the same never-unlatch
+   rationale, as melon's own CONTESTED latch. WOOL's floor also moves from
+   $150 to $200 and FERTILIZER's from $55 to $15 (fertilizer's floor now
+   only gates whether it's worth selling versus feeding back in as a
+   wheat-yield input, since the valve -- not the floor -- is what handles a
+   genuine backlog), and WOOL/MILK's per-turn cap goes from 2 to a shared 4.
 """
 
 from __future__ import annotations
@@ -61,10 +89,17 @@ from collections.abc import Mapping
 
 SELL_ALL = 99999  # engine validates no upper bound; safe "sell everything" idiom
 MAX_ORDERS = 10  # maxMarketOrdersPerTurn — extras silently dropped by the engine
-FERT_MIN_PRICE = 55.0  # below this, fertilizer is worth more as +2-yield wheat input
+# M2c (kaggriculture#59): lowered from $55 -- the valve, not the floor, now
+# handles a genuine fertilizer backlog, so this only gates whether a sale is
+# worth it versus feeding fertilizer back in as a +2-yield wheat input.
+FERT_MIN_PRICE = 15.0
 MELON_MIN_PRICE = 195.0  # ~22% off the $250 base — roughly where the crash starts biting
 MILK_MIN_PRICE = 120.0  # 25% off the $160 base — linear crash starts at ~+19 oversupply
-WOOL_MIN_PRICE = 150.0  # 25% off the $200 base — quadratic crash starts at ~+29 oversupply
+# M2c: raised from $150 -- the old floor never yielded against a floor-free
+# opponent (kaggriculture#59), so ProductCrashLatch (agent.state) now waives
+# it once the price crashes hard enough for long enough; see the module
+# docstring's M2c section.
+WOOL_MIN_PRICE = 200.0
 LIQUIDATION_DAY = 29  # unsold inventory is $0 at game end — dump everything
 
 # --- M2b: melon liquidation ramp (replaces the day-29 cliff for MELON only) --
@@ -103,14 +138,22 @@ MELON_MILK_WOOL_BATCH_EXEMPT_DAY = 27  # from here on, sell at any hour (endgame
 # keeps one turn's harvest windfall from being dumped in a single order and
 # walking the price down the quadratic/linear curve for every unit sold.
 MELON_SELL_CAP = 2
-MILK_SELL_CAP = 2
-WOOL_SELL_CAP = 2
+# M2c: MILK and WOOL now share one cap (was MILK_SELL_CAP/WOOL_SELL_CAP = 2
+# each) -- raised to 4 alongside the regime-conditional floor rework, since
+# the valve (not a tight per-turn cap) is now what handles a real backlog.
+WOOL_MILK_SELL_CAP = 4
 # 15 animals collect ~15 fertilizer/day at full husbandry scale (up from the
 # goose-only ~1/day M1 baseline); an uncapped SELL_ALL dump would walk the
 # linear-above-curve price down hard every turn the shed fills faster than
 # it's worth wheat-input use. Capped, not held-and-floored like melon/milk/
-# wool: fertilizer's own floor ($55) already gates *whether* to sell at all.
+# wool: fertilizer's own floor ($15) already gates *whether* to sell at all.
 FERT_SELL_CAP = 4
+
+# M2c (kaggriculture#59): shared per-turn cap for tier-1 (soft) valve sells,
+# applied uniformly across MELON/MILK/WOOL/FERTILIZER in place of each
+# product's own (tighter) cap -- see PolicyConfig.valve_soft_cap and the
+# module docstring's M2c section.
+VALVE_SOFT_CAP = 10
 
 
 def _capped_sell(item: str, shed: Mapping[str, int], cap: int, liquidating: bool) -> list[object]:
@@ -118,11 +161,21 @@ def _capped_sell(item: str, shed: Mapping[str, int], cap: int, liquidating: bool
     return ["SELL", item, qty]
 
 
-def _satellite_sell_allowed(day: int, hour: int) -> bool:
+def _satellite_sell_allowed(day: int, hour: int, valve_tier: int = 0) -> bool:
     """MELON/MILK/WOOL sell in every hour except the blocked mid-morning
     window, except once the endgame liquidation window opens (day >= 27),
     when every hour is fair game -- maximum exit flexibility beats batching
-    discipline that late."""
+    discipline that late.
+
+    M2c (kaggriculture#59): valve tier 2 (hard) also bypasses the window
+    unconditionally, same as the liquidation exemption -- batching is a
+    price-timing optimization, and it must never be allowed to delay a
+    destruction-prevention sale. Tier 1 (soft) still respects the window
+    (it's an optimization trade, not an emergency), matching the existing
+    liquidation precedent of "the more severe the exit, the less batching
+    discipline applies."""
+    if valve_tier >= 2:
+        return True
     if day >= MELON_MILK_WOOL_BATCH_EXEMPT_DAY:
         return True
     return hour not in MELON_MILK_WOOL_BATCH_BLOCKED_HOURS
@@ -132,6 +185,42 @@ def _melon_dynamic_floor(days_since_contested: int) -> float:
     """$195 decaying $8/day, clamped at $120 -- see module docstring point 1."""
     decayed = MELON_MIN_PRICE - MELON_CONTESTED_DECAY_PER_DAY * days_since_contested
     return max(MELON_CONTESTED_MIN_FLOOR, decayed)
+
+
+def _valve_sell(
+    item: str,
+    shed: Mapping[str, int],
+    price: float,
+    floor: float,
+    crashed: bool,
+    cap: int,
+    liquidating: bool,
+    valve_tier: int,
+    valve_soft_cap: int,
+) -> list[object] | None:
+    """Regime-conditional floor sell for MILK/WOOL/FERTILIZER (M2c), overridden
+    by the two-tier shed valve (see PolicyConfig / policy.decide and the
+    module docstring's M2c section):
+
+    - Liquidation (``day >= final_day``) or valve tier 2 (hard): sell the
+      entire shed holding, floor ignored.
+    - Valve tier 1 (soft): sell at market, floor ignored, but at the shared
+      ``valve_soft_cap`` instead of the product's own (tighter) cap.
+    - Valve tier 0: the regime floor applies -- unless ``crashed`` (the
+      product's ``agent.state.ProductCrashLatch`` has permanently latched),
+      in which case the floor is waived for the rest of the episode too.
+
+    Returns ``None`` when nothing should be sold this turn.
+    """
+    if shed.get(item, 0) <= 0:
+        return None
+    if liquidating or valve_tier >= 2:
+        return _capped_sell(item, shed, cap, liquidating=True)
+    if valve_tier == 1:
+        return _capped_sell(item, shed, valve_soft_cap, liquidating=False)
+    if crashed or price >= floor:
+        return _capped_sell(item, shed, cap, liquidating=False)
+    return None
 
 
 def build_orders(
@@ -146,6 +235,14 @@ def build_orders(
     melon_contested: bool = False,
     melon_days_since_contested: int = 0,
     melon_rolling_max: float = 0.0,
+    valve_tier: int = 0,
+    valve_soft_cap: int = VALVE_SOFT_CAP,
+    wool_floor: float = WOOL_MIN_PRICE,
+    milk_floor: float = MILK_MIN_PRICE,
+    fert_floor: float = FERT_MIN_PRICE,
+    wool_crashed: bool = False,
+    milk_crashed: bool = False,
+    wool_milk_sell_cap: int = WOOL_MILK_SELL_CAP,
 ) -> list[list[object]]:
     """Sells first (crashables at index 0, melon leading), then buys, capped at 10.
 
@@ -153,15 +250,26 @@ def build_orders(
     come straight from a caller-owned ``agent.state.MelonMarketMemory`` (this
     function stays a pure computation over the values it's handed -- see the
     module docstring for the three M2b behaviors they drive).
+
+    ``valve_tier``/``valve_soft_cap``/``wool_floor``/``milk_floor``/
+    ``fert_floor``/``wool_crashed``/``milk_crashed``/``wool_milk_sell_cap``
+    are the M2c additions (kaggriculture#59): ``valve_tier`` comes from
+    ``policy.decide``'s shed-fill computation, ``wool_crashed``/
+    ``milk_crashed`` from a caller-owned pair of ``agent.state.
+    ProductCrashLatch`` instances -- see the module docstring's M2c section.
     """
     orders: list[list[object]] = []
     liquidating = day >= final_day
 
     melon = shed.get("MELON", 0)
-    if melon > 0 and _satellite_sell_allowed(day, hour):
+    if melon > 0 and _satellite_sell_allowed(day, hour, valve_tier):
         melon_price = prices.get("MELON", 0.0)
         if day >= final_day:
             orders.append(_capped_sell("MELON", shed, MELON_SELL_CAP, liquidating=True))
+        elif valve_tier >= 2:
+            orders.append(_capped_sell("MELON", shed, MELON_SELL_CAP, liquidating=True))
+        elif valve_tier == 1:
+            orders.append(_capped_sell("MELON", shed, valve_soft_cap, liquidating=False))
         elif day >= MELON_RAMP_DAY_28:
             if melon_price >= MELON_RAMP_FLOOR_28:
                 orders.append(_capped_sell("MELON", shed, MELON_SELL_CAP, liquidating=False))
@@ -175,25 +283,50 @@ def build_orders(
         elif melon_price >= MELON_MIN_PRICE:
             orders.append(_capped_sell("MELON", shed, MELON_SELL_CAP, liquidating=False))
 
-    milk = shed.get("MILK", 0)
-    if (
-        milk > 0
-        and _satellite_sell_allowed(day, hour)
-        and (liquidating or prices.get("MILK", 0.0) >= MILK_MIN_PRICE)
-    ):
-        orders.append(_capped_sell("MILK", shed, MILK_SELL_CAP, liquidating))
+    if shed.get("MILK", 0) > 0 and _satellite_sell_allowed(day, hour, valve_tier):
+        milk_order = _valve_sell(
+            "MILK",
+            shed,
+            prices.get("MILK", 0.0),
+            milk_floor,
+            milk_crashed,
+            wool_milk_sell_cap,
+            liquidating,
+            valve_tier,
+            valve_soft_cap,
+        )
+        if milk_order is not None:
+            orders.append(milk_order)
 
-    wool = shed.get("WOOL", 0)
-    if (
-        wool > 0
-        and _satellite_sell_allowed(day, hour)
-        and (liquidating or prices.get("WOOL", 0.0) >= WOOL_MIN_PRICE)
-    ):
-        orders.append(_capped_sell("WOOL", shed, WOOL_SELL_CAP, liquidating))
+    if shed.get("WOOL", 0) > 0 and _satellite_sell_allowed(day, hour, valve_tier):
+        wool_order = _valve_sell(
+            "WOOL",
+            shed,
+            prices.get("WOOL", 0.0),
+            wool_floor,
+            wool_crashed,
+            wool_milk_sell_cap,
+            liquidating,
+            valve_tier,
+            valve_soft_cap,
+        )
+        if wool_order is not None:
+            orders.append(wool_order)
 
-    fert = shed.get("FERTILIZER", 0)
-    if fert > 0 and (liquidating or prices.get("FERTILIZER", 0.0) >= FERT_MIN_PRICE):
-        orders.append(_capped_sell("FERTILIZER", shed, FERT_SELL_CAP, liquidating))
+    if shed.get("FERTILIZER", 0) > 0:
+        fert_order = _valve_sell(
+            "FERTILIZER",
+            shed,
+            prices.get("FERTILIZER", 0.0),
+            fert_floor,
+            False,  # fertilizer has no crash latch -- the valve covers its backlog
+            FERT_SELL_CAP,
+            liquidating,
+            valve_tier,
+            valve_soft_cap,
+        )
+        if fert_order is not None:
+            orders.append(fert_order)
 
     if shed.get("EGG", 0) > 0:
         orders.append(["SELL", "EGG", SELL_ALL])

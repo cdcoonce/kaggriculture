@@ -186,3 +186,62 @@ class MelonMarketMemory:
         if not self.contested:
             self.contested = True
             self.contested_since_day = day
+
+
+class ProductCrashLatch:
+    """Cross-turn regime latch (M2c, kaggriculture#59): counts CONSECUTIVE
+    price observations below ``trigger_price`` and permanently latches ON
+    once ``ticks_required`` land in a row (an at-or-above-trigger tick resets
+    the streak to zero, but never un-latches an already-latched tracker).
+
+    This is WOOL/MILK's version of ``MelonMarketMemory``'s CONTESTED latch,
+    for the same reason: a floor that never yields against a floor-free
+    opponent holds a crashed product's backlog forever, filling the shared
+    shed until the engine starts silently destroying whatever else gets
+    DROPped. Deliberately price-only -- no opponent-inventory attribution
+    the way melon has, since WOOL/MILK have no per-product town-tick draw to
+    net out, and a raw consecutive-below-trigger streak is enough to tell a
+    genuinely crashed market from ordinary price noise.
+
+    Episode-boundary reset guard mirrors ``StateTracker``/
+    ``MelonMarketMemory``: step==0 or step < last observed step resets
+    everything, including an existing latch (a fresh episode must start
+    unlatched). Never-crash law: ``observe`` never raises, matching the
+    other trackers in this module.
+    """
+
+    def __init__(self, trigger_price: float, ticks_required: int) -> None:
+        self.trigger_price = float(trigger_price)
+        self.ticks_required = int(ticks_required)
+        self.reset()
+
+    def reset(self) -> None:
+        self._last_step: int = -1
+        self._consecutive_below: int = 0
+        self.latched: bool = False
+
+    def observe(self, price: float, step: int) -> None:
+        try:
+            self._observe(price, step)
+        except Exception:
+            # Never-crash law: skip this turn's update rather than raise or
+            # corrupt state (see MelonMarketMemory.observe for the same
+            # pattern and rationale).
+            pass
+
+    def _observe(self, price: float, step: int) -> None:
+        step = int(step)
+        if step == 0 or step < self._last_step:
+            self.reset()
+        self._last_step = step
+
+        if self.latched:
+            return
+
+        price = float(price)
+        if price < self.trigger_price:
+            self._consecutive_below += 1
+            if self._consecutive_below >= self.ticks_required:
+                self.latched = True
+        else:
+            self._consecutive_below = 0
