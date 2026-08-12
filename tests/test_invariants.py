@@ -560,7 +560,11 @@ def test_market_sell_has_no_shed_adjacency_requirement() -> None:
 # read ahead of an agent redesign -- into executable checks against the real
 # engine, so the redesign is built on verified behavior rather than a
 # read-through. Each test's failure message names the claim (1-12) it
-# checks. Claim 6 turned out to be REFUTED by the real engine -- see its
+# checks. Claim 6 holds, but only conditionally: fertilizer doubles an
+# ongoing crop's realized output (8 vs 4 units for one strawberry tile) when
+# the tile is harvested right after every production tick; leaving the tile
+# unharvested runs every tick's addition through the shared max_yield clamp
+# and wastes the bonus down to the same 4 units either way -- see that
 # test's docstring for the full explanation.
 
 
@@ -819,40 +823,55 @@ def test_claim5_fertilizer_bonus_requires_watering_on_the_exact_tick_day() -> No
     )
 
 
-def test_claim6_ongoing_crop_fertilizer_gain_is_capped_not_doubled() -> None:
-    """Claim 6 (REFUTED against the real engine): the claim under test was
-    "one FERTILIZE covers two strawberry productions; fertilizing at crop
-    age 9 and again at age 13, with watering aligned, yields 8 total units
-    from one tile versus 4 with no fertilizer." That 8-vs-4 split is FALSE.
+def test_claim6_ongoing_crop_fertilizer_doubles_yield_under_prompt_harvest_cadence() -> None:
+    """Claim 6, corrected: the original claim under test was "one FERTILIZE
+    covers two strawberry productions; fertilizing at crop age 9 and again
+    at age 13, with watering aligned, yields 8 total units from one tile
+    versus 4 with no fertilizer." An earlier version of this test called
+    that claim REFUTED because a fertilized and an unfertilized run both
+    finish at tile ``yield_units == 4`` -- but that measurement never
+    harvested the tile between production ticks, so every tick's addition
+    ran through ``min(cd["max_yield"], tile["yield_units"] + bonus)`` in
+    _daily_refresh_plants and got clamped to the shared cap (4). The 4-vs-4
+    result was an artifact of a never-harvest policy, not evidence that
+    fertilizer is worthless for an ongoing crop like it genuinely is for
+    MELON (test_melon_fertilizer_is_worthless, a non-ongoing crop whose
+    yield comes from the WATER path's own bonus/cap, a different mechanism).
 
-    _daily_refresh_plants caps every production add with
-    ``min(cd["max_yield"], tile["yield_units"] + bonus)`` -- the same cap
-    mechanism that makes fertilizer worthless for MELON in
-    test_melon_fertilizer_is_worthless above, now shown to also apply to an
-    ongoing crop's tick-based bonus. STRAWBERRY's table (first_yield_day=10,
-    interval=2, max_yield=4) is built so exactly 4 ticks fire over its life,
-    and unfertilized production alone (+1/tick) already lands on max_yield
-    (4) by the 4th tick. Fertilizing both coverage windows (age 9 covers
-    ticks 1-2, age 13 covers ticks 3-4, every tick watered) makes every tick
-    add +2 instead of +1 -- but the cap means the fertilized run ALSO
-    finishes at exactly 4, identical to the unfertilized run. Fertilizer's
-    only real, verified effect here is reaching the cap two ticks sooner
-    (day 13 instead of day 17), not a higher total.
+    HARVEST (see test_claim8) resets an ongoing tile's yield_units to 0 on
+    every call without clearing the tile itself. A policy that harvests
+    right after each production tick therefore empties the tile before the
+    next tick's addition ever lands -- the cap never binds, because no
+    single tick adds more than 2. Under THAT cadence fertilizer really does
+    double the realized total: 8 units (4 ticks x 2) vs 4 (4 ticks x 1). The
+    cap only wastes the bonus when the tile is left to sit unharvested,
+    which is exactly what the previous version of this test measured.
 
-    Fails (as intended, loudly) if the fertilized total ever exceeds 4 --
-    that would mean the cap was loosened and the ORIGINAL "8 units" claim
-    might now be true; re-verify against the agent-redesign assumptions
-    before trusting it.
+    Pins, against the real engine:
+      1. fertilized + harvest after every tick -> 8 total units.
+      2. unfertilized + harvest after every tick -> 4 total units.
+      3. fertilized + NEVER harvested until the end -> only 4 units --
+         a lazy harvest cadence silently halves fertilized ongoing-crop
+         output by running every tick's addition through the shared
+         max_yield clamp.
+      4. fertilizing at every tick-eve (ages 9, 11, 13, 15) adds nothing
+         over fertilizing at just ages 9 and 13 -- both 3-day coverage
+         windows already span all four production ticks.
     """
+    turns_per_day = 3
+    planted_day = 1
+    # Ticks fire on current_day in {10, 12, 14, 16} (see claim 5/7) and
+    # become visible in the tile's yield_units at the start of the day
+    # after each -- {11, 13, 15, 17}.
+    tick_visible_days = (11, 13, 15, 17)
+    end_step = 19 * turns_per_day  # well past the 4th (final) tick
 
-    def run(fertilize: bool, seed: int) -> Any:
-        turns_per_day = 3
-        planted_day = 1
+    def run(fertilize_ages: tuple[int, ...], harvest_after_each_tick: bool, seed: int) -> Any:
         script: dict[int, Action] = {
             0: {
                 "farmer": ["PASS"],
                 "hands": [],
-                "market": [["BUY_SEED", "STRAWBERRY", 1], ["BUY_PRODUCT", "FERTILIZER", 2]],
+                "market": [["BUY_SEED", "STRAWBERRY", 1], ["BUY_PRODUCT", "FERTILIZER", 4]],
             },
             planted_day * turns_per_day: {
                 "farmer": ["PLANT", "STRAWBERRY"],
@@ -863,20 +882,23 @@ def test_claim6_ongoing_crop_fertilizer_gain_is_capped_not_doubled() -> None:
         }
         for day in range(planted_day + 1, planted_day + 18):
             script[day * turns_per_day] = {"farmer": ["WATER"], "hands": [], "market": []}
-        if fertilize:
-            for age in (9, 13):
-                day = planted_day + age
-                script[day * turns_per_day] = {
-                    "farmer": ["PICKUP", "FERTILIZER", 1],
-                    "hands": [],
-                    "market": [],
-                }
-                script[day * turns_per_day + 1] = {
-                    "farmer": ["FERTILIZE"],
-                    "hands": [],
-                    "market": [],
-                }
-                script[day * turns_per_day + 2] = {"farmer": ["WATER"], "hands": [], "market": []}
+        for age in fertilize_ages:
+            day = planted_day + age
+            script[day * turns_per_day] = {
+                "farmer": ["PICKUP", "FERTILIZER", 1],
+                "hands": [],
+                "market": [],
+            }
+            script[day * turns_per_day + 1] = {
+                "farmer": ["FERTILIZE"],
+                "hands": [],
+                "market": [],
+            }
+            script[day * turns_per_day + 2] = {"farmer": ["WATER"], "hands": [], "market": []}
+        if harvest_after_each_tick:
+            for day in tick_visible_days:
+                script[day * turns_per_day] = {"farmer": ["HARVEST"], "hands": [], "market": []}
+                script[day * turns_per_day + 1] = {"farmer": ["WATER"], "hands": [], "market": []}
         env = make(
             "kaggriculture",
             configuration={
@@ -889,36 +911,57 @@ def test_claim6_ongoing_crop_fertilizer_gain_is_capped_not_doubled() -> None:
         env.run([_scripted_agent(script), _idle_agent])
         return env
 
-    unfertilized_env = run(fertilize=False, seed=17001)
-    fertilized_env = run(fertilize=True, seed=17002)
+    def total_strawberry_units(env: Any, step_index: int, player: int = 0) -> int:
+        """Shed + any not-yet-dropped unit inventory -- every harvested unit
+        that hasn't been sold, since none of these scripts issue SELL."""
+        obs = env.steps[step_index][player].observation
+        shed = obs.private["shed"].get("STRAWBERRY", 0)
+        carried = obs.private["inventories"][player].get("STRAWBERRY", 0)
+        return shed + carried
 
-    unfertilized_final = _player_tile(unfertilized_env, 18 * 3)
-    fertilized_final = _player_tile(fertilized_env, 18 * 3)
-
-    assert unfertilized_final["yield_units"] == 4, (
-        f"claim 3/6 baseline: unfertilized strawberry did not reach max_yield 4 "
-        f"(got {unfertilized_final['yield_units']})"
+    # 1 & 2: harvest right after every production tick.
+    fertilized_prompt = run(fertilize_ages=(9, 13), harvest_after_each_tick=True, seed=17011)
+    unfertilized_prompt = run(fertilize_ages=(), harvest_after_each_tick=True, seed=17012)
+    fertilized_prompt_total = total_strawberry_units(fertilized_prompt, end_step)
+    unfertilized_prompt_total = total_strawberry_units(unfertilized_prompt, end_step)
+    assert unfertilized_prompt_total == 4, (
+        f"claim 6 baseline: unfertilized strawberry harvested after every tick did "
+        f"not total 4 units (got {unfertilized_prompt_total})"
     )
-    assert fertilized_final["yield_units"] == 4, (
-        f"claim 6: fertilized strawberry's final yield changed from the previously "
-        f"verified 4 (got {fertilized_final['yield_units']}) -- if this is now > 4, "
-        f"the max_yield cap was loosened and the original 'fertilizer doubles to 8' "
-        f"claim may now hold; re-check before trusting it"
-    )
-    assert fertilized_final["yield_units"] == unfertilized_final["yield_units"], (
-        "claim 6 REFUTED: fertilizer changed total lifetime yield after all, "
-        "contradicting the empirically-observed 4-vs-4 (not the claimed 8-vs-4)"
+    assert fertilized_prompt_total == 8, (
+        f"claim 6: fertilizing a strawberry at ages 9 and 13, harvested right after "
+        f"every production tick, did not double the unfertilized total to 8 (got "
+        f"{fertilized_prompt_total}) -- fertilizer should double an ongoing crop's "
+        f"realized output under a prompt harvest cadence"
     )
 
-    # The real (smaller) benefit fertilizer DOES provide: reaching the cap
-    # sooner -- by day 13 (tick 2) instead of needing all 4 ticks (day 17).
-    fertilized_at_tick2 = _player_tile(fertilized_env, 13 * 3)
-    unfertilized_at_tick2 = _player_tile(unfertilized_env, 13 * 3)
-    assert fertilized_at_tick2["yield_units"] == 4, (
-        "claim 6: fertilized run did not already hit the cap by day 13"
+    # 3: fertilized but never harvested until the end -- the max_yield cap
+    # wastes the bonus. Read right at the 4th tick's max_lifespan_step
+    # (mls, see claim 7): yield_units == 4 there, before _decay_plants'
+    # every-other-step decrements (which start exactly at mls) erode it, so
+    # reading any later than this would conflate the cap trap with decay.
+    mls_step = (planted_day + 17) * turns_per_day
+    fertilized_lazy = run(fertilize_ages=(9, 13), harvest_after_each_tick=False, seed=17013)
+    fertilized_lazy_final = _player_tile(fertilized_lazy, mls_step)
+    assert fertilized_lazy_final["yield_units"] == 4, (
+        f"claim 6: fertilized strawberry left unharvested until the end did not land "
+        f"on the max_yield cap (4) (got {fertilized_lazy_final['yield_units']}) -- a "
+        f"lazy harvest cadence should silently halve fertilized ongoing-crop output "
+        f"(8 realizable, only 4 actually banked) by running every tick's addition "
+        f"through the shared max_yield clamp"
     )
-    assert unfertilized_at_tick2["yield_units"] == 2, (
-        "claim 6: unfertilized run's day-13 progress changed"
+
+    # 4: fertilizing every tick-eve is no better than fertilizing at 9 and
+    # 13 -- both coverage windows already reach all four ticks.
+    fertilized_every_tick = run(
+        fertilize_ages=(9, 11, 13, 15), harvest_after_each_tick=True, seed=17014
+    )
+    fertilized_every_tick_total = total_strawberry_units(fertilized_every_tick, end_step)
+    assert fertilized_every_tick_total == fertilized_prompt_total == 8, (
+        f"claim 6: fertilizing at every tick-eve (9, 11, 13, 15) yielded "
+        f"{fertilized_every_tick_total} units, expected the same 8 as fertilizing "
+        f"only at ages 9 and 13 -- the 3-day coverage window from each of those two "
+        f"applications should already span all four production ticks"
     )
 
 
