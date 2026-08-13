@@ -91,15 +91,15 @@ def test_melon_tiles_disjoint_from_the_rest_of_the_target_universe() -> None:
 #
 # M2a: the pasture zone is the next-nearest ring after melon's prefix -- same
 # nearest-shed-first universe, just a different slice. cow + sheep targets
-# (6 + 9 = 15) exactly fill the reserved zone: one animal per pasture tile.
+# (6 + 4 = 10) exactly fill the reserved zone: one animal per pasture tile.
 
 
 def test_pasture_targets_sum_to_the_pasture_tile_target() -> None:
     assert COW_TARGET + SHEEP_TARGET == PASTURE_TILE_TARGET
-    assert PASTURE_TILE_TARGET == 15
+    assert PASTURE_TILE_TARGET == 10
 
 
-def test_pasture_tiles_are_the_fifteen_after_melons_prefix() -> None:
+def test_pasture_tiles_are_the_ten_after_melons_prefix() -> None:
     unlocked = ("NW", "NE")
     tiles = target_tiles(unlocked)
     expected = tiles[MELON_TILE_TARGET : MELON_TILE_TARGET + PASTURE_TILE_TARGET]

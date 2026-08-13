@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from agent import policy
 from agent.constants import pasture_tiles
 from agent.policy import PolicyConfig, make_policy
 from agent.shell import pass_action
@@ -61,20 +62,47 @@ def raw_obs(
     }
 
 
+# --- Shipped defaults must match the gated ranch reshape (kaggriculture#59) -
+
+
+def test_default_policy_config_matches_the_gated_ranch_reshape() -> None:
+    """PolicyConfig()'s defaults ARE the shipped ranch, gated against the
+    full opponent roster on identical seeds (~24,000 games): 6 cow / 4 sheep
+    beat the shipped 6 cow / 9 sheep in all 11 roster matchups on median
+    money, with the best worst-case win rate (0.205 vs meta-clone, where 6/9
+    scores 0.000). These four numbers are that gated configuration -- if
+    someone edits a herd constant (COW_TARGET/SHEEP_TARGET) without
+    re-gating, this test must fail, not a live match.
+
+    wheat_rush_tiles is the one that silently follows: policy.
+    _WHEAT_RUSH_TILES_DEFAULT is computed ONCE AT IMPORT TIME as
+    BOARD_SIZE**2 - 1 - MELON_TILE_TARGET - (COW_TARGET + SHEEP_TARGET), so a
+    herd-constant edit reshapes the wheat zone too even though nothing here
+    references sheep/cow by name: 100 - 1 - 8 - 10 = 81, and 81 is the value
+    that was actually gated alongside 6/4.
+    """
+    config = PolicyConfig()
+    assert config.cow_target == 6
+    assert config.sheep_target == 4
+    assert config.pasture_tile_target == 10
+    assert config.wheat_rush_tiles == 81
+    assert config.wheat_rush_tiles == policy._WHEAT_RUSH_TILES_DEFAULT
+
+
 def test_day_zero_opening_orders() -> None:
     # NW-only is 24 target tiles. Pastures are pinned to a fixed NW+NE
-    # reference frame (constants.PASTURE_REFERENCE_QUADRANTS), so only the 7
-    # of its 15 tiles that happen to fall inside NW are actually reachable
+    # reference frame (constants.PASTURE_REFERENCE_QUADRANTS), so only the 5
+    # of its 10 tiles that happen to fall inside NW are actually reachable
     # (and excluded from wheat) yet; melon's own 8 nearest (computed against
-    # the live NW-only state) overlap 4 of those 7. Wheat's day-0 plantable
-    # count is therefore 24 - |melon ∪ reachable-pasture| = 24 - 11 = 13.
+    # the live NW-only state) overlap 4 of those 5. Wheat's day-0 plantable
+    # count is therefore 24 - |melon ∪ reachable-pasture| = 24 - 9 = 15.
     # This is a turn-0-only shape: NE unlocks this same turn (below) and the
     # active universe is 49 tiles from the next observation on.
     action = make_policy()(raw_obs(), None)
     market = action["market"]
     assert ["BUY_ANIMAL", "GOOSE", 1] in market
     assert ["BUY_SEED", "MELON", 4] in market
-    assert ["BUY_SEED", "WHEAT", 13] in market
+    assert ["BUY_SEED", "WHEAT", 15] in market
     assert market.count(["HIRE"]) == 3
     assert len(market) <= 10
 
