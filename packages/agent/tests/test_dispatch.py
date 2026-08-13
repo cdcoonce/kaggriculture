@@ -423,7 +423,35 @@ def test_empty_pasture_zone_tile_gets_build_pasture_task() -> None:
     assert actions.hands[0] == ["BUILD_PASTURE"]
 
 
-def test_build_pasture_stops_once_built_count_reaches_target() -> None:
+def test_build_pasture_stops_once_every_zone_tile_is_built() -> None:
+    """The negative case: occupancy, not a counter, is what stops building.
+
+    Deleting the old ``built_count`` ceiling (it was stale AND provably
+    unable to fire) removed the cap test's negative half, so pin what
+    actually bounds this now: the ``tile is None`` check. A zone whose tiles
+    are ALL already built must emit no further BUILD_PASTURE — issuing one
+    on an occupied tile would burn a unit-action every turn for the rest of
+    the game.
+    """
+    tiles = make_view().tiles
+    zone = NW_TILES[:6]
+    for x, y in zone:
+        tiles[y][x] = built_pasture()
+    # The hand stands on a built zone tile; nothing in the zone is empty.
+    view = make_view(hands=[zone[-1]], tiles=tiles)
+    actions = dispatch(view, NW_TILES, frozenset(), frozenset(zone))
+    assert not any(a and a[0] == "BUILD_PASTURE" for a in [actions.farmer, *actions.hands])
+
+
+def test_build_pasture_continues_past_the_module_target_when_the_zone_is_larger() -> None:
+    # Zone size, not any module constant, is what bounds building. Here the
+    # zone is exactly one tile larger than PASTURE_TILE_TARGET (the whole
+    # target-sized prefix already built, plus one more designated-but-empty
+    # tile): that extra tile must still get BUILD_PASTURE. Under the removed
+    # `built_count < PASTURE_TILE_TARGET` ceiling it was silently skipped
+    # forever. Guards against re-introducing any module-constant cap (see
+    # test_pasture_build_ceiling_follows_the_configured_zone_size_not_the_
+    # module_constant below for the sharper, larger-zone version).
     tiles = make_view().tiles
     built_positions = [(x, y) for y in range(3) for x in range(5)][:PASTURE_TILE_TARGET]
     assert len(built_positions) == PASTURE_TILE_TARGET
@@ -433,7 +461,38 @@ def test_build_pasture_stops_once_built_count_reaches_target() -> None:
     pasture_zone = frozenset(built_positions) | frozenset({extra_empty})
     view = make_view(hands=[extra_empty], tiles=tiles)
     actions = dispatch(view, NW_TILES, frozenset(), pasture_zone)
-    assert actions.hands[0] == ["PASS"]  # cap reached; no BUILD_PASTURE beyond the target
+    assert actions.hands[0] == ["BUILD_PASTURE"]
+
+
+def test_pasture_build_ceiling_follows_the_configured_zone_size_not_the_module_constant() -> None:
+    """Regression for the M2a stranding bug this ranch-reshape PR fixes:
+    BUILD_PASTURE must be bounded by the zone the caller actually passed in,
+    never by the module-level ``PASTURE_TILE_TARGET``.
+    A ``PolicyConfig`` override of cow_target/sheep_target resizes the zone
+    ``policy.py`` hands to ``dispatch`` without touching that module
+    constant, so a ceiling pinned to it would silently stop emitting
+    BUILD_PASTURE partway through a larger zone -- any tile past the cutoff
+    never gets built, so an animal bought for it can never be PLACEd and
+    sits in the shed, unplaced, for the rest of the game. That's the exact
+    M2a failure mode the surrounding dispatch.py comments warn about.
+
+    This zone has 17 tiles -- comfortably past PASTURE_TILE_TARGET (10) --
+    all left unbuilt. Against the old ``built_count < PASTURE_TILE_TARGET``
+    code, the loop stopped issuing BUILD_PASTURE after the 10th zone tile it
+    visits (in the same nearest-shed-first order as ``tiles``), so no
+    BUILD_PASTURE task was ever generated for the 17th -- the hand standing
+    there fell back on whatever unrelated task was nearest instead. With the
+    ceiling removed, every empty zone tile -- including the 17th -- gets its
+    own BUILD_PASTURE.
+    """
+    zone = NW_TILES[:17]  # nearest-shed-first order, same as dispatch's own tile loop
+    assert len(zone) == 17
+    assert len(zone) > PASTURE_TILE_TARGET
+    pasture_zone = frozenset(zone)
+    last = zone[-1]  # 17th in loop order -- stranded under the old module-constant ceiling
+    view = make_view(hands=[last])  # tile is None by default: an unbuilt pasture position
+    actions = dispatch(view, NW_TILES, frozenset(), pasture_zone)
+    assert actions.hands[0] == ["BUILD_PASTURE"]
 
 
 def test_empty_built_pasture_gets_place_cow_when_carrying_one() -> None:

@@ -94,8 +94,11 @@ def melon_tiles(
 # tile pipeline; there's no reason to reserve more tiles than animals we
 # ever intend to buy).
 COW_TARGET = 6
-SHEEP_TARGET = 9
-PASTURE_TILE_TARGET = COW_TARGET + SHEEP_TARGET  # 15
+# Gated (~24,000 games): 6 cow / 4 sheep beat the shipped 6/9 in all 11
+# roster matchups on median money, best worst-case win rate 0.205 vs
+# meta-clone (where 6/9 scores 0.000).
+SHEEP_TARGET = 4
+PASTURE_TILE_TARGET = COW_TARGET + SHEEP_TARGET  # 10
 
 # Pastures are anchored to this FIXED reference frame forever, never the
 # live/current ``unlocked_quadrants`` -- unlike melon_tiles (whose zone is

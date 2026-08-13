@@ -15,7 +15,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-from agent.constants import COOP_TILE, PASTURE_TILE_TARGET, SHED_TILE, nearest_shed_access
+from agent.constants import COOP_TILE, SHED_TILE, nearest_shed_access
 from agent.view import FarmView, Tile
 
 UnitAction = list[object]
@@ -275,9 +275,12 @@ def _field_tasks(
 
     Pasture tiles (positions in ``pasture_tiles``) see ``_pasture_task``'s
     FEED/HARVEST/PLACE/CARE/COLLECT_FERTILIZER rules for P0-P2, BUILD_PASTURE
-    at P3 while the zone's built count stays under ``PASTURE_TILE_TARGET``
-    (mirrors wheat/melon's own P3 planting gate), and the shared P4 DIG below
-    for a weed that spawned on a still-empty designated tile.
+    at P3 while the zone's built count stays under ``len(pasture_tiles)`` --
+    the size of the zone actually passed in, not a module-level constant, so
+    a ``PolicyConfig`` override of cow_target/sheep_target (which resizes the
+    zone the caller passes) is honored without any extra plumbing (mirrors
+    wheat/melon's own P3 planting gate) -- and the shared P4 DIG below for a
+    weed that spawned on a still-empty designated tile.
 
     Endgame: on the last day, after hour 20, no P1 (harvest) task is ever
     emitted for any crop or animal — the market reads shed contents
@@ -311,12 +314,6 @@ def _field_tasks(
         "COW": view.shed.get("COW", 0) + sum(inv.get("COW", 0) for inv in view.inventories),
         "SHEEP": view.shed.get("SHEEP", 0) + sum(inv.get("SHEEP", 0) for inv in view.inventories),
     }
-    built_count = sum(
-        1
-        for x, y in pasture_tiles
-        if isinstance(view.tiles[y][x], dict) and view.tiles[y][x].get("kind") == "PASTURE"
-    )
-
     tasks: list[_Task] = []
     for x, y in tiles:
         tile: Tile = view.tiles[y][x]
@@ -324,9 +321,20 @@ def _field_tasks(
         is_pasture = (x, y) in pasture_tiles
         if tile is None:
             if is_pasture:
-                if built_count < PASTURE_TILE_TARGET:
-                    tasks.append(_Task((x, y), ["BUILD_PASTURE"], priority=3))
-                    built_count += 1
+                # Every empty tile in the zone gets built, full stop. This used
+                # to carry a `built_count < PASTURE_TILE_TARGET` ceiling, which
+                # was BOTH stale and redundant: stale because a PolicyConfig
+                # override of cow_target/sheep_target resizes the zone the
+                # caller passes without touching that module constant (so a
+                # zone larger than the constant had its tail silently stranded
+                # -- an animal bought for such a tile can never be PLACEd and
+                # sits in the shed all game, the M2a failure mode); redundant
+                # because the zone is its own bound. Reaching this line means
+                # this zone tile is empty, so with b built and u unbuilt the
+                # k-th emission checks b+k < b+u, i.e. k < u -- true for every
+                # k it can ever see. A ceiling that cannot fire is not a guard,
+                # so it is gone rather than left to read like one.
+                tasks.append(_Task((x, y), ["BUILD_PASTURE"], priority=3))
             elif is_melon:
                 if view.day <= MELON_PLANT_CUTOFF_DAY and view.hour <= 20 and melon_budget > 0:
                     crop_task = _Task(
