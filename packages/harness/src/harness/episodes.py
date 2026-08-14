@@ -67,10 +67,17 @@ def resolve_agent(spec: str, agent_config: dict[str, Any] | None = None) -> Any:
         policy_config = PolicyConfig(**agent_config) if agent_config is not None else None
         return make_policy(policy_config=policy_config)
     if spec.startswith("zoo:"):
-        from harness.zoo import gate_zoo
+        # Resolve against the EXTENDED roster, not the gate roster. Extended
+        # members (chaos-legal-random since #39, and any machine-local tape)
+        # were registered in a tier nothing could reach: `gate_zoo()` here made
+        # `zoo:<extended-member>` a KeyError, so the sweep the zoo docstring
+        # describes could never have run. Widening the lookup does NOT widen
+        # the gate -- strength_gate iterates SCRIPTED directly, so the
+        # promotion roster is unchanged and still machine-independent.
+        from harness.zoo import extended_zoo
 
         name = spec.removeprefix("zoo:")
-        member = gate_zoo()[name]
+        member = extended_zoo()[name]
         return member() if callable(member) else member
     if spec.startswith("frozen:"):
         import importlib
