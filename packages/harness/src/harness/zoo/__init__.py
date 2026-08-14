@@ -9,6 +9,16 @@ name strings.
 Gate zoo cap: ~10 members. Everything beyond the cap lives in the extended
 zoo, swept only by the nightly; an extended member that beats a current
 champion earns gate promotion.
+
+Tape-player members (``tape-<stem>``, issue #59) are a special case of the
+extended zoo: each one replays a fixed, observation-blind action tape read
+from a MACHINE-LOCAL directory (``harness.zoo.tape_player.DEFAULT_TAPE_DIR``,
+by default ``~/.kaggriculture/tapes``). Tapes are third-party data and are
+never committed to this repo, so they are discovered at runtime rather than
+imported, and gate-excluded by design: they join ``extended_zoo()`` only,
+never ``SCRIPTED``/``gate_zoo()``, so the gate roster stays reproducible and
+machine-independent regardless of which tapes (if any) happen to be present
+on the machine running it.
 """
 
 from __future__ import annotations
@@ -24,6 +34,7 @@ from harness.zoo.melon_dumper import make_agent as _make_melon_dumper
 from harness.zoo.melon_rusher import make_agent as _make_melon_rusher
 from harness.zoo.meta_clone import make_agent as _make_meta_clone
 from harness.zoo.public_baseline_approx import make_agent as _make_public_baseline_approx
+from harness.zoo.tape_player import discover_tapes as _discover_tapes
 from harness.zoo.wheat_spam import make_agent as _make_wheat_spam
 
 Agent = Callable[..., Any] | str
@@ -61,5 +72,12 @@ EXTENDED: dict[str, Agent] = {
 
 
 def extended_zoo() -> dict[str, Agent]:
-    """Gate zoo plus extended-only members, swept only by the nightly."""
-    return {**BUILTIN_ANCHORS, **SCRIPTED, **EXTENDED}
+    """Gate zoo plus extended-only members, swept only by the nightly.
+
+    Tape-player members are merged in dynamically via ``discover_tapes()``
+    on every call, rather than being folded into ``EXTENDED`` at import
+    time: tapes live in a machine-local directory that can change between
+    calls (or be entirely absent), and import time must stay filesystem-
+    free so importing this module never depends on tape files existing.
+    """
+    return {**BUILTIN_ANCHORS, **SCRIPTED, **EXTENDED, **_discover_tapes()}

@@ -33,6 +33,18 @@ class TestResolveAgent:
         finally:
             del zoo_module.SCRIPTED["_test_factory_member"]
 
+    def test_zoo_prefix_resolves_an_extended_only_member(self) -> None:
+        # Regression: resolve_agent looked members up in gate_zoo(), so every
+        # EXTENDED-only member was unreachable by spec -- chaos-legal-random
+        # (#39) had been unrunnable since it landed, and the nightly sweep the
+        # zoo docstring describes could not have worked. Uses a real EXTENDED
+        # member rather than a machine-local tape so the test is portable.
+        import harness.zoo as zoo_module
+
+        assert "chaos-legal-random" in zoo_module.EXTENDED
+        assert "chaos-legal-random" not in zoo_module.gate_zoo()
+        assert callable(resolve_agent("zoo:chaos-legal-random"))
+
     def test_champion_spec_forwards_agent_config_as_policy_config(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
