@@ -10,7 +10,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from harness.gate import GateResult
+from harness.episodes import GameRow
+from harness.gate import GateResult, MoneyGateResult
 
 SCHEMA_VERSION = 1
 
@@ -78,6 +79,129 @@ def write_ledger(
             }
             for row in result.rows
         ],
+    }
+
+    path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    return path
+
+
+def _row_payload(row: GameRow) -> dict[str, object]:
+    return {
+        "seed": row.seed,
+        "candidate_seat": row.candidate_seat,
+        "candidate_money": row.candidate_money,
+        "opponent_money": row.opponent_money,
+        "outcome": row.outcome,
+        "candidate_crashed": row.candidate_crashed,
+        "opponent_crashed": row.opponent_crashed,
+    }
+
+
+def write_money_ledger(
+    result: MoneyGateResult,
+    eval_dir: Path,
+    *,
+    candidate_commit: str,
+    timestamp: str,
+) -> Path:
+    """Write a paired money-gate ``result`` as a JSON ledger entry.
+
+    A SUPERSET of the standard shape, deliberately: ``find_passing_promotion``
+    hard-indexes ``identity.gate_type`` / ``candidate`` / ``candidate_commit``
+    and ``verdict.passed`` across *every* ``*.json`` in the directory, and
+    ``rerun_ledger`` hard-indexes ``identity.extra_config`` and
+    ``verdict.threshold``. Keeping those blocks intact keeps the corpus
+    homogeneous; the money statistic lives in its own top-level block.
+
+    ``verdict`` is the CANDIDATE arm's WIN-RATE verdict, unchanged in shape
+    and meaning. The money PASS/FAIL is ``money_verdict.passed`` and nothing
+    else. ``SCHEMA_VERSION`` stays 1: the change is purely additive, exactly
+    as ``identity.agent_config`` was.
+    """
+    filename = (
+        f"{timestamp}-{_sanitize(result.candidate)}-vs-"
+        f"{_sanitize(result.opponent)}-{result.gate_type}.json"
+    )
+    gates_dir = eval_dir / "gates"
+    gates_dir.mkdir(parents=True, exist_ok=True)
+    path = gates_dir / filename
+
+    verdict = result.money_verdict
+    payload = {
+        "schema_version": SCHEMA_VERSION,
+        "identity": {
+            "candidate": result.candidate,
+            "candidate_commit": candidate_commit,
+            "opponent": result.opponent,
+            "gate_type": result.gate_type,
+            "extra_config": result.extra_config,
+            "agent_config": result.agent_config,
+            "baseline": result.baseline,
+            "baseline_agent_config": result.baseline_agent_config,
+            "opponent_digest": result.opponent_digest,
+        },
+        "verdict": {
+            "n_games": result.candidate_result.verdict.n_games,
+            "wins": result.candidate_result.wins,
+            "losses": result.candidate_result.losses,
+            "ties": result.candidate_result.ties,
+            "score": result.candidate_result.verdict.score,
+            "rate": result.candidate_result.verdict.rate,
+            "ci_lower": result.candidate_result.verdict.ci_lower,
+            "threshold": result.candidate_result.threshold,
+            "passed": result.candidate_result.verdict.passed,
+            "any_candidate_crash": result.candidate_result.any_candidate_crash,
+        },
+        "money_verdict": {
+            "n_seeds": verdict.n_seeds,
+            "alpha": verdict.alpha,
+            "threshold": verdict.threshold,
+            "candidate_mean": verdict.candidate_mean,
+            "baseline_mean": verdict.baseline_mean,
+            "mean_delta": verdict.mean_delta,
+            "median_delta": verdict.median_delta,
+            "sd_delta": verdict.sd_delta,
+            "stderr": verdict.stderr,
+            "skew_delta": verdict.skew_delta,
+            "min_delta": verdict.min_delta,
+            "df": verdict.df,
+            "t_crit": verdict.t_crit,
+            "ci_lower_mean": verdict.ci_lower_mean,
+            "hl_shift": verdict.hl_shift,
+            "hl_skip": verdict.hl_skip,
+            "hl_exact_alpha": verdict.hl_exact_alpha,
+            "ci_lower_hl": verdict.ci_lower_hl,
+            "ci_lower": verdict.ci_lower,
+            "mde_80": verdict.mde_80,
+            "vetoes": list(verdict.vetoes),
+            "passed": verdict.passed,
+            "opponent_mean_delta": result.opponent_mean_delta,
+            "min_opponent_money": result.min_opponent_money,
+            "candidate_canary_ran": result.candidate_canary_ran,
+            "candidate_canary_crashed": result.candidate_canary_crashed,
+            "baseline_canary_ran": result.baseline_canary_ran,
+            "baseline_canary_crashed": result.baseline_canary_crashed,
+            "min_seeds": result.min_seeds,
+            "catastrophic_k": result.catastrophic_k,
+            "candidate_money_floor": result.candidate_money_floor,
+            "opponent_money_floor": result.opponent_money_floor,
+        },
+        "seed_manifest": {
+            "seed_base": result.seed_base,
+            "n_seeds": result.n_seeds,
+            "seeds": result.seeds,
+        },
+        "per_seed": [
+            {
+                "seed": entry.seed,
+                "candidate_money": entry.candidate_money,
+                "baseline_money": entry.baseline_money,
+                "delta": entry.delta,
+            }
+            for entry in result.per_seed
+        ],
+        "rows": [_row_payload(row) for row in result.candidate_result.rows],
+        "baseline_rows": [_row_payload(row) for row in result.baseline_result.rows],
     }
 
     path.write_text(json.dumps(payload, indent=2), encoding="utf-8")

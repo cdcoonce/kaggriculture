@@ -5,12 +5,18 @@ Eval protocol, issue #4.
 
 from __future__ import annotations
 
+import hashlib
+from collections.abc import Sequence
 from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass
 from typing import Any
 
 from harness.episodes import GameRow, play_game
-from harness.stats import GateVerdict, gate_verdict
+from harness.stats import GateVerdict, MoneyVerdict, gate_verdict, money_verdict
+
+#: Specs whose policy is built from ``agent.policy.PolicyConfig`` and therefore
+#: accept an ``agent_config`` override (see ``harness.episodes.resolve_agent``).
+TUNABLE_SPECS = frozenset({"champion", "champion-unshelled"})
 
 
 @dataclass(frozen=True)
@@ -117,4 +123,310 @@ def run_gate(
         extra_config=extra_config,
         agent_config=agent_config,
         threshold=threshold,
+    )
+
+
+@dataclass(frozen=True)
+class SeedMoney:
+    """One paired observation: both seats averaged, both arms."""
+
+    seed: int
+    candidate_money: float
+    baseline_money: float
+    delta: float
+
+
+@dataclass(frozen=True)
+class MoneyGateResult:
+    """A two-arm, same-seed, same-opponent paired money gate."""
+
+    candidate: str
+    agent_config: dict[str, Any] | None
+    baseline: str
+    baseline_agent_config: dict[str, Any] | None
+    opponent: str
+    opponent_digest: str | None
+    gate_type: str
+    n_seeds: int
+    seed_base: int
+    seeds: list[int]
+    candidate_result: GateResult
+    baseline_result: GateResult
+    per_seed: list[SeedMoney]
+    money_verdict: MoneyVerdict
+    opponent_mean_delta: float
+    min_opponent_money: float
+    candidate_canary_ran: bool
+    candidate_canary_crashed: bool
+    baseline_canary_ran: bool
+    baseline_canary_crashed: bool
+    extra_config: dict[str, Any] | None
+    threshold: float
+    # Veto knobs are carried on the result, not just consumed, so a ledger
+    # entry can record them and `rerun-ledger` can reproduce the SAME vetoes.
+    # Without them a run that legitimately lowered `opponent_money_floor`
+    # (any non-tape opponent) replays under the tape-calibrated default and
+    # reports a mismatch that is really a knob the ledger forgot.
+    alpha: float
+    min_seeds: int
+    catastrophic_k: float
+    candidate_money_floor: float
+    opponent_money_floor: float
+
+
+def _seat_mean(rows: Sequence[GameRow], attribute: str) -> dict[int, float]:
+    by_seed: dict[int, dict[int, float]] = {}
+    for row in rows:
+        seats = by_seed.setdefault(row.seed, {})
+        if row.candidate_seat in seats:
+            raise ValueError(
+                f"seed {row.seed} contributes seat {row.candidate_seat} more than once"
+            )
+        seats[row.candidate_seat] = float(getattr(row, attribute))
+
+    collapsed: dict[int, float] = {}
+    for seed, seats in by_seed.items():
+        if set(seats) != {0, 1}:
+            raise ValueError(
+                f"seed {seed} is missing a seat: got seats {sorted(seats)}, need [0, 1]"
+            )
+        collapsed[seed] = (seats[0] + seats[1]) / 2.0
+    return collapsed
+
+
+def seat_mean_money(rows: Sequence[GameRow]) -> dict[int, float]:
+    """Collapse both seats of each seed into one seat-averaged observation.
+
+    Raises ``ValueError`` unless every seed contributes exactly seats
+    ``{0, 1}``. A seed with one usable seat is not a half-observation; it is
+    a broken run, and silently keeping it would break the pairing the whole
+    statistic rests on.
+    """
+    return _seat_mean(rows, "candidate_money")
+
+
+def seat_mean_opponent_money(rows: Sequence[GameRow]) -> dict[int, float]:
+    """Same collapse, over ``GameRow.opponent_money``."""
+    return _seat_mean(rows, "opponent_money")
+
+
+def opponent_digest(opponent: str) -> str | None:
+    """``"sha256:<hex>"`` of the tape file backing ``zoo:tape-<stem>``, else None.
+
+    Tapes are machine-local and uncommitted, and nothing else identifies
+    which bytes a run used: a different ``thunder-719.json`` on another
+    machine produces different money under an identical ledger identity,
+    silently. ``None`` for every non-tape spec and for a tape file that is
+    not present on this machine.
+    """
+    prefix = "zoo:tape-"
+    if not opponent.startswith(prefix):
+        return None
+
+    from harness.zoo.tape_player import tape_path
+
+    path = tape_path(opponent.removeprefix(prefix))
+    if not path.is_file():
+        return None
+    return "sha256:" + hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def run_money_gate(
+    candidate: str,
+    opponent: str,
+    n_seeds: int,
+    seed_base: int,
+    *,
+    baseline: str,
+    baseline_agent_config: dict[str, Any] | None = None,
+    agent_config: dict[str, Any] | None = None,
+    workers: int = 8,
+    extra_config: dict[str, Any] | None = None,
+    threshold: float = 1000.0,
+    alpha: float = 0.05,
+    min_seeds: int = 8,
+    catastrophic_k: float = 5.0,
+    candidate_money_floor: float = 3000.0,
+    opponent_money_floor: float = 10000.0,
+    canary_seeds: int = 6,
+    run_canary: bool = True,
+    gate_type: str = "money",
+) -> MoneyGateResult:
+    """Play candidate and baseline over the SAME seeds against the SAME opponent.
+
+    Both arms run inside this one call: identical opponent, identical seeds,
+    identical ``extra_config``, identical engine build. Pairing is worth
+    2-60x (measured 65.8%-99.97% variance reduction), and it is fictional
+    unless the baseline is replayed here rather than cached from an earlier
+    run.
+
+    A veto NEVER drops a seed, it invalidates the run. Dropping crashed seeds
+    would break pairing, silently change ``n``, and condition the sample on
+    candidate-induced survival -- a candidate that breaks on its worst seeds
+    would outscore one that never breaks.
+
+    ``gate_type`` defaults to ``"money"``, which keeps these entries out of
+    ``harness.ledger.find_passing_promotion``'s ``"promotion"`` filter and
+    therefore out of the Kaggle upload path. ``verdict.passed`` on the
+    candidate arm keeps meaning WIN RATE; the money PASS lives only in
+    ``money_verdict.passed``.
+
+    macOS/spawn caveat inherited from ``run_gate``: with ``workers > 1`` the
+    CALLING script must guard its entry point with
+    ``if __name__ == "__main__":``.
+    """
+    if n_seeds < 1:
+        raise ValueError(f"run_money_gate needs n_seeds >= 1, got {n_seeds}")
+    if agent_config is not None and candidate not in TUNABLE_SPECS:
+        raise ValueError(
+            f"agent_config is only supported for {sorted(TUNABLE_SPECS)}, "
+            f"got candidate {candidate!r}"
+        )
+    if baseline_agent_config is not None and baseline not in TUNABLE_SPECS:
+        raise ValueError(
+            f"baseline_agent_config is only supported for {sorted(TUNABLE_SPECS)}, "
+            f"got baseline {baseline!r}"
+        )
+
+    # The `champion` shell catches BaseException and returns pass_action(), so
+    # `candidate_crashed` is structurally unreachable for a shelled champion:
+    # a policy faulting on 100% of turns still reports any_candidate_crash
+    # False. The unshelled canary is the only way to surface that.
+    candidate_canary_ran = False
+    candidate_canary_crashed = False
+    baseline_canary_ran = False
+    baseline_canary_crashed = False
+    if run_canary:
+        if candidate in TUNABLE_SPECS:
+            candidate_canary_ran = True
+            candidate_canary_crashed = run_gate(
+                candidate="champion-unshelled",
+                opponent=opponent,
+                n_seeds=canary_seeds,
+                seed_base=seed_base,
+                workers=1,
+                extra_config=extra_config,
+                gate_type="money-canary",
+                agent_config=agent_config,
+            ).any_candidate_crash
+        # Shipped defaults are already smoke-tested by CI's strength_gate; a
+        # TUNED baseline is not, so it gets its own canary.
+        if baseline in TUNABLE_SPECS and baseline_agent_config is not None:
+            baseline_canary_ran = True
+            baseline_canary_crashed = run_gate(
+                candidate="champion-unshelled",
+                opponent=opponent,
+                n_seeds=canary_seeds,
+                seed_base=seed_base,
+                workers=1,
+                extra_config=extra_config,
+                gate_type="money-canary",
+                agent_config=baseline_agent_config,
+            ).any_candidate_crash
+
+    candidate_result = run_gate(
+        candidate=candidate,
+        opponent=opponent,
+        n_seeds=n_seeds,
+        seed_base=seed_base,
+        workers=workers,
+        extra_config=extra_config,
+        gate_type=gate_type,
+        threshold=0.5,
+        agent_config=agent_config,
+    )
+    baseline_result = run_gate(
+        candidate=baseline,
+        opponent=opponent,
+        n_seeds=n_seeds,
+        seed_base=seed_base,
+        workers=workers,
+        extra_config=extra_config,
+        gate_type=gate_type,
+        threshold=0.5,
+        agent_config=baseline_agent_config,
+    )
+
+    candidate_by_seed = seat_mean_money(candidate_result.rows)
+    baseline_by_seed = seat_mean_money(baseline_result.rows)
+    if set(candidate_by_seed) != set(baseline_by_seed):
+        raise ValueError(
+            "the two arms did not play the same seeds -- the pairing is fictional: "
+            f"candidate={sorted(candidate_by_seed)} baseline={sorted(baseline_by_seed)}"
+        )
+    seeds = sorted(candidate_by_seed)
+    per_seed = [
+        SeedMoney(
+            seed=seed,
+            candidate_money=candidate_by_seed[seed],
+            baseline_money=baseline_by_seed[seed],
+            delta=candidate_by_seed[seed] - baseline_by_seed[seed],
+        )
+        for seed in seeds
+    ]
+
+    candidate_opponent = seat_mean_opponent_money(candidate_result.rows)
+    baseline_opponent = seat_mean_opponent_money(baseline_result.rows)
+    # Records the market-suppression signature: a tuning arm can gain money
+    # by starving the opponent rather than by farming better.
+    opponent_mean_delta = sum(candidate_opponent[seed] for seed in seeds) / len(seeds) - sum(
+        baseline_opponent[seed] for seed in seeds
+    ) / len(seeds)
+    all_rows = list(candidate_result.rows) + list(baseline_result.rows)
+    min_opponent_money = min(row.opponent_money for row in all_rows)
+
+    extra_vetoes: list[str] = []
+    if candidate_result.any_candidate_crash:
+        extra_vetoes.append("candidate_crash")
+    if baseline_result.any_candidate_crash:
+        extra_vetoes.append("baseline_crash")
+    if any(row.opponent_crashed for row in all_rows):
+        extra_vetoes.append("opponent_crash")
+    if any(row.candidate_money <= candidate_money_floor for row in candidate_result.rows):
+        extra_vetoes.append("candidate_degenerate")
+    if any(row.candidate_money <= candidate_money_floor for row in baseline_result.rows):
+        extra_vetoes.append("baseline_degenerate")
+    if min_opponent_money < opponent_money_floor:
+        extra_vetoes.append("opponent_degenerate")
+    if candidate_canary_crashed or baseline_canary_crashed:
+        extra_vetoes.append("canary_crash")
+
+    verdict = money_verdict(
+        candidate_by_seed,
+        baseline_by_seed,
+        threshold=threshold,
+        alpha=alpha,
+        min_seeds=min_seeds,
+        catastrophic_k=catastrophic_k,
+        extra_vetoes=extra_vetoes,
+    )
+
+    return MoneyGateResult(
+        candidate=candidate,
+        agent_config=agent_config,
+        baseline=baseline,
+        baseline_agent_config=baseline_agent_config,
+        opponent=opponent,
+        opponent_digest=opponent_digest(opponent),
+        gate_type=gate_type,
+        n_seeds=n_seeds,
+        seed_base=seed_base,
+        seeds=seeds,
+        candidate_result=candidate_result,
+        baseline_result=baseline_result,
+        per_seed=per_seed,
+        money_verdict=verdict,
+        opponent_mean_delta=opponent_mean_delta,
+        min_opponent_money=min_opponent_money,
+        candidate_canary_ran=candidate_canary_ran,
+        candidate_canary_crashed=candidate_canary_crashed,
+        baseline_canary_ran=baseline_canary_ran,
+        baseline_canary_crashed=baseline_canary_crashed,
+        extra_config=extra_config,
+        threshold=threshold,
+        alpha=alpha,
+        min_seeds=min_seeds,
+        catastrophic_k=catastrophic_k,
+        candidate_money_floor=candidate_money_floor,
+        opponent_money_floor=opponent_money_floor,
     )

@@ -14,6 +14,10 @@ agent = { workspace = true }
 
 [project.scripts]
 rerun-ledger = "harness.rerun_ledger:main"
+# A nicety only: the afk sandbox grants `Bash(uv run python:*)` and nothing
+# matches a bare console-script literal, so always invoke the module form
+# (`uv run python -m harness.money_gate`) and never depend on this name.
+money-gate = "harness.money_gate:main"
 
 [build-system]
 requires = ["hatchling"]

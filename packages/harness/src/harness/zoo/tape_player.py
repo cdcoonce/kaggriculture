@@ -41,6 +41,13 @@ def _tape_dir() -> Path:
     return Path(override) if override else DEFAULT_TAPE_DIR
 
 
+def tape_path(stem: str) -> Path:
+    """Absolute path of the tape file backing ``zoo:tape-<stem>``.
+
+    Resolved at CALL time via ``_tape_dir()``, matching ``discover_tapes``."""
+    return _tape_dir() / f"{stem}.json"
+
+
 def load_tape(path: str | Path) -> list[dict[str, Any]]:
     """Load and validate a tape JSON file.
 
@@ -143,15 +150,15 @@ def discover_tapes() -> dict[str, Callable[[], Callable[[Any], dict[str, Any]]]]
         return {}
 
     discovered: dict[str, Callable[[], Callable[[Any], dict[str, Any]]]] = {}
-    for path in sorted(tape_dir.glob("*.json")):
+    for stem in sorted(path.stem for path in tape_dir.glob("*.json")):
         try:
-            tape = load_tape(path)
+            tape = load_tape(tape_path(stem))
         except (ValueError, OSError):
             continue
 
         def factory(tape: list[dict[str, Any]] = tape) -> Callable[[Any], dict[str, Any]]:
             return make_tape_agent(tape)
 
-        discovered[f"tape-{path.stem}"] = factory
+        discovered[f"tape-{stem}"] = factory
 
     return discovered
