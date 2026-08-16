@@ -212,6 +212,13 @@ def make_policy(
     milk_latch = ProductCrashLatch(
         resolved_config.milk_crash_trigger, resolved_config.crash_trigger_ticks
     )
+    # Last turn's task assignment, so a unit already walking toward a tile is
+    # not made to re-win it from scratch every turn. Held here rather than in
+    # the dispatcher because the dispatcher is deliberately stateless; this is
+    # the same episode-scoped-closure pattern as the trackers above. A turn
+    # that bails to pass_action() simply leaves it untouched, which is right:
+    # nothing moved, so last turn's claims are still the current ones.
+    unit_claims: dict[int, tuple[int, int]] = {}
 
     def decide(obs: Observation, config: dict[str, Any] | None = None) -> Action:
         start = clock()
@@ -289,7 +296,11 @@ def make_policy(
             cow_target=resolved_config.cow_target,
             sheep_target=resolved_config.sheep_target,
         )
-        actions = dispatch(view, tiles, melon_set, pasture_set, strawberry_set)
+        actions = dispatch(
+            view, tiles, melon_set, pasture_set, strawberry_set, prior_claims=unit_claims
+        )
+        unit_claims.clear()
+        unit_claims.update(actions.claims)
 
         # Buys first, hires last: if the 10-slot cap ever truncates, it drops
         # trailing hires (which self-heal next turn) rather than a purchase.
