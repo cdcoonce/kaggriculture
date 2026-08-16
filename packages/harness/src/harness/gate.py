@@ -15,7 +15,6 @@ from harness.episodes import GameRow, play_game
 from harness.stats import (
     CATASTROPHIC_TAIL_FLOOR,
     CATASTROPHIC_TAIL_QUANTILE,
-    DISPERSION_EFFECT_REL_TOL,
     GateVerdict,
     MoneyVerdict,
     gate_verdict,
@@ -179,7 +178,6 @@ class MoneyGateResult:
     min_seeds: int
     catastrophic_tail_quantile: float
     catastrophic_tail_floor: float
-    degenerate_dispersion_ratio: float
     candidate_money_floor: float
     opponent_money_floor: float
     degenerate_seed_fraction: float
@@ -290,6 +288,31 @@ def _worst_seat_fraction_at_or_below(
     return max(_fraction_at_or_below(by_seed, floor) for by_seed in by_seat.values())
 
 
+def _degenerate_fraction(
+    seed_means: Mapping[int, float], by_seat: Mapping[int, Mapping[int, float]], floor: float
+) -> float:
+    """UNION of the seed-averaged and per-seat readings: whichever is worse.
+
+    Neither reading alone dominates the other. A seed can fail the
+    seed-averaged reading while passing every per-seat reading: floor
+    $3,000, seed A at seat0 $2,900 / seat1 $3,100 and seed B at seat0 $3,500 /
+    seat1 $2,500 -- each SEAT'S fraction at or below the floor is 1/2 (one
+    bad seed each), but BOTH seeds' seat-averaged money is exactly $3,000, so
+    the seed-averaged fraction is 2/2. An arm that alternates which seat is
+    weak, seed to seed, spreads its badness across two seat-split
+    populations and reads as half as degenerate as it is under
+    ``_worst_seat_fraction_at_or_below`` alone; the seed-averaged reading
+    catches that shape, and the seat-split reading still catches the
+    complementary shape it was built for (one seat dead every seed, see
+    ``_worst_seat_fraction_at_or_below``). Taking the union of both closes
+    each reading's blind spot with the other.
+    """
+    return max(
+        _fraction_at_or_below(seed_means, floor),
+        _worst_seat_fraction_at_or_below(by_seat, floor),
+    )
+
+
 def opponent_digest(opponent: str) -> str | None:
     """``"sha256:<hex>"`` of the tape file backing ``zoo:tape-<stem>``, else None.
 
@@ -327,7 +350,6 @@ def run_money_gate(
     min_seeds: int = 8,
     catastrophic_tail_quantile: float = CATASTROPHIC_TAIL_QUANTILE,
     catastrophic_tail_floor: float = CATASTROPHIC_TAIL_FLOOR,
-    degenerate_dispersion_ratio: float = DISPERSION_EFFECT_REL_TOL,
     candidate_money_floor: float = 3000.0,
     opponent_money_floor: float = 10000.0,
     degenerate_seed_fraction: float = 0.25,
@@ -349,21 +371,28 @@ def run_money_gate(
     would outscore one that never breaks.
 
     ``degenerate_seed_fraction`` is the tolerance on the money floors, applied
-    PER SEAT (see ``_worst_seat_fraction_at_or_below``): the
+    as the UNION of two readings (see ``_degenerate_fraction``): the
     ``candidate_degenerate`` / ``baseline_degenerate`` / ``opponent_degenerate``
     vetoes fire only when at least this FRACTION of seeds sits at or below the
-    relevant floor. The default 0.25 is chosen from both ends of the gap it
-    has to separate: a genuinely dead arm returns starting cash on ~100% of
-    seeds (the whole point of the floor), while the worst healthy arm ever
-    measured here put 1 seed of 40 -- 2.5% -- under $3,000 as an ordinary low
-    tail. 25% is ten times the observed healthy rate and four times below the
-    dead-arm rate, so neither end is close to the line.
+    relevant floor, on EITHER the seat-averaged seed money or the worst single
+    seat. The default 0.25 is chosen from both ends of the gap it has to
+    separate: a genuinely dead arm returns starting cash on ~100% of seeds
+    (the whole point of the floor), while the worst healthy arm ever measured
+    here put 1 seed of 40 -- 2.5% -- under $3,000 as an ordinary low tail. 25%
+    is ten times the observed healthy rate and four times below the dead-arm
+    rate, so neither end is close to the line.
 
     ``gate_type`` defaults to ``"money"``, which keeps these entries out of
     ``harness.ledger.find_passing_promotion``'s ``"promotion"`` filter and
     therefore out of the Kaggle upload path. ``verdict.passed`` on the
     candidate arm keeps meaning WIN RATE; the money PASS lives only in
     ``money_verdict.passed``.
+
+    ``money_verdict.passed`` promotes on EXPECTED money and nothing else --
+    see ``MoneyVerdict`` for the full limitation. A candidate that is worse on
+    most seeds can still PASS if a minority of seeds pays for it; read
+    ``money_verdict.n_regressed`` and ``money_verdict.tail_quantile`` before
+    treating a PASS here as a promotion decision.
 
     macOS/spawn caveat inherited from ``run_gate``: with ``workers > 1`` the
     CALLING script must guard its entry point with
@@ -479,12 +508,12 @@ def run_money_gate(
     candidate_seats = seat_split_money(candidate_result.rows)
     baseline_seats = seat_split_money(baseline_result.rows)
     if (
-        _worst_seat_fraction_at_or_below(candidate_seats, candidate_money_floor)
+        _degenerate_fraction(candidate_by_seed, candidate_seats, candidate_money_floor)
         >= degenerate_seed_fraction
     ):
         extra_vetoes.append("candidate_degenerate")
     if (
-        _worst_seat_fraction_at_or_below(baseline_seats, candidate_money_floor)
+        _degenerate_fraction(baseline_by_seed, baseline_seats, candidate_money_floor)
         >= degenerate_seed_fraction
     ):
         extra_vetoes.append("baseline_degenerate")
@@ -496,8 +525,15 @@ def run_money_gate(
         }
         for seat, by_seed in candidate_opponent_seats.items()
     }
+    # Seed-averaged combination of the two arms' opponent money, matching the
+    # `min` combination `opponent_by_seat` already applies per seat: the
+    # weaker of the two arms' opponent readings on that seed is the one that
+    # can actually reveal a starved or silently-dead opponent.
+    opponent_by_seed = {
+        seed: min(candidate_opponent[seed], baseline_opponent[seed]) for seed in seeds
+    }
     if (
-        _worst_seat_fraction_at_or_below(opponent_by_seat, opponent_money_floor)
+        _degenerate_fraction(opponent_by_seed, opponent_by_seat, opponent_money_floor)
         >= degenerate_seed_fraction
     ):
         extra_vetoes.append("opponent_degenerate")
@@ -512,7 +548,6 @@ def run_money_gate(
         min_seeds=min_seeds,
         catastrophic_tail_quantile=catastrophic_tail_quantile,
         catastrophic_tail_floor=catastrophic_tail_floor,
-        degenerate_dispersion_ratio=degenerate_dispersion_ratio,
         extra_vetoes=extra_vetoes,
     )
 
@@ -543,7 +578,6 @@ def run_money_gate(
         min_seeds=min_seeds,
         catastrophic_tail_quantile=catastrophic_tail_quantile,
         catastrophic_tail_floor=catastrophic_tail_floor,
-        degenerate_dispersion_ratio=degenerate_dispersion_ratio,
         candidate_money_floor=candidate_money_floor,
         opponent_money_floor=opponent_money_floor,
         degenerate_seed_fraction=degenerate_seed_fraction,

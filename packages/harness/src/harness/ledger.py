@@ -202,7 +202,6 @@ def write_money_ledger(
             "min_seeds": result.min_seeds,
             "catastrophic_tail_quantile": result.catastrophic_tail_quantile,
             "catastrophic_tail_floor": result.catastrophic_tail_floor,
-            "degenerate_dispersion_ratio": result.degenerate_dispersion_ratio,
             "candidate_money_floor": result.candidate_money_floor,
             "opponent_money_floor": result.opponent_money_floor,
             "degenerate_seed_fraction": result.degenerate_seed_fraction,

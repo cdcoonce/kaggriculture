@@ -33,11 +33,7 @@ from typing import Any
 
 from harness.gate import run_money_gate
 from harness.ledger import write_money_ledger
-from harness.stats import (
-    CATASTROPHIC_TAIL_FLOOR,
-    CATASTROPHIC_TAIL_QUANTILE,
-    DISPERSION_EFFECT_REL_TOL,
-)
+from harness.stats import CATASTROPHIC_TAIL_FLOOR, CATASTROPHIC_TAIL_QUANTILE
 
 #: A `mean_delta` at or below this is worth a distinct diagnostic: no tuning
 #: knob measured so far moves money this far backwards.
@@ -86,9 +82,6 @@ def _build_parser() -> argparse.ArgumentParser:
         "--catastrophic-tail-quantile", type=float, default=CATASTROPHIC_TAIL_QUANTILE
     )
     parser.add_argument("--catastrophic-tail-floor", type=float, default=CATASTROPHIC_TAIL_FLOOR)
-    parser.add_argument(
-        "--degenerate-dispersion-ratio", type=float, default=DISPERSION_EFFECT_REL_TOL
-    )
     parser.add_argument("--candidate-money-floor", type=float, default=3000.0)
     parser.add_argument("--opponent-money-floor", type=float, default=10000.0)
     parser.add_argument("--degenerate-seed-fraction", type=float, default=0.25)
@@ -105,17 +98,25 @@ def main(argv: list[str] | None = None) -> int:
 
     Exit codes: 0 PASS, 1 FAIL, 2 INVALID (any veto fired). FAIL and INVALID
     are different questions. INVALID means the RUN cannot be trusted -- rerun
-    it. FAIL means the run is sound and the CANDIDATE did not earn promotion,
-    either because the bound did not clear the threshold or because a
-    ``blockers`` entry refused it (``catastrophic_tail``: the worst-off
-    ``catastrophic_tail_quantile`` of the seeds each lost more than
-    ``catastrophic_tail_floor``, whatever the mean says).
+    it. FAIL means the bound did not clear ``threshold``. A non-empty
+    ``blockers`` (``catastrophic_tail``: the ``catastrophic_tail_quantile``
+    quantile of the per-seed differences sits below ``-catastrophic_tail_floor``)
+    does NOT change PASS/FAIL/INVALID -- it is a RECORDED DIAGNOSTIC, printed
+    as a WARNING below the verdict fields on every exit code, because the
+    money gate promotes on EXPECTED money and a wiped-out minority of seeds
+    is exactly what the mean bound cannot see (see ``harness.stats.MoneyVerdict``).
 
     A FAIL on the bound alone is ambiguous -- read ``mde_80`` alongside it,
     because precision is a property of the candidate diff, not a constant.
     """
     parser = _build_parser()
     args = parser.parse_args(argv)
+
+    if not 0.0 < args.catastrophic_tail_quantile < 1.0:
+        parser.error(
+            "--catastrophic-tail-quantile must be in (0, 1), got "
+            f"{args.catastrophic_tail_quantile!r}"
+        )
 
     candidate_commit = args.candidate_commit or _head_sha()
     if candidate_commit is None:
@@ -136,7 +137,6 @@ def main(argv: list[str] | None = None) -> int:
         min_seeds=args.min_seeds,
         catastrophic_tail_quantile=args.catastrophic_tail_quantile,
         catastrophic_tail_floor=args.catastrophic_tail_floor,
-        degenerate_dispersion_ratio=args.degenerate_dispersion_ratio,
         candidate_money_floor=args.candidate_money_floor,
         opponent_money_floor=args.opponent_money_floor,
         degenerate_seed_fraction=args.degenerate_seed_fraction,
@@ -196,6 +196,18 @@ def main(argv: list[str] | None = None) -> int:
     print(f"vetoes: {','.join(verdict.vetoes) if verdict.vetoes else 'none'}", flush=True)
     print(f"blockers: {','.join(verdict.blockers) if verdict.blockers else 'none'}", flush=True)
     print(f"ledger: {ledger_path if ledger_path is not None else 'none'}", flush=True)
+
+    if verdict.blockers:
+        print("!" * 78, flush=True)
+        print(
+            f"WARNING: blockers fired ({','.join(verdict.blockers)}) but do NOT gate "
+            "this verdict -- the money gate promotes on EXPECTED money. Read "
+            f"n_regressed={verdict.n_regressed}/{verdict.n_seeds} and "
+            f"tail_quantile={verdict.tail_quantile} before promoting: a minority of "
+            "seeds may be paying for this candidate's mean gain.",
+            flush=True,
+        )
+        print("!" * 78, flush=True)
 
     if verdict.mean_delta < SILENT_DEGRADATION_DELTA:
         print(

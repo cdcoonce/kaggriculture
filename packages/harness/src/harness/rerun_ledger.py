@@ -16,11 +16,7 @@ from typing import Any
 
 from harness.gate import opponent_digest, run_gate, run_money_gate
 from harness.ledger import json_float
-from harness.stats import (
-    CATASTROPHIC_TAIL_FLOOR,
-    CATASTROPHIC_TAIL_QUANTILE,
-    DISPERSION_EFFECT_REL_TOL,
-)
+from harness.stats import CATASTROPHIC_TAIL_FLOOR, CATASTROPHIC_TAIL_QUANTILE
 
 COMPARED_FIELDS = ("wins", "losses", "ties", "any_candidate_crash", "passed")
 
@@ -69,7 +65,6 @@ _MONEY_KNOB_DEFAULTS = {
     "min_seeds": 8,
     "catastrophic_tail_quantile": CATASTROPHIC_TAIL_QUANTILE,
     "catastrophic_tail_floor": CATASTROPHIC_TAIL_FLOOR,
-    "degenerate_dispersion_ratio": DISPERSION_EFFECT_REL_TOL,
     "candidate_money_floor": 3000.0,
     "opponent_money_floor": 10000.0,
     "degenerate_seed_fraction": 0.25,
@@ -105,12 +100,22 @@ def main(argv: list[str] | None = None) -> int:
     # reproduce it, so the money block has to dispatch rather than bolt extra
     # fields onto a comparison that was never computed.
     #
-    # The dispatch keys on the money BLOCK, not on `identity.baseline`. Keying
-    # on the baseline meant a money entry that lost that one key fell through
-    # to the single-arm path, compared wins/losses/ties, ignored the whole
-    # money statistic and printed PASS -- a green reproduction of something
-    # never recomputed.
-    if "money_verdict" in payload:
+    # The dispatch keys on THREE independent signals, any one of which marks
+    # the entry as a money run: `identity.gate_type == "money"`, a present
+    # `money_verdict` block, or a non-null `identity.baseline`. A single key
+    # is not enough -- keying on `identity.baseline` alone meant a money
+    # entry that lost that one field fell through to the single-arm path,
+    # compared wins/losses/ties, ignored the whole money statistic and
+    # printed PASS: a green reproduction of something never recomputed. Any
+    # of the three still present is enough to route here, so no money entry
+    # can be silently scored as a single-arm win-rate run by losing exactly
+    # one field.
+    is_money_entry = (
+        identity.get("gate_type") == "money"
+        or "money_verdict" in payload
+        or identity.get("baseline") is not None
+    )
+    if is_money_entry:
         if identity.get("baseline") is None:
             print(f"rerun-ledger: {args.ledger_path}")
             print(
@@ -167,10 +172,20 @@ def _rerun_money(ledger_path: Path, payload: dict[str, Any]) -> int:
 
     Returns 2 without playing a single game when the opponent tape on this
     machine is not the one the entry was measured against: reproducing money
-    from a different tape file is worse than not reproducing it.
+    from a different tape file is worse than not reproducing it. Also
+    returns 2 without playing when the whole `money_verdict` block is
+    missing -- dispatch here can now be reached by `gate_type == "money"` or
+    a non-null `identity.baseline` alone, neither of which guarantees the
+    block survived, and a raw `KeyError` is a worse failure mode than an
+    explicit UNREPLAYABLE.
     """
     identity = payload["identity"]
     seed_manifest = payload["seed_manifest"]
+    if "money_verdict" not in payload:
+        print(f"rerun-ledger: {ledger_path}")
+        print("  this entry looks like a money run but carries no money_verdict block")
+        print("UNREPLAYABLE: money_verdict is missing")
+        return 2
     recorded_money = payload["money_verdict"]
     knob = {
         name: recorded_money.get(name, default) for name, default in _MONEY_KNOB_DEFAULTS.items()

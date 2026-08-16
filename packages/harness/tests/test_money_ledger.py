@@ -101,7 +101,7 @@ class TestWriteMoneyLedger:
         assert block["min_seeds"] == 2
         assert block["catastrophic_tail_quantile"] == 0.15
         assert block["catastrophic_tail_floor"] == 19000.0
-        assert block["degenerate_dispersion_ratio"] == 0.05
+        assert "degenerate_dispersion_ratio" not in block
         assert block["candidate_money_floor"] == 0.0
         assert block["opponent_money_floor"] == 0.0
         assert block["degenerate_seed_fraction"] == 0.25

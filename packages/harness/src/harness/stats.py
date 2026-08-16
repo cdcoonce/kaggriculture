@@ -57,37 +57,38 @@ def gate_verdict(wins: int, losses: int, ties: int, threshold: float = 0.5) -> G
 #: is a genuine measured knob with ``mean_delta`` $1.31 and ``sd_delta``
 #: $3.40, and it was being reported INVALID (rerun the measurement) when the
 #: right answer is FAIL on the bound. It is the only one of the 64 measured
-#: arms below $3.72, and none is below $0.372. The dollar floor no longer has
-#: to stretch, because the effect-relative leg below carries the evasions.
+#: arms below $3.72, and none is below $0.372.
+#:
+#: This USED to be one of two legs: a second, effect-relative leg
+#: (``sd_delta <= 0.05 * |mean_delta|``) narrowed the wobble hole this leg
+#: leaves open (see below) by anchoring the tolerance on the measured effect
+#: instead of a fixed dollar figure. It is REMOVED, because it was found
+#: vetoing exactly the measurements it should have trusted most: an arm with
+#: ``mean_delta`` $2,407.50 and ``sd_delta`` $45.22 -- noise 53x smaller than
+#: the effect, ``ci_lower`` $2,381.29, the bound clears outright -- was
+#: reported INVALID and reran identically forever, because $45.22 sits under
+#: 5% of $2,407.50 ($120.38). Any threshold on ``sd/|mean|`` condemns a
+#: measurement for being CLEAN: the smaller the noise relative to a real
+#: effect, the more certainly the run should be trusted, and the ratio leg
+#: read that as the opposite.
+#:
+#: Residual, stated rather than hidden: with only this leg left, the wobble
+#: hole the ratio leg used to narrow is open again. On the fixture that
+#: motivated the ratio leg (2500.0 flat on 63 seeds, one seed wobbled) a
+#: binary search puts the smallest evading single-seed wobble at ~$3.23 at
+#: this money scale -- a fixed dollar hole, because the tolerance is a fixed
+#: fraction of ``money_scale`` and does not grow with the size of what is
+#: being measured. No instrument tried so far closes that hole without also
+#: vetoing a clean, well-separated measurement; this is the accepted
+#: trade-off, not an oversight.
 DISPERSION_REL_TOL = 1e-5
 
-#: Dispersion at or below this fraction of the measured EFFECT is treated as
-#: no dispersion at all -- the second leg of ``degenerate_dispersion``.
-#:
-#: ``DISPERSION_REL_TOL`` alone cannot carry the veto, which is what
-#: adversarial2/q3 demonstrated: a fixed dollar tolerance is a fixed dollar
-#: hole, so a binary search found ~$30 of wobble on ONE of 64 seeds walks
-#: through it and flips the verdict INVALID -> PASS. Widening the dollar
-#: figure is not available either, because real arms genuinely live down
-#: there (``survey2/fert_0`` above, ``survey2/valve_hard_95`` at
-#: -$0.75 / $25.92).
-#:
-#: Anchoring on the effect instead is available, because paired game noise
-#: dwarfs every knob effect measured here: across the 54 real arms with a
-#: nonzero ``mean_delta`` the SMALLEST ``sd_delta / |mean_delta|`` is 0.6925
-#: (``a2_regression`` / ``a2_improvement_large``). 0.05 is a 13.9x margin
-#: under that, and it narrows q3's hole by 31x: re-injecting the old rule
-#: and searching put the smallest evading single-seed wobble at $32.31, and
-#: on the same $2,500 fixture it now takes $1,008.
-#:
-#: Residual, stated rather than hidden: this narrows the hole, it does not
-#: close it. A fault that spreads the seeds over more than 5% of the effect
-#: still reads as dispersion, because at that point it IS dispersion and no
-#: rule at this level can tell it from a real low-variance arm.
-DISPERSION_EFFECT_REL_TOL = 0.05
-
 #: Lower-tail quantile of the per-seed differences that the ``catastrophic_tail``
-#: blocker reads, and the dollar floor it must clear.
+#: blocker reads, and the dollar floor it must clear. ``catastrophic_tail``
+#: is a RECORDED DIAGNOSTIC -- see ``MoneyVerdict`` -- so these two constants
+#: no longer set a promotion floor; they set the threshold at which the
+#: diagnostic speaks up. The derivation below predates that change and is
+#: kept because the numbers themselves are unchanged.
 #:
 #: DERIVATION, from the real arms in scratchpad/money-gate/empirical and
 #: empirical2 (64 arms, 40-seed and 64-seed blocks against
@@ -135,9 +136,12 @@ class MoneyVerdict:
     independent -- the defect ``gate_verdict`` inherits at ``gate.py:98-101``
     -- inflates one-sided Type I error to 0.079-0.124 against a nominal 0.05.
 
-    PASS is the one-sided ``1 - alpha`` Student-t lower bound on the MEAN
-    paired difference, and nothing else: ``ci_lower > threshold``, with an
-    empty ``vetoes`` and an empty ``blockers``.
+    PASS is ``ci_lower > threshold and not vetoes``, and NOTHING else.
+    ``ci_lower`` is the one-sided ``1 - alpha`` Student-t lower bound on the
+    MEAN paired difference. ``blockers`` -- ``catastrophic_tail``, and the
+    diagnostics that feed it (``tail_quantile``, ``n_regressed``,
+    ``median_delta``) -- and the whole Hodges-Lehmann block below are
+    RECORDED and do NOT gate ``passed``.
 
     The Hodges-Lehmann bound (``hl_shift``, ``hl_skip``, ``hl_exact_alpha``,
     ``ci_lower_hl``) is RECORDED but does NOT gate. It used to be ANDed with
@@ -171,16 +175,52 @@ class MoneyVerdict:
     verdict while moving the bound two cents. ``n_regressed`` and
     ``median_delta`` are still RECORDED; they no longer gate.
 
-    Both are replaced by one magnitude-aware guard, ``catastrophic_tail``.
+    Both were replaced by one magnitude-aware guard, ``catastrophic_tail``:
+    the ``catastrophic_tail_quantile``-th quantile of the per-seed
+    differences below ``-catastrophic_tail_floor``. It fixed the specific
+    defects above -- it has no studentized ceiling and it is monotone, so
+    more damage never buys silence (see ``CATASTROPHIC_TAIL_QUANTILE`` and
+    ``lower_tail_quantile``) -- but a THIRD round of measurement found it has
+    the SAME asymmetry defect as the two rules it replaced, for the same
+    underlying reason: it is a rule about the SHAPE of the loss tail (a
+    quantile position, like ``n_regressed`` was a count), and shape alone
+    cannot tell a candidate that is genuinely worse on most seeds from one
+    whose worst seeds are merely below an arbitrary floor. Any rule built
+    that way can be defeated by holding the fraction of bad seeds just under
+    the guard's quantile while the loss on those seeds grows without bound --
+    the count rule's asymmetry measured 71,688x (above); review of this
+    branch measured the quantile rule's own asymmetry at 253,575x by the same
+    method. A one-sided floor on the loss tail that does not reference the
+    size of the GAIN is the wrong instrument for a PASS/FAIL decision, at any
+    quantile or floor. ``catastrophic_tail`` is therefore a RECORDED
+    DIAGNOSTIC like ``n_regressed`` and ``median_delta`` before it, not a
+    gate.
 
-    ``vetoes`` and ``blockers`` both force ``passed`` False and are kept
-    separate because they mean different things to an operator:
-    ``vetoes`` says the RUN cannot be trusted (INVALID, rerun it);
-    ``blockers`` says the run is fine and the CANDIDATE is not good enough
-    (FAIL, keep tuning).
+    ``vetoes`` forces ``passed`` False; ``blockers`` does NOT, and that is
+    the whole point of keeping them separate: ``vetoes`` says the RUN cannot
+    be trusted (INVALID, rerun it); ``blockers`` is the operator's signal
+    that the CANDIDATE's lower tail is worth reading before promoting, even
+    though the bound alone decided PASS.
 
-    KNOWN LIMITATION, stated rather than hidden: the t bound's one-sided
-    level is not 0.05 on a strongly LEFT-SKEWED per-seed difference. Measured
+    LIMITATION (EXPECTED-MONEY PROXY), stated because it is the direct
+    consequence of the above: this gate promotes on EXPECTED money. A
+    candidate that is WORSE on most
+    seeds still passes if a minority of seeds pays for it -- there is no
+    guard left that stops that shape of result, only diagnostics that name
+    it. This is deliberate and correct while the agent is far behind the
+    frontier: the measured champion banks ~$37k per seed against a ~$123k
+    opponent, so ANY mean-money gain moves it toward the ~$70k threshold
+    where games start being winnable at all, and refusing a real gain because
+    it is unevenly distributed costs progress the agent cannot afford yet.
+    It stops being a safe proxy near parity, where "worse for most seeds" is
+    exactly the failure mode a promotion gate exists to catch. An operator
+    reading a PASS is expected to read ``n_regressed`` and ``tail_quantile``
+    (and ``blockers`` itself) before promoting, not to treat ``passed`` as
+    the whole verdict.
+
+    KNOWN LIMITATION (SKEW), stated rather than hidden: the t bound's
+    one-sided level is not 0.05 on a strongly LEFT-SKEWED per-seed
+    difference. Measured
     with the true mean pinned at the threshold and the worst real paired sd
     ($9,495), the realized level is 0.0494 on a normal null and 0.0492 on a
     Laplace null -- but 0.0753 at skew -1.75 and 0.1196 at skew -6.2. This is
@@ -198,7 +238,8 @@ class MoneyVerdict:
     not a bound: ``sd_delta`` at n=64 is itself uncertain to about +-9%, and
     the multiplier is the normal-theory ``t + t`` approximation to the
     noncentral t, not the noncentral t. It says nothing about ``blockers``:
-    an improvement of any size still fails if its lower tail is wiped out.
+    an improvement of any size can still PASS with a wiped-out lower tail --
+    the bound does not see that, ``tail_quantile`` does.
     """
 
     n_seeds: int
@@ -495,7 +536,6 @@ def money_verdict(
     min_seeds: int = 8,
     catastrophic_tail_quantile: float = CATASTROPHIC_TAIL_QUANTILE,
     catastrophic_tail_floor: float = CATASTROPHIC_TAIL_FLOOR,
-    degenerate_dispersion_ratio: float = DISPERSION_EFFECT_REL_TOL,
     extra_vetoes: Sequence[str] = (),
 ) -> MoneyVerdict:
     """PASS/FAIL on the paired per-seed money difference candidate - baseline.
@@ -509,66 +549,45 @@ def money_verdict(
     is part of the contract -- ``rerun-ledger`` compares the recorded bound
     against a freshly computed one by exact equality.
 
-    PASS requires ALL THREE of
+    PASS requires BOTH of
 
     * ``ci_lower > threshold``, where ``ci_lower`` is the one-sided
       ``1 - alpha`` Student-t lower bound on the MEAN paired difference and
-      nothing else. The Hodges-Lehmann bound is computed and recorded, but it
-      does not gate (see ``MoneyVerdict``);
-    * an empty ``vetoes`` -- the run is measuring what it claims to measure;
-    * an empty ``blockers`` -- the candidate itself is acceptable.
+      nothing else;
+    * an empty ``vetoes`` -- the run is measuring what it claims to measure.
+
+    That is the WHOLE rule: ``passed = ci_lower > threshold and not vetoes``.
+    Nothing else enters it. The Hodges-Lehmann bound is computed and
+    recorded, but does not gate; ``blockers`` (``catastrophic_tail``,
+    ``n_regressed``, ``median_delta``) are computed and recorded, but do not
+    gate either -- see ``MoneyVerdict`` for why, and for the limitation that
+    leaves on the table.
 
     ``vetoes`` (the run is INVALID):
 
     ``too_few_seeds``
         fewer than ``min_seeds`` paired observations.
     ``degenerate_dispersion``
-        the seeds carry no independent information. Two legs, because one
-        instrument cannot see both shapes of the fault:
+        the seeds carry no independent information: ``sd_delta`` at or below
+        ``DISPERSION_REL_TOL`` times the money scale. Across independent
+        seeds a constant difference is a harness fault, never certainty. A
+        genuine no-op differences to EXACTLY zero on every seed (mean 0),
+        which is exempt. See ``DISPERSION_REL_TOL`` for the fixed-dollar
+        hole this single leg leaves open, and why a second, effect-relative
+        leg that used to narrow it was removed.
 
-        * an absolute floor: ``sd_delta`` at or below ``DISPERSION_REL_TOL``
-          times the money scale. Across independent seeds a constant
-          difference is a harness fault, never certainty. A genuine no-op
-          differences to EXACTLY zero on every seed (mean 0), which is
-          exempt.
-        * an effect-relative leg: ``sd_delta`` at or below
-          ``degenerate_dispersion_ratio`` times ``|mean_delta|``. The first
-          leg is a fixed number of dollars and therefore a fixed dollar hole
-          -- ~$30 of wobble on ONE of 64 seeds evaded it and flipped INVALID
-          to PASS -- and it cannot simply be widened, because real arms
-          measure at ``sd_delta`` $3.40 and $25.92. See
-          ``DISPERSION_EFFECT_REL_TOL``.
-
-    ``blockers`` (the run is valid, the candidate FAILS):
+    ``blockers`` (RECORDED DIAGNOSTICS -- the run is valid and the bound
+    already decided PASS/FAIL; a blocker does NOT change that):
 
     ``catastrophic_tail``
-        the ``catastrophic_tail_quantile``-th quantile of the per-seed
-        differences sits below ``-catastrophic_tail_floor`` -- that is, the
-        worst-off 15% of seeds lost more than $19,000 each. See
-        ``CATASTROPHIC_TAIL_QUANTILE`` for how both numbers come off the
-        measured arms.
-
-        This is ONE guard replacing two that failed for opposite reasons. The
-        ``catastrophic_seed`` veto (``min_delta < min(0, mean) - k*sd``) was a
-        studentized extreme deviate and so obeyed the algebraic ceiling
-        ``(mean - min)/sd <= (n-1)/sqrt(n)``: at ``k = 5`` it could not fire
-        below n=27 while ``min_seeds`` defaults to 8, so at n=20 a seed losing
-        TEN MILLION DOLLARS produced ``vetoes = ()``, and the identical
-        failure was INVALID at n=64 and PASS at n=20. It also masked -- it
-        fired for 1 and 2 catastrophes at -$200,000 and went silent at 3 and
-        4. The ``half_the_seeds_regress`` blocker was a magnitude-blind count;
-        see ``MoneyVerdict``.
-
-        It is a BLOCKER and not a veto: a wiped-out lower tail is a property
-        of the candidate, reproducible on rerun, so the operator's next move
-        is to keep tuning (FAIL), not to remeasure (INVALID).
-
-        Measured on the fixtures: 31 of 64 seeds at -$37,000 against 33 at
-        +$80,000 blocks (the count rule passed it); 32 seeds at -$0.50 against
-        32 at +$1,000,000 does not (the count rule refused it); 40 seeds at
-        -$200 against 24 at +$20,000 does not; two of eight seeds at -$37,000
-        blocks. It fires at every ``n >= min_seeds`` and never stops firing
-        when more seeds are wiped out.
+        the ``catastrophic_tail_quantile``-th linear-interpolated quantile of
+        the per-seed differences sits below ``-catastrophic_tail_floor``.
+        Read alongside ``n_regressed``, ``median_delta`` and ``tail_quantile``
+        itself: together they say whether the mean-money gain the bound
+        certified is broad or is a minority of seeds paying for a majority's
+        gain. See ``MoneyVerdict`` for the measurement that took this out of
+        the PASS rule and ``CATASTROPHIC_TAIL_QUANTILE`` for how the quantile
+        and floor were derived.
     """
     if set(candidate_by_seed) != set(baseline_by_seed):
         raise ValueError(
@@ -604,9 +623,7 @@ def money_verdict(
     computed: set[str] = set()
     if n < min_seeds:
         computed.add("too_few_seeds")
-    dispersion_tolerance = max(
-        DISPERSION_REL_TOL * money_scale, degenerate_dispersion_ratio * abs(mean_delta)
-    )
+    dispersion_tolerance = DISPERSION_REL_TOL * money_scale
     if mean_delta != 0.0 and sd_delta <= dispersion_tolerance:
         computed.add("degenerate_dispersion")
 
@@ -629,6 +646,9 @@ def money_verdict(
     # name so ledger readers and `rerun-ledger` keep one field to compare.
     ci_lower = ci_lower_mean
     vetoes = tuple(sorted(computed | set(extra_vetoes)))
+    # `blockers` is a RECORDED DIAGNOSTIC, not a gate -- see `MoneyVerdict`
+    # for the measurement (three successive loss-tail guards, each shown to
+    # refuse arbitrarily large true gains) that took it out of `passed`.
     wiped_out_tail = n > 0 and tail_quantile < -catastrophic_tail_floor
     blockers = ("catastrophic_tail",) if wiped_out_tail else ()
 
@@ -657,5 +677,5 @@ def money_verdict(
         mde_80=mde_80,
         vetoes=vetoes,
         blockers=blockers,
-        passed=ci_lower > threshold and not vetoes and not blockers,
+        passed=ci_lower > threshold and not vetoes,
     )

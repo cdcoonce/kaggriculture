@@ -109,7 +109,6 @@ def _fake_result(
         min_seeds=2,
         catastrophic_tail_quantile=0.15,
         catastrophic_tail_floor=19000.0,
-        degenerate_dispersion_ratio=0.05,
         candidate_money_floor=3000.0,
         opponent_money_floor=10000.0,
         degenerate_seed_fraction=0.25,
@@ -131,10 +130,13 @@ def _patch(monkeypatch: pytest.MonkeyPatch, result: MoneyGateResult) -> list[dic
 
 PASSING = [6000.0, 5200.0, 7100.0, 4900.0, 8000.0, 5500.0, 6400.0, 5800.0, 7300.0, 6100.0]
 FAILING = [200.0, -400.0, 900.0, 1500.0, -800.0, 300.0, 1100.0, -100.0, 600.0, 250.0]
-#: Bound clears the threshold; the lower tail is wiped out. At n=10 the
-#: interpolation index is 0.15 * 9 = 1.35, so two seeds under the floor fire
-#: it.
-BLOCKED = [-30000.0] * 3 + [40000.0] * 7
+#: The bound clears the threshold comfortably (mean $27,000, ci_lower
+#: ~$16,686) while the lower tail is wiped out: 4 of 20 seeds lose $25,000
+#: each (20%, past the $19,000 floor). At n=20 the interpolation index is
+#: 0.15 * 19 = 2.85, which sits inside the 4-seed bad group, so
+#: `tail_quantile` reads the bad value exactly and `catastrophic_tail` fires
+#: -- as a DIAGNOSTIC only. The bound alone decides PASS/FAIL now.
+BLOCKED = [-25000.0] * 4 + [40000.0] * 16
 
 
 class TestMoneyGateCli:
@@ -174,24 +176,34 @@ class TestMoneyGateCli:
         assert output.splitlines()[-1] == "FAIL"
         assert "vetoes: none" in output
 
-    def test_cli_prints_fail_and_exits_1_when_a_blocker_fires_on_a_clearing_bound(
+    def test_cli_prints_pass_and_exits_0_with_a_prominent_warning_when_a_blocker_fires(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
     ) -> None:
-        # Three of ten seeds lose $30,000 -- most of the measured bank --
-        # while the mean bound clears $1,000. That is a sound measurement of
-        # an unacceptable candidate, so it is FAIL (exit 1, keep tuning), NOT
-        # INVALID (exit 2, rerun it).
+        # 4 of 20 seeds lose $25,000 each -- past the $19,000 floor -- while
+        # the mean bound clears $1,000 by 16.7x. `catastrophic_tail` is a
+        # RECORDED DIAGNOSTIC, not a gate: this is a sound measurement with
+        # no vetoes, so it PASSES (exit 0) exactly like a run with an empty
+        # `blockers` would. The CLI still has to make the diagnostic
+        # impossible to miss, so it prints a boxed WARNING naming the
+        # blocker and pointing at `n_regressed` / `tail_quantile`.
         _patch(monkeypatch, _fake_result(deltas=BLOCKED))
 
         exit_code = main([*BASE_ARGV, "--eval-dir", str(tmp_path)])
 
         output = capsys.readouterr().out
-        assert exit_code == 1
-        assert output.splitlines()[-1] == "FAIL"
+        assert exit_code == 0
+        assert output.splitlines()[-1] == "PASS"
         assert "vetoes: none" in output
         assert "blockers: catastrophic_tail" in output
-        assert "tail_quantile=-30000.0" in output
-        assert "n_regressed=3/10" in output
+        assert "tail_quantile=-25000.0" in output
+        assert "n_regressed=4/20" in output
+        assert "WARNING" in output
+        assert "blockers fired (catastrophic_tail)" in output
+        assert "n_regressed=4/20" in output.split("WARNING")[1]
+        assert "tail_quantile=-25000.0" in output.split("WARNING")[1]
+        # The warning box is printed BEFORE the final PASS/FAIL/INVALID line,
+        # not buried after it.
+        assert output.rindex("WARNING") < output.rindex("PASS")
 
     def test_cli_prints_invalid_and_exits_2_when_any_veto_fires(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
@@ -276,3 +288,34 @@ class TestMoneyGateCli:
                 main([*BASE_ARGV, "--eval-dir", str(tmp_path), flag, "{not json"])
             with pytest.raises(SystemExit):
                 main([*BASE_ARGV, "--eval-dir", str(tmp_path), flag, "[1, 2]"])
+
+    @pytest.mark.parametrize("quantile", [0.0, 1.0, -0.1, 1.5])
+    def test_cli_rejects_a_catastrophic_tail_quantile_outside_the_open_unit_interval(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, quantile: float
+    ) -> None:
+        # `lower_tail_quantile` and the quantile/floor derivation both assume
+        # q strictly between 0 and 1; a caller passing 0, 1, or something
+        # outside [0, 1] should get a clear argparse error, not nonsense
+        # computed downstream.
+        calls = _patch(monkeypatch, _fake_result(deltas=PASSING))
+        with pytest.raises(SystemExit):
+            main(
+                [
+                    *BASE_ARGV,
+                    "--eval-dir",
+                    str(tmp_path),
+                    "--catastrophic-tail-quantile",
+                    str(quantile),
+                ]
+            )
+        assert calls == []  # rejected before `run_money_gate` is ever called
+
+    def test_cli_accepts_a_catastrophic_tail_quantile_inside_the_open_unit_interval(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        calls = _patch(monkeypatch, _fake_result(deltas=PASSING))
+        exit_code = main(
+            [*BASE_ARGV, "--eval-dir", str(tmp_path), "--catastrophic-tail-quantile", "0.2"]
+        )
+        assert exit_code == 0
+        assert calls[0]["kwargs"]["catastrophic_tail_quantile"] == 0.2
