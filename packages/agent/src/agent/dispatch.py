@@ -361,8 +361,11 @@ def _field_tasks(
     """Work needed on the target tiles, tagged with an urgency class.
 
     Priority 0 (most urgent) through 4 (least), first-match-wins per tile.
-    Wheat tiles (any tile not in ``melon_tiles``/``pasture_tiles``) keep the
-    original rules:
+    Wheat tiles keep the original rules. A standing crop is scheduled off the
+    crop it actually is, not off the zone it stands in, so "wheat tile" here
+    means a tile holding WHEAT (or empty ground outside
+    ``melon_tiles``/``strawberry_tiles``/``pasture_tiles``), whichever zone
+    the current land purchases happen to have drawn around it:
       0 a same-day planting, unwatered — skipping it turns it into a WEED
         overnight, so it must be watered today no matter what else is near.
       1 a ripe tile: watered and age >= 4, or age >= 5 regardless of
@@ -523,11 +526,24 @@ def _field_tasks(
             # strawberry-zone tile legitimately holds WHEAT once the planting
             # window has closed, and it must then be worked on wheat's much
             # shorter timeline, not strawberry's.
+            #
+            # Melon needs the same key for a different reason. Its zone is a
+            # proximity-ordered PREFIX of target_tiles, and a BUY_LAND
+            # re-orders target_tiles -- constants.py pins the pasture zone to
+            # a fixed frame precisely because it does. So the melon zone both
+            # sheds tiles that already hold a melon and admits tiles that
+            # already hold wheat. Under the old `is_melon` key an evicted
+            # melon was worked on wheat's rules and HARVESTed from age 5,
+            # which the engine rejects until first_yield_day 10 (27.1% of ALL
+            # HARVEST fires, measured; 100% melon, 100% out-of-zone), and an
+            # admitted wheat matched no melon branch at all so it was never
+            # harvested. The zone still decides what gets PLANTED; only the
+            # standing crop's own schedule is read off the crop.
             if tile.get("crop") == "STRAWBERRY":
                 strawberry_task = _strawberry_task(x, y, tile, age, view.day)
                 if strawberry_task is not None:
                     tasks.append(strawberry_task)
-            elif is_melon:
+            elif tile.get("crop") == "MELON":
                 if age == 0 and not watered_today:
                     tasks.append(_Task((x, y), ["WATER"], priority=0))
                 elif yield_units >= MELON_MAX_YIELD:
