@@ -1,0 +1,2832 @@
+{
+  "schema_version": 1,
+  "identity": {
+    "candidate": "champion",
+    "candidate_commit": "64bd37e51416eb0b3df73546c7c3d204cda96272",
+    "opponent": "zoo:tape-thunder-719",
+    "gate_type": "money",
+    "extra_config": null,
+    "agent_config": {
+      "strawberry_tile_target": 8,
+      "strawberry_plant_daily_cap": 3
+    },
+    "baseline": "champion",
+    "baseline_agent_config": null,
+    "opponent_digest": "sha256:5e5b45cbe2eabe00c3e87d1dcc15ebdb93b39f7192197896129001c2744386c0"
+  },
+  "verdict": {
+    "n_games": 128,
+    "wins": 0,
+    "losses": 128,
+    "ties": 0,
+    "score": 0.0,
+    "rate": 0.0,
+    "ci_lower": 0.0,
+    "threshold": 0.5,
+    "passed": false,
+    "any_candidate_crash": false
+  },
+  "money_verdict": {
+    "n_seeds": 64,
+    "alpha": 0.05,
+    "threshold": 1000.0,
+    "candidate_mean": 38247.7265625,
+    "baseline_mean": 38085.6171875,
+    "mean_delta": 162.109375,
+    "median_delta": 326.0,
+    "sd_delta": 13861.012240707876,
+    "stderr": 1732.6265300884845,
+    "skew_delta": -0.1468277186999669,
+    "min_delta": -28138.0,
+    "n_regressed": 29,
+    "tail_quantile": -12605.025000000003,
+    "df": 63,
+    "t_crit": 1.6694022217068696,
+    "ci_lower_mean": -2730.3412037179805,
+    "hl_shift": 463.0,
+    "hl_skip": 793,
+    "hl_exact_alpha": 0.04974316507678737,
+    "ci_lower_hl": -2335.25,
+    "ci_lower": -2730.3412037179805,
+    "mde_80": 4360.615773766359,
+    "vetoes": [],
+    "blockers": [],
+    "passed": false,
+    "opponent_mean_delta": 847.7421875,
+    "min_opponent_money": 45620.0,
+    "candidate_canary_ran": true,
+    "candidate_canary_crashed": false,
+    "baseline_canary_ran": false,
+    "baseline_canary_crashed": false,
+    "min_seeds": 8,
+    "catastrophic_tail_quantile": 0.15,
+    "catastrophic_tail_floor": 19000.0,
+    "candidate_money_floor": 3000.0,
+    "opponent_money_floor": 10000.0,
+    "degenerate_seed_fraction": 0.25
+  },
+  "seed_manifest": {
+    "seed_base": 540000,
+    "n_seeds": 64,
+    "seeds": [
+      540000,
+      540001,
+      540002,
+      540003,
+      540004,
+      540005,
+      540006,
+      540007,
+      540008,
+      540009,
+      540010,
+      540011,
+      540012,
+      540013,
+      540014,
+      540015,
+      540016,
+      540017,
+      540018,
+      540019,
+      540020,
+      540021,
+      540022,
+      540023,
+      540024,
+      540025,
+      540026,
+      540027,
+      540028,
+      540029,
+      540030,
+      540031,
+      540032,
+      540033,
+      540034,
+      540035,
+      540036,
+      540037,
+      540038,
+      540039,
+      540040,
+      540041,
+      540042,
+      540043,
+      540044,
+      540045,
+      540046,
+      540047,
+      540048,
+      540049,
+      540050,
+      540051,
+      540052,
+      540053,
+      540054,
+      540055,
+      540056,
+      540057,
+      540058,
+      540059,
+      540060,
+      540061,
+      540062,
+      540063
+    ]
+  },
+  "per_seed": [
+    {
+      "seed": 540000,
+      "candidate_money": 32287.5,
+      "baseline_money": 32135.0,
+      "delta": 152.5
+    },
+    {
+      "seed": 540001,
+      "candidate_money": 42356.0,
+      "baseline_money": 26117.5,
+      "delta": 16238.5
+    },
+    {
+      "seed": 540002,
+      "candidate_money": 30738.0,
+      "baseline_money": 53406.0,
+      "delta": -22668.0
+    },
+    {
+      "seed": 540003,
+      "candidate_money": 24209.0,
+      "baseline_money": 21498.0,
+      "delta": 2711.0
+    },
+    {
+      "seed": 540004,
+      "candidate_money": 27608.0,
+      "baseline_money": 54327.5,
+      "delta": -26719.5
+    },
+    {
+      "seed": 540005,
+      "candidate_money": 30541.0,
+      "baseline_money": 34097.0,
+      "delta": -3556.0
+    },
+    {
+      "seed": 540006,
+      "candidate_money": 32998.0,
+      "baseline_money": 50860.5,
+      "delta": -17862.5
+    },
+    {
+      "seed": 540007,
+      "candidate_money": 31746.5,
+      "baseline_money": 57824.0,
+      "delta": -26077.5
+    },
+    {
+      "seed": 540008,
+      "candidate_money": 21941.0,
+      "baseline_money": 48128.5,
+      "delta": -26187.5
+    },
+    {
+      "seed": 540009,
+      "candidate_money": 43262.0,
+      "baseline_money": 45241.5,
+      "delta": -1979.5
+    },
+    {
+      "seed": 540010,
+      "candidate_money": 45029.0,
+      "baseline_money": 32853.5,
+      "delta": 12175.5
+    },
+    {
+      "seed": 540011,
+      "candidate_money": 49411.5,
+      "baseline_money": 53334.0,
+      "delta": -3922.5
+    },
+    {
+      "seed": 540012,
+      "candidate_money": 42489.0,
+      "baseline_money": 56910.0,
+      "delta": -14421.0
+    },
+    {
+      "seed": 540013,
+      "candidate_money": 20937.5,
+      "baseline_money": 26742.0,
+      "delta": -5804.5
+    },
+    {
+      "seed": 540014,
+      "candidate_money": 34763.0,
+      "baseline_money": 33629.0,
+      "delta": 1134.0
+    },
+    {
+      "seed": 540015,
+      "candidate_money": 36664.0,
+      "baseline_money": 27630.0,
+      "delta": 9034.0
+    },
+    {
+      "seed": 540016,
+      "candidate_money": 30807.0,
+      "baseline_money": 29073.0,
+      "delta": 1734.0
+    },
+    {
+      "seed": 540017,
+      "candidate_money": 53183.0,
+      "baseline_money": 50686.5,
+      "delta": 2496.5
+    },
+    {
+      "seed": 540018,
+      "candidate_money": 37551.5,
+      "baseline_money": 37227.0,
+      "delta": 324.5
+    },
+    {
+      "seed": 540019,
+      "candidate_money": 25653.0,
+      "baseline_money": 27706.5,
+      "delta": -2053.5
+    },
+    {
+      "seed": 540020,
+      "candidate_money": 36008.5,
+      "baseline_money": 28389.0,
+      "delta": 7619.5
+    },
+    {
+      "seed": 540021,
+      "candidate_money": 34749.5,
+      "baseline_money": 41386.5,
+      "delta": -6637.0
+    },
+    {
+      "seed": 540022,
+      "candidate_money": 22329.0,
+      "baseline_money": 20621.5,
+      "delta": 1707.5
+    },
+    {
+      "seed": 540023,
+      "candidate_money": 27200.0,
+      "baseline_money": 31371.5,
+      "delta": -4171.5
+    },
+    {
+      "seed": 540024,
+      "candidate_money": 31992.5,
+      "baseline_money": 41708.5,
+      "delta": -9716.0
+    },
+    {
+      "seed": 540025,
+      "candidate_money": 42769.5,
+      "baseline_money": 47359.0,
+      "delta": -4589.5
+    },
+    {
+      "seed": 540026,
+      "candidate_money": 40246.0,
+      "baseline_money": 27457.0,
+      "delta": 12789.0
+    },
+    {
+      "seed": 540027,
+      "candidate_money": 29266.0,
+      "baseline_money": 56776.0,
+      "delta": -27510.0
+    },
+    {
+      "seed": 540028,
+      "candidate_money": 41613.0,
+      "baseline_money": 29569.5,
+      "delta": 12043.5
+    },
+    {
+      "seed": 540029,
+      "candidate_money": 23032.5,
+      "baseline_money": 51170.5,
+      "delta": -28138.0
+    },
+    {
+      "seed": 540030,
+      "candidate_money": 49502.0,
+      "baseline_money": 58593.0,
+      "delta": -9091.0
+    },
+    {
+      "seed": 540031,
+      "candidate_money": 45766.5,
+      "baseline_money": 45439.0,
+      "delta": 327.5
+    },
+    {
+      "seed": 540032,
+      "candidate_money": 48460.0,
+      "baseline_money": 25500.5,
+      "delta": 22959.5
+    },
+    {
+      "seed": 540033,
+      "candidate_money": 42124.0,
+      "baseline_money": 30385.5,
+      "delta": 11738.5
+    },
+    {
+      "seed": 540034,
+      "candidate_money": 46851.5,
+      "baseline_money": 46176.0,
+      "delta": 675.5
+    },
+    {
+      "seed": 540035,
+      "candidate_money": 28146.0,
+      "baseline_money": 52552.0,
+      "delta": -24406.0
+    },
+    {
+      "seed": 540036,
+      "candidate_money": 51403.5,
+      "baseline_money": 40747.5,
+      "delta": 10656.0
+    },
+    {
+      "seed": 540037,
+      "candidate_money": 45374.5,
+      "baseline_money": 47433.0,
+      "delta": -2058.5
+    },
+    {
+      "seed": 540038,
+      "candidate_money": 39675.0,
+      "baseline_money": 33202.5,
+      "delta": 6472.5
+    },
+    {
+      "seed": 540039,
+      "candidate_money": 46424.5,
+      "baseline_money": 44982.5,
+      "delta": 1442.0
+    },
+    {
+      "seed": 540040,
+      "candidate_money": 41232.0,
+      "baseline_money": 47050.0,
+      "delta": -5818.0
+    },
+    {
+      "seed": 540041,
+      "candidate_money": 56429.5,
+      "baseline_money": 37901.5,
+      "delta": 18528.0
+    },
+    {
+      "seed": 540042,
+      "candidate_money": 40805.5,
+      "baseline_money": 23077.0,
+      "delta": 17728.5
+    },
+    {
+      "seed": 540043,
+      "candidate_money": 40804.5,
+      "baseline_money": 56211.5,
+      "delta": -15407.0
+    },
+    {
+      "seed": 540044,
+      "candidate_money": 40228.5,
+      "baseline_money": 50614.0,
+      "delta": -10385.5
+    },
+    {
+      "seed": 540045,
+      "candidate_money": 51161.0,
+      "baseline_money": 21457.0,
+      "delta": 29704.0
+    },
+    {
+      "seed": 540046,
+      "candidate_money": 25846.5,
+      "baseline_money": 21433.5,
+      "delta": 4413.0
+    },
+    {
+      "seed": 540047,
+      "candidate_money": 35102.5,
+      "baseline_money": 36917.0,
+      "delta": -1814.5
+    },
+    {
+      "seed": 540048,
+      "candidate_money": 33802.0,
+      "baseline_money": 27438.5,
+      "delta": 6363.5
+    },
+    {
+      "seed": 540049,
+      "candidate_money": 44361.0,
+      "baseline_money": 49146.0,
+      "delta": -4785.0
+    },
+    {
+      "seed": 540050,
+      "candidate_money": 40927.0,
+      "baseline_money": 40660.0,
+      "delta": 267.0
+    },
+    {
+      "seed": 540051,
+      "candidate_money": 39635.0,
+      "baseline_money": 47736.0,
+      "delta": -8101.0
+    },
+    {
+      "seed": 540052,
+      "candidate_money": 39545.5,
+      "baseline_money": 49137.0,
+      "delta": -9591.5
+    },
+    {
+      "seed": 540053,
+      "candidate_money": 55555.5,
+      "baseline_money": 33542.0,
+      "delta": 22013.5
+    },
+    {
+      "seed": 540054,
+      "candidate_money": 43748.5,
+      "baseline_money": 32418.5,
+      "delta": 11330.0
+    },
+    {
+      "seed": 540055,
+      "candidate_money": 49288.0,
+      "baseline_money": 19531.0,
+      "delta": 29757.0
+    },
+    {
+      "seed": 540056,
+      "candidate_money": 33417.0,
+      "baseline_money": 21266.0,
+      "delta": 12151.0
+    },
+    {
+      "seed": 540057,
+      "candidate_money": 49183.5,
+      "baseline_money": 23570.5,
+      "delta": 25613.0
+    },
+    {
+      "seed": 540058,
+      "candidate_money": 37538.5,
+      "baseline_money": 27528.5,
+      "delta": 10010.0
+    },
+    {
+      "seed": 540059,
+      "candidate_money": 37640.0,
+      "baseline_money": 30025.0,
+      "delta": 7615.0
+    },
+    {
+      "seed": 540060,
+      "candidate_money": 32564.0,
+      "baseline_money": 23117.5,
+      "delta": 9446.5
+    },
+    {
+      "seed": 540061,
+      "candidate_money": 28543.0,
+      "baseline_money": 30375.0,
+      "delta": -1832.0
+    },
+    {
+      "seed": 540062,
+      "candidate_money": 45744.5,
+      "baseline_money": 41245.0,
+      "delta": 4499.5
+    },
+    {
+      "seed": 540063,
+      "candidate_money": 37642.0,
+      "baseline_money": 45834.0,
+      "delta": -8192.0
+    }
+  ],
+  "rows": [
+    {
+      "seed": 540000,
+      "candidate_seat": 0,
+      "candidate_money": 32267.0,
+      "opponent_money": 118910.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540000,
+      "candidate_seat": 1,
+      "candidate_money": 32308.0,
+      "opponent_money": 118903.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540001,
+      "candidate_seat": 0,
+      "candidate_money": 40425.0,
+      "opponent_money": 165258.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540001,
+      "candidate_seat": 1,
+      "candidate_money": 44287.0,
+      "opponent_money": 165019.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540002,
+      "candidate_seat": 0,
+      "candidate_money": 30738.0,
+      "opponent_money": 119401.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540002,
+      "candidate_seat": 1,
+      "candidate_money": 30738.0,
+      "opponent_money": 119401.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540003,
+      "candidate_seat": 0,
+      "candidate_money": 31803.0,
+      "opponent_money": 109048.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540003,
+      "candidate_seat": 1,
+      "candidate_money": 16615.0,
+      "opponent_money": 46029.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540004,
+      "candidate_seat": 0,
+      "candidate_money": 27608.0,
+      "opponent_money": 77919.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540004,
+      "candidate_seat": 1,
+      "candidate_money": 27608.0,
+      "opponent_money": 77919.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540005,
+      "candidate_seat": 0,
+      "candidate_money": 30541.0,
+      "opponent_money": 124659.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540005,
+      "candidate_seat": 1,
+      "candidate_money": 30541.0,
+      "opponent_money": 124659.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540006,
+      "candidate_seat": 0,
+      "candidate_money": 35623.0,
+      "opponent_money": 88168.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540006,
+      "candidate_seat": 1,
+      "candidate_money": 30373.0,
+      "opponent_money": 79995.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540007,
+      "candidate_seat": 0,
+      "candidate_money": 39741.0,
+      "opponent_money": 116599.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540007,
+      "candidate_seat": 1,
+      "candidate_money": 23752.0,
+      "opponent_money": 99193.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540008,
+      "candidate_seat": 0,
+      "candidate_money": 21941.0,
+      "opponent_money": 90020.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540008,
+      "candidate_seat": 1,
+      "candidate_money": 21941.0,
+      "opponent_money": 90020.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540009,
+      "candidate_seat": 0,
+      "candidate_money": 42389.0,
+      "opponent_money": 122352.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540009,
+      "candidate_seat": 1,
+      "candidate_money": 44135.0,
+      "opponent_money": 122606.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540010,
+      "candidate_seat": 0,
+      "candidate_money": 45903.0,
+      "opponent_money": 146213.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540010,
+      "candidate_seat": 1,
+      "candidate_money": 44155.0,
+      "opponent_money": 136680.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540011,
+      "candidate_seat": 0,
+      "candidate_money": 54004.0,
+      "opponent_money": 139785.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540011,
+      "candidate_seat": 1,
+      "candidate_money": 44819.0,
+      "opponent_money": 134753.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540012,
+      "candidate_seat": 0,
+      "candidate_money": 35445.0,
+      "opponent_money": 92308.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540012,
+      "candidate_seat": 1,
+      "candidate_money": 49533.0,
+      "opponent_money": 133014.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540013,
+      "candidate_seat": 0,
+      "candidate_money": 20330.0,
+      "opponent_money": 101088.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540013,
+      "candidate_seat": 1,
+      "candidate_money": 21545.0,
+      "opponent_money": 100027.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540014,
+      "candidate_seat": 0,
+      "candidate_money": 41627.0,
+      "opponent_money": 132427.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540014,
+      "candidate_seat": 1,
+      "candidate_money": 27899.0,
+      "opponent_money": 114192.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540015,
+      "candidate_seat": 0,
+      "candidate_money": 34492.0,
+      "opponent_money": 118437.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540015,
+      "candidate_seat": 1,
+      "candidate_money": 38836.0,
+      "opponent_money": 125971.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540016,
+      "candidate_seat": 0,
+      "candidate_money": 30807.0,
+      "opponent_money": 123556.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540016,
+      "candidate_seat": 1,
+      "candidate_money": 30807.0,
+      "opponent_money": 123556.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540017,
+      "candidate_seat": 0,
+      "candidate_money": 53734.0,
+      "opponent_money": 154028.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540017,
+      "candidate_seat": 1,
+      "candidate_money": 52632.0,
+      "opponent_money": 154287.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540018,
+      "candidate_seat": 0,
+      "candidate_money": 37696.0,
+      "opponent_money": 111656.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540018,
+      "candidate_seat": 1,
+      "candidate_money": 37407.0,
+      "opponent_money": 112953.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540019,
+      "candidate_seat": 0,
+      "candidate_money": 29165.0,
+      "opponent_money": 71589.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540019,
+      "candidate_seat": 1,
+      "candidate_money": 22141.0,
+      "opponent_money": 84808.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540020,
+      "candidate_seat": 0,
+      "candidate_money": 36010.0,
+      "opponent_money": 134680.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540020,
+      "candidate_seat": 1,
+      "candidate_money": 36007.0,
+      "opponent_money": 134675.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540021,
+      "candidate_seat": 0,
+      "candidate_money": 30582.0,
+      "opponent_money": 88065.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540021,
+      "candidate_seat": 1,
+      "candidate_money": 38917.0,
+      "opponent_money": 138341.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540022,
+      "candidate_seat": 0,
+      "candidate_money": 22155.0,
+      "opponent_money": 88652.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540022,
+      "candidate_seat": 1,
+      "candidate_money": 22503.0,
+      "opponent_money": 82211.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540023,
+      "candidate_seat": 0,
+      "candidate_money": 27022.0,
+      "opponent_money": 108042.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540023,
+      "candidate_seat": 1,
+      "candidate_money": 27378.0,
+      "opponent_money": 107121.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540024,
+      "candidate_seat": 0,
+      "candidate_money": 32093.0,
+      "opponent_money": 104103.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540024,
+      "candidate_seat": 1,
+      "candidate_money": 31892.0,
+      "opponent_money": 103677.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540025,
+      "candidate_seat": 0,
+      "candidate_money": 44377.0,
+      "opponent_money": 96352.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540025,
+      "candidate_seat": 1,
+      "candidate_money": 41162.0,
+      "opponent_money": 118452.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540026,
+      "candidate_seat": 0,
+      "candidate_money": 40345.0,
+      "opponent_money": 138963.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540026,
+      "candidate_seat": 1,
+      "candidate_money": 40147.0,
+      "opponent_money": 143020.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540027,
+      "candidate_seat": 0,
+      "candidate_money": 29134.0,
+      "opponent_money": 94622.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540027,
+      "candidate_seat": 1,
+      "candidate_money": 29398.0,
+      "opponent_money": 95385.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540028,
+      "candidate_seat": 0,
+      "candidate_money": 42379.0,
+      "opponent_money": 114201.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540028,
+      "candidate_seat": 1,
+      "candidate_money": 40847.0,
+      "opponent_money": 114836.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540029,
+      "candidate_seat": 0,
+      "candidate_money": 22762.0,
+      "opponent_money": 71768.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540029,
+      "candidate_seat": 1,
+      "candidate_money": 23303.0,
+      "opponent_money": 71659.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540030,
+      "candidate_seat": 0,
+      "candidate_money": 49010.0,
+      "opponent_money": 156742.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540030,
+      "candidate_seat": 1,
+      "candidate_money": 49994.0,
+      "opponent_money": 163887.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540031,
+      "candidate_seat": 0,
+      "candidate_money": 45641.0,
+      "opponent_money": 140239.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540031,
+      "candidate_seat": 1,
+      "candidate_money": 45892.0,
+      "opponent_money": 140068.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540032,
+      "candidate_seat": 0,
+      "candidate_money": 48557.0,
+      "opponent_money": 147535.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540032,
+      "candidate_seat": 1,
+      "candidate_money": 48363.0,
+      "opponent_money": 147549.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540033,
+      "candidate_seat": 0,
+      "candidate_money": 42124.0,
+      "opponent_money": 134754.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540033,
+      "candidate_seat": 1,
+      "candidate_money": 42124.0,
+      "opponent_money": 134754.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540034,
+      "candidate_seat": 0,
+      "candidate_money": 44141.0,
+      "opponent_money": 148983.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540034,
+      "candidate_seat": 1,
+      "candidate_money": 49562.0,
+      "opponent_money": 134347.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540035,
+      "candidate_seat": 0,
+      "candidate_money": 28146.0,
+      "opponent_money": 65071.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540035,
+      "candidate_seat": 1,
+      "candidate_money": 28146.0,
+      "opponent_money": 65071.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540036,
+      "candidate_seat": 0,
+      "candidate_money": 51613.0,
+      "opponent_money": 175075.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540036,
+      "candidate_seat": 1,
+      "candidate_money": 51194.0,
+      "opponent_money": 175000.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540037,
+      "candidate_seat": 0,
+      "candidate_money": 45357.0,
+      "opponent_money": 154841.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540037,
+      "candidate_seat": 1,
+      "candidate_money": 45392.0,
+      "opponent_money": 153431.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540038,
+      "candidate_seat": 0,
+      "candidate_money": 50418.0,
+      "opponent_money": 137060.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540038,
+      "candidate_seat": 1,
+      "candidate_money": 28932.0,
+      "opponent_money": 108612.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540039,
+      "candidate_seat": 0,
+      "candidate_money": 50347.0,
+      "opponent_money": 133811.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540039,
+      "candidate_seat": 1,
+      "candidate_money": 42502.0,
+      "opponent_money": 143008.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540040,
+      "candidate_seat": 0,
+      "candidate_money": 40639.0,
+      "opponent_money": 151915.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540040,
+      "candidate_seat": 1,
+      "candidate_money": 41825.0,
+      "opponent_money": 156446.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540041,
+      "candidate_seat": 0,
+      "candidate_money": 56366.0,
+      "opponent_money": 152565.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540041,
+      "candidate_seat": 1,
+      "candidate_money": 56493.0,
+      "opponent_money": 153019.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540042,
+      "candidate_seat": 0,
+      "candidate_money": 40535.0,
+      "opponent_money": 143144.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540042,
+      "candidate_seat": 1,
+      "candidate_money": 41076.0,
+      "opponent_money": 139617.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540043,
+      "candidate_seat": 0,
+      "candidate_money": 41280.0,
+      "opponent_money": 144058.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540043,
+      "candidate_seat": 1,
+      "candidate_money": 40329.0,
+      "opponent_money": 143479.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540044,
+      "candidate_seat": 0,
+      "candidate_money": 40235.0,
+      "opponent_money": 137511.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540044,
+      "candidate_seat": 1,
+      "candidate_money": 40222.0,
+      "opponent_money": 137515.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540045,
+      "candidate_seat": 0,
+      "candidate_money": 51161.0,
+      "opponent_money": 161160.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540045,
+      "candidate_seat": 1,
+      "candidate_money": 51161.0,
+      "opponent_money": 161160.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540046,
+      "candidate_seat": 0,
+      "candidate_money": 25836.0,
+      "opponent_money": 110870.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540046,
+      "candidate_seat": 1,
+      "candidate_money": 25857.0,
+      "opponent_money": 109425.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540047,
+      "candidate_seat": 0,
+      "candidate_money": 35140.0,
+      "opponent_money": 103827.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540047,
+      "candidate_seat": 1,
+      "candidate_money": 35065.0,
+      "opponent_money": 103592.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540048,
+      "candidate_seat": 0,
+      "candidate_money": 34460.0,
+      "opponent_money": 121205.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540048,
+      "candidate_seat": 1,
+      "candidate_money": 33144.0,
+      "opponent_money": 121555.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540049,
+      "candidate_seat": 0,
+      "candidate_money": 44361.0,
+      "opponent_money": 101696.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540049,
+      "candidate_seat": 1,
+      "candidate_money": 44361.0,
+      "opponent_money": 101696.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540050,
+      "candidate_seat": 0,
+      "candidate_money": 40927.0,
+      "opponent_money": 128234.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540050,
+      "candidate_seat": 1,
+      "candidate_money": 40927.0,
+      "opponent_money": 128234.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540051,
+      "candidate_seat": 0,
+      "candidate_money": 39635.0,
+      "opponent_money": 112769.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540051,
+      "candidate_seat": 1,
+      "candidate_money": 39635.0,
+      "opponent_money": 112769.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540052,
+      "candidate_seat": 0,
+      "candidate_money": 42670.0,
+      "opponent_money": 140063.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540052,
+      "candidate_seat": 1,
+      "candidate_money": 36421.0,
+      "opponent_money": 127347.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540053,
+      "candidate_seat": 0,
+      "candidate_money": 55560.0,
+      "opponent_money": 168275.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540053,
+      "candidate_seat": 1,
+      "candidate_money": 55551.0,
+      "opponent_money": 168284.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540054,
+      "candidate_seat": 0,
+      "candidate_money": 43149.0,
+      "opponent_money": 99929.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540054,
+      "candidate_seat": 1,
+      "candidate_money": 44348.0,
+      "opponent_money": 99466.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540055,
+      "candidate_seat": 0,
+      "candidate_money": 48017.0,
+      "opponent_money": 154086.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540055,
+      "candidate_seat": 1,
+      "candidate_money": 50559.0,
+      "opponent_money": 164672.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540056,
+      "candidate_seat": 0,
+      "candidate_money": 21714.0,
+      "opponent_money": 117568.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540056,
+      "candidate_seat": 1,
+      "candidate_money": 45120.0,
+      "opponent_money": 156302.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540057,
+      "candidate_seat": 0,
+      "candidate_money": 50325.0,
+      "opponent_money": 133611.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540057,
+      "candidate_seat": 1,
+      "candidate_money": 48042.0,
+      "opponent_money": 102704.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540058,
+      "candidate_seat": 0,
+      "candidate_money": 36997.0,
+      "opponent_money": 127437.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540058,
+      "candidate_seat": 1,
+      "candidate_money": 38080.0,
+      "opponent_money": 129037.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540059,
+      "candidate_seat": 0,
+      "candidate_money": 37640.0,
+      "opponent_money": 113177.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540059,
+      "candidate_seat": 1,
+      "candidate_money": 37640.0,
+      "opponent_money": 113177.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540060,
+      "candidate_seat": 0,
+      "candidate_money": 36836.0,
+      "opponent_money": 127799.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540060,
+      "candidate_seat": 1,
+      "candidate_money": 28292.0,
+      "opponent_money": 100219.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540061,
+      "candidate_seat": 0,
+      "candidate_money": 28543.0,
+      "opponent_money": 66645.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540061,
+      "candidate_seat": 1,
+      "candidate_money": 28543.0,
+      "opponent_money": 66645.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540062,
+      "candidate_seat": 0,
+      "candidate_money": 47186.0,
+      "opponent_money": 115068.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540062,
+      "candidate_seat": 1,
+      "candidate_money": 44303.0,
+      "opponent_money": 124957.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540063,
+      "candidate_seat": 0,
+      "candidate_money": 39927.0,
+      "opponent_money": 110965.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540063,
+      "candidate_seat": 1,
+      "candidate_money": 35357.0,
+      "opponent_money": 96131.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    }
+  ],
+  "baseline_rows": [
+    {
+      "seed": 540000,
+      "candidate_seat": 0,
+      "candidate_money": 32135.0,
+      "opponent_money": 127460.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540000,
+      "candidate_seat": 1,
+      "candidate_money": 32135.0,
+      "opponent_money": 127460.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540001,
+      "candidate_seat": 0,
+      "candidate_money": 25941.0,
+      "opponent_money": 118367.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540001,
+      "candidate_seat": 1,
+      "candidate_money": 26294.0,
+      "opponent_money": 119525.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540002,
+      "candidate_seat": 0,
+      "candidate_money": 53406.0,
+      "opponent_money": 146338.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540002,
+      "candidate_seat": 1,
+      "candidate_money": 53406.0,
+      "opponent_money": 146338.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540003,
+      "candidate_seat": 0,
+      "candidate_money": 20440.0,
+      "opponent_money": 68048.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540003,
+      "candidate_seat": 1,
+      "candidate_money": 22556.0,
+      "opponent_money": 67899.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540004,
+      "candidate_seat": 0,
+      "candidate_money": 60869.0,
+      "opponent_money": 129166.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540004,
+      "candidate_seat": 1,
+      "candidate_money": 47786.0,
+      "opponent_money": 112111.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540005,
+      "candidate_seat": 0,
+      "candidate_money": 34763.0,
+      "opponent_money": 117957.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540005,
+      "candidate_seat": 1,
+      "candidate_money": 33431.0,
+      "opponent_money": 117501.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540006,
+      "candidate_seat": 0,
+      "candidate_money": 46297.0,
+      "opponent_money": 119145.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540006,
+      "candidate_seat": 1,
+      "candidate_money": 55424.0,
+      "opponent_money": 144876.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540007,
+      "candidate_seat": 0,
+      "candidate_money": 57401.0,
+      "opponent_money": 149299.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540007,
+      "candidate_seat": 1,
+      "candidate_money": 58247.0,
+      "opponent_money": 127650.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540008,
+      "candidate_seat": 0,
+      "candidate_money": 54966.0,
+      "opponent_money": 142880.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540008,
+      "candidate_seat": 1,
+      "candidate_money": 41291.0,
+      "opponent_money": 96664.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540009,
+      "candidate_seat": 0,
+      "candidate_money": 33841.0,
+      "opponent_money": 104096.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540009,
+      "candidate_seat": 1,
+      "candidate_money": 56642.0,
+      "opponent_money": 155593.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540010,
+      "candidate_seat": 0,
+      "candidate_money": 35798.0,
+      "opponent_money": 126707.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540010,
+      "candidate_seat": 1,
+      "candidate_money": 29909.0,
+      "opponent_money": 107372.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540011,
+      "candidate_seat": 0,
+      "candidate_money": 50456.0,
+      "opponent_money": 153239.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540011,
+      "candidate_seat": 1,
+      "candidate_money": 56212.0,
+      "opponent_money": 161538.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540012,
+      "candidate_seat": 0,
+      "candidate_money": 52940.0,
+      "opponent_money": 133221.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540012,
+      "candidate_seat": 1,
+      "candidate_money": 60880.0,
+      "opponent_money": 146032.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540013,
+      "candidate_seat": 0,
+      "candidate_money": 27800.0,
+      "opponent_money": 128452.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540013,
+      "candidate_seat": 1,
+      "candidate_money": 25684.0,
+      "opponent_money": 125040.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540014,
+      "candidate_seat": 0,
+      "candidate_money": 36463.0,
+      "opponent_money": 122100.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540014,
+      "candidate_seat": 1,
+      "candidate_money": 30795.0,
+      "opponent_money": 89623.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540015,
+      "candidate_seat": 0,
+      "candidate_money": 28306.0,
+      "opponent_money": 128824.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540015,
+      "candidate_seat": 1,
+      "candidate_money": 26954.0,
+      "opponent_money": 129054.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540016,
+      "candidate_seat": 0,
+      "candidate_money": 29073.0,
+      "opponent_money": 114113.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540016,
+      "candidate_seat": 1,
+      "candidate_money": 29073.0,
+      "opponent_money": 114113.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540017,
+      "candidate_seat": 0,
+      "candidate_money": 51361.0,
+      "opponent_money": 141254.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540017,
+      "candidate_seat": 1,
+      "candidate_money": 50012.0,
+      "opponent_money": 140729.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540018,
+      "candidate_seat": 0,
+      "candidate_money": 31460.0,
+      "opponent_money": 115226.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540018,
+      "candidate_seat": 1,
+      "candidate_money": 42994.0,
+      "opponent_money": 140180.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540019,
+      "candidate_seat": 0,
+      "candidate_money": 27398.0,
+      "opponent_money": 76600.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540019,
+      "candidate_seat": 1,
+      "candidate_money": 28015.0,
+      "opponent_money": 118429.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540020,
+      "candidate_seat": 0,
+      "candidate_money": 28389.0,
+      "opponent_money": 115660.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540020,
+      "candidate_seat": 1,
+      "candidate_money": 28389.0,
+      "opponent_money": 115660.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540021,
+      "candidate_seat": 0,
+      "candidate_money": 40011.0,
+      "opponent_money": 110007.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540021,
+      "candidate_seat": 1,
+      "candidate_money": 42762.0,
+      "opponent_money": 129458.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540022,
+      "candidate_seat": 0,
+      "candidate_money": 23475.0,
+      "opponent_money": 108229.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540022,
+      "candidate_seat": 1,
+      "candidate_money": 17768.0,
+      "opponent_money": 102431.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540023,
+      "candidate_seat": 0,
+      "candidate_money": 27239.0,
+      "opponent_money": 110213.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540023,
+      "candidate_seat": 1,
+      "candidate_money": 35504.0,
+      "opponent_money": 134877.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540024,
+      "candidate_seat": 0,
+      "candidate_money": 33287.0,
+      "opponent_money": 134843.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540024,
+      "candidate_seat": 1,
+      "candidate_money": 50130.0,
+      "opponent_money": 147053.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540025,
+      "candidate_seat": 0,
+      "candidate_money": 49021.0,
+      "opponent_money": 141102.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540025,
+      "candidate_seat": 1,
+      "candidate_money": 45697.0,
+      "opponent_money": 138163.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540026,
+      "candidate_seat": 0,
+      "candidate_money": 28862.0,
+      "opponent_money": 101821.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540026,
+      "candidate_seat": 1,
+      "candidate_money": 26052.0,
+      "opponent_money": 87418.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540027,
+      "candidate_seat": 0,
+      "candidate_money": 58672.0,
+      "opponent_money": 131666.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540027,
+      "candidate_seat": 1,
+      "candidate_money": 54880.0,
+      "opponent_money": 135979.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540028,
+      "candidate_seat": 0,
+      "candidate_money": 20396.0,
+      "opponent_money": 75340.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540028,
+      "candidate_seat": 1,
+      "candidate_money": 38743.0,
+      "opponent_money": 143426.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540029,
+      "candidate_seat": 0,
+      "candidate_money": 51444.0,
+      "opponent_money": 143887.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540029,
+      "candidate_seat": 1,
+      "candidate_money": 50897.0,
+      "opponent_money": 143399.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540030,
+      "candidate_seat": 0,
+      "candidate_money": 62160.0,
+      "opponent_money": 169866.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540030,
+      "candidate_seat": 1,
+      "candidate_money": 55026.0,
+      "opponent_money": 170634.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540031,
+      "candidate_seat": 0,
+      "candidate_money": 45439.0,
+      "opponent_money": 106967.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540031,
+      "candidate_seat": 1,
+      "candidate_money": 45439.0,
+      "opponent_money": 106967.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540032,
+      "candidate_seat": 0,
+      "candidate_money": 25698.0,
+      "opponent_money": 108128.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540032,
+      "candidate_seat": 1,
+      "candidate_money": 25303.0,
+      "opponent_money": 108091.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540033,
+      "candidate_seat": 0,
+      "candidate_money": 30465.0,
+      "opponent_money": 108498.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540033,
+      "candidate_seat": 1,
+      "candidate_money": 30306.0,
+      "opponent_money": 108511.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540034,
+      "candidate_seat": 0,
+      "candidate_money": 38545.0,
+      "opponent_money": 137983.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540034,
+      "candidate_seat": 1,
+      "candidate_money": 53807.0,
+      "opponent_money": 139851.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540035,
+      "candidate_seat": 0,
+      "candidate_money": 51221.0,
+      "opponent_money": 96437.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540035,
+      "candidate_seat": 1,
+      "candidate_money": 53883.0,
+      "opponent_money": 105994.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540036,
+      "candidate_seat": 0,
+      "candidate_money": 42870.0,
+      "opponent_money": 145968.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540036,
+      "candidate_seat": 1,
+      "candidate_money": 38625.0,
+      "opponent_money": 138861.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540037,
+      "candidate_seat": 0,
+      "candidate_money": 47433.0,
+      "opponent_money": 137050.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540037,
+      "candidate_seat": 1,
+      "candidate_money": 47433.0,
+      "opponent_money": 136107.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540038,
+      "candidate_seat": 0,
+      "candidate_money": 34903.0,
+      "opponent_money": 132733.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540038,
+      "candidate_seat": 1,
+      "candidate_money": 31502.0,
+      "opponent_money": 128751.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540039,
+      "candidate_seat": 0,
+      "candidate_money": 42134.0,
+      "opponent_money": 110328.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540039,
+      "candidate_seat": 1,
+      "candidate_money": 47831.0,
+      "opponent_money": 153557.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540040,
+      "candidate_seat": 0,
+      "candidate_money": 46635.0,
+      "opponent_money": 142583.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540040,
+      "candidate_seat": 1,
+      "candidate_money": 47465.0,
+      "opponent_money": 145969.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540041,
+      "candidate_seat": 0,
+      "candidate_money": 38489.0,
+      "opponent_money": 129839.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540041,
+      "candidate_seat": 1,
+      "candidate_money": 37314.0,
+      "opponent_money": 129973.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540042,
+      "candidate_seat": 0,
+      "candidate_money": 29868.0,
+      "opponent_money": 119170.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540042,
+      "candidate_seat": 1,
+      "candidate_money": 16286.0,
+      "opponent_money": 95719.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540043,
+      "candidate_seat": 0,
+      "candidate_money": 55776.0,
+      "opponent_money": 105619.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540043,
+      "candidate_seat": 1,
+      "candidate_money": 56647.0,
+      "opponent_money": 105534.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540044,
+      "candidate_seat": 0,
+      "candidate_money": 51604.0,
+      "opponent_money": 146830.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540044,
+      "candidate_seat": 1,
+      "candidate_money": 49624.0,
+      "opponent_money": 149026.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540045,
+      "candidate_seat": 0,
+      "candidate_money": 21457.0,
+      "opponent_money": 116369.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540045,
+      "candidate_seat": 1,
+      "candidate_money": 21457.0,
+      "opponent_money": 116369.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540046,
+      "candidate_seat": 0,
+      "candidate_money": 21898.0,
+      "opponent_money": 45928.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540046,
+      "candidate_seat": 1,
+      "candidate_money": 20969.0,
+      "opponent_money": 45620.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540047,
+      "candidate_seat": 0,
+      "candidate_money": 37997.0,
+      "opponent_money": 117543.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540047,
+      "candidate_seat": 1,
+      "candidate_money": 35837.0,
+      "opponent_money": 115980.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540048,
+      "candidate_seat": 0,
+      "candidate_money": 27453.0,
+      "opponent_money": 95337.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540048,
+      "candidate_seat": 1,
+      "candidate_money": 27424.0,
+      "opponent_money": 95351.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540049,
+      "candidate_seat": 0,
+      "candidate_money": 49146.0,
+      "opponent_money": 140741.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540049,
+      "candidate_seat": 1,
+      "candidate_money": 49146.0,
+      "opponent_money": 140741.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540050,
+      "candidate_seat": 0,
+      "candidate_money": 29724.0,
+      "opponent_money": 108980.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540050,
+      "candidate_seat": 1,
+      "candidate_money": 51596.0,
+      "opponent_money": 142859.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540051,
+      "candidate_seat": 0,
+      "candidate_money": 47736.0,
+      "opponent_money": 136246.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540051,
+      "candidate_seat": 1,
+      "candidate_money": 47736.0,
+      "opponent_money": 136246.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540052,
+      "candidate_seat": 0,
+      "candidate_money": 49137.0,
+      "opponent_money": 136399.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540052,
+      "candidate_seat": 1,
+      "candidate_money": 49137.0,
+      "opponent_money": 136399.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540053,
+      "candidate_seat": 0,
+      "candidate_money": 33542.0,
+      "opponent_money": 88336.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540053,
+      "candidate_seat": 1,
+      "candidate_money": 33542.0,
+      "opponent_money": 88336.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540054,
+      "candidate_seat": 0,
+      "candidate_money": 32417.0,
+      "opponent_money": 123780.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540054,
+      "candidate_seat": 1,
+      "candidate_money": 32420.0,
+      "opponent_money": 123777.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540055,
+      "candidate_seat": 0,
+      "candidate_money": 23885.0,
+      "opponent_money": 85576.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540055,
+      "candidate_seat": 1,
+      "candidate_money": 15177.0,
+      "opponent_money": 92881.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540056,
+      "candidate_seat": 0,
+      "candidate_money": 23261.0,
+      "opponent_money": 93939.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540056,
+      "candidate_seat": 1,
+      "candidate_money": 19271.0,
+      "opponent_money": 109307.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540057,
+      "candidate_seat": 0,
+      "candidate_money": 20234.0,
+      "opponent_money": 103367.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540057,
+      "candidate_seat": 1,
+      "candidate_money": 26907.0,
+      "opponent_money": 123012.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540058,
+      "candidate_seat": 0,
+      "candidate_money": 28180.0,
+      "opponent_money": 92257.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540058,
+      "candidate_seat": 1,
+      "candidate_money": 26877.0,
+      "opponent_money": 92770.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540059,
+      "candidate_seat": 0,
+      "candidate_money": 30025.0,
+      "opponent_money": 118586.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540059,
+      "candidate_seat": 1,
+      "candidate_money": 30025.0,
+      "opponent_money": 118586.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540060,
+      "candidate_seat": 0,
+      "candidate_money": 27489.0,
+      "opponent_money": 105413.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540060,
+      "candidate_seat": 1,
+      "candidate_money": 18746.0,
+      "opponent_money": 69987.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540061,
+      "candidate_seat": 0,
+      "candidate_money": 30375.0,
+      "opponent_money": 118563.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540061,
+      "candidate_seat": 1,
+      "candidate_money": 30375.0,
+      "opponent_money": 118563.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540062,
+      "candidate_seat": 0,
+      "candidate_money": 30766.0,
+      "opponent_money": 98288.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540062,
+      "candidate_seat": 1,
+      "candidate_money": 51724.0,
+      "opponent_money": 151982.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540063,
+      "candidate_seat": 0,
+      "candidate_money": 46119.0,
+      "opponent_money": 144217.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    },
+    {
+      "seed": 540063,
+      "candidate_seat": 1,
+      "candidate_money": 45549.0,
+      "opponent_money": 137557.0,
+      "outcome": "loss",
+      "candidate_crashed": false,
+      "opponent_crashed": false
+    }
+  ]
+}
