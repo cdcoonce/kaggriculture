@@ -36,6 +36,13 @@ MOVES = frozenset({"NORTH", "SOUTH", "EAST", "WEST"})
 # nothing -- notably a FERTILIZE task claimed against an empty shed, where
 # _carry_leg walks the unit to the tile and then has nothing to hand it.
 IDLE = frozenset({"PASS"})
+# Moving goods is overhead, not output: a PICKUP or DROP changes where a unit
+# is holding something, never what exists on the farm. Folding them into
+# "productive" (as `unit_turns - moves - idle` alone does) makes any change
+# that trades field work for shed logistics look like a gain -- a batched
+# fetch that fires 800 extra PICKUPs reads as +1.1pp productive while banking
+# less money.
+LOGISTICS = frozenset({"PICKUP", "DROP"})
 OPPOSITE = {"NORTH": "SOUTH", "SOUTH": "NORTH", "EAST": "WEST", "WEST": "EAST"}
 
 
@@ -231,7 +238,8 @@ def analyze(env, seat, turns_per_day, fertilize_ages):
 
     moves = sum(v for k, v in verbs.items() if k in MOVES)
     idle = sum(v for k, v in verbs.items() if k in IDLE)
-    productive = unit_turns - moves - idle
+    logistics = sum(v for k, v in verbs.items() if k in LOGISTICS)
+    productive = unit_turns - moves - idle - logistics
 
     # Roll the closing verbs up into the four purposes a walk can serve. The
     # buckets partition every closed leg, and steps across them plus the
@@ -272,9 +280,12 @@ def analyze(env, seat, turns_per_day, fertilize_ages):
         "unit_turns": unit_turns,
         "moves": moves,
         "idle_pass": idle,
+        "logistics": logistics,
         "productive": productive,
         "walking_share": round(moves / unit_turns, 4) if unit_turns else None,
         "idle_share": round(idle / unit_turns, 4) if unit_turns else None,
+        "logistics_share": round(logistics / unit_turns, 4) if unit_turns else None,
+        "productive_share": round(productive / unit_turns, 4) if unit_turns else None,
         "walk_legs": {
             "count": len(leg_lengths),
             "mean_length": round(_mean(leg_lengths), 2) if leg_lengths else None,

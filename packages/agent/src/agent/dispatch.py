@@ -24,6 +24,15 @@ UnitAction = list[object]
 # safe, and 12 units x 9 stays under the 100-cap shed.
 HAND_MULE_LOAD = 9
 
+# How many WHEAT a unit may draw in one shed visit to feed animals. 1 is
+# today's behavior: one shed round trip per animal fed. Higher amortizes the
+# trip across a cluster, but it is NOT free -- carried wheat counts toward
+# _carry_load, so a batch pushes the unit toward HAND_MULE_LOAD, and any
+# field work it does on the way (a HARVEST) can tip it over and mule the
+# feed wheat straight back to the shed. The two constants are coupled and
+# must be swept together; the default stays at 1 until a pair is gated.
+FEED_BATCH_CAP = 1
+
 # Melon lifecycle (engine-verified against kaggle_environments 1.32.4): seed
 # $80, first_yield_day 10, max_yield_day 12, max_yield 6; WATER gives +1
 # yield only at age in [window_start, max_yield_day], where
@@ -542,7 +551,11 @@ def _field_tasks(
 
 
 def _carry_leg(
-    pos: tuple[int, int], item: str, task_tile: tuple[int, int], view: FarmView
+    pos: tuple[int, int],
+    item: str,
+    task_tile: tuple[int, int],
+    view: FarmView,
+    quantity: int = 1,
 ) -> UnitAction:
     """Fetch ``item`` from the shed before working ``task_tile``, mirroring
     the goose steward's fetch-then-carry pattern: walk to shed access, then
@@ -553,15 +566,20 @@ def _carry_leg(
     animal purchase hasn't landed yet this turn): walk toward the task tile
     anyway rather than stall — the eventual FEED/PLACE is a harmless no-op
     at the engine level until the carry requirement is actually met.
+
+    ``quantity`` is sized by the caller, not here: the bounds that make a
+    batch safe (this turn's mule threshold, the unit's existing load, and how
+    many other units are drawing on the same shed) are only visible once
+    every task has been assigned. See the batch bounds in ``dispatch``.
     """
     shed_access = nearest_shed_access(pos, view.unlocked_quadrants)
     if view.shed.get(item, 0) > 0:
         if pos == shed_access:
-            return ["PICKUP", item, 1]
+            return ["PICKUP", item, quantity]
         step = _step_toward(pos, shed_access)
         if step is not None:
             return step
-        return ["PICKUP", item, 1]
+        return ["PICKUP", item, quantity]
     step = _step_toward(pos, task_tile)
     return step if step is not None else ["PASS"]
 
@@ -574,6 +592,8 @@ def dispatch(
     strawberry_tiles: frozenset[tuple[int, int]] = frozenset(),
     prior_claims: dict[int, tuple[int, int]] | None = None,
     strawberry_plant_daily_cap: int = STRAWBERRY_PLANT_DAILY_CAP,
+    feed_batch_cap: int = FEED_BATCH_CAP,
+    hand_mule_load: int = HAND_MULE_LOAD,
 ) -> Actions:
     """Choose an action for every unit, and report what each one claimed.
 
@@ -607,7 +627,7 @@ def dispatch(
     # On the last day, any carried load at all is mule-worthy: a hand that
     # keeps farming past hour 20 only grows a pile that can't reach the shed
     # before the game ends (see _field_tasks' matching P1 suppression).
-    mule_threshold = ENDGAME_MULE_THRESHOLD if view.day >= ENDGAME_DAY else HAND_MULE_LOAD
+    mule_threshold = ENDGAME_MULE_THRESHOLD if view.day >= ENDGAME_DAY else hand_mule_load
     for i in range(1, len(units)):
         inv = view.inventories[i] if i < len(view.inventories) else {}
         if _carry_load(inv) >= mule_threshold:
@@ -693,13 +713,47 @@ def dispatch(
             if best is not None:
                 claim(i, best)
 
+    # One shed round trip per animal fed is the largest single walking cost in
+    # the game: recon at 34ee26c puts fetch legs at 18.4% of all movement and
+    # 4.11 steps apiece, the longest legs on the board, against 2.39 for a walk
+    # to field work. The engine caps no unit's inventory, so a unit at the shed
+    # can draw the whole herd's feed in one visit and then walk the cluster.
+    #
+    # Three bounds each silently defeat a naive batch, and none is visible from
+    # inside _carry_leg:
+    #   - the mule threshold, which is checked against LAST turn's inventory
+    #     before any task is assigned, so a batch landing the unit at or above
+    #     it routes the unit back to the shed to DROP instead of to the
+    #     animals -- manufacturing the trip the batch exists to remove. From
+    #     ENDGAME_DAY the threshold is 1, which correctly collapses the batch
+    #     to today's single unit;
+    #   - the wheat this turn's SELL order is already sized against. The engine
+    #     applies unit actions before market orders and SELL self-clamps to the
+    #     live shed one unit at a time, so an overdraw shrinks the sale with no
+    #     signal anywhere. Staying within the unfed-animal count keeps the draw
+    #     inside market.py's own `animals_placed + feed_reserve` sell floor;
+    #   - the other units fetching this turn, which would each size against the
+    #     same stock and collectively overdraw it.
+    feed_fetchers = [
+        i
+        for i, t in assigned.items()
+        if t.needs_carry == "WHEAT"
+        and (view.inventories[i] if i < len(view.inventories) else {}).get("WHEAT", 0) <= 0
+    ]
+    unfed = sum(1 for t in tasks if t.needs_carry == "WHEAT")
+    shed_share = view.shed.get("WHEAT", 0) // max(1, len(feed_fetchers))
+
     for i, pos in enumerate(units):
         task = assigned.get(i)
         if task is None:
             continue
         inv = view.inventories[i] if i < len(view.inventories) else {}
         if task.needs_carry and inv.get(task.needs_carry, 0) <= 0:
-            chosen[i] = _carry_leg(pos, task.needs_carry, task.tile, view)
+            quantity = 1
+            if task.needs_carry == "WHEAT":
+                headroom = mule_threshold - 1 - _carry_load(inv)
+                quantity = max(1, min(unfed, headroom, shed_share, feed_batch_cap))
+            chosen[i] = _carry_leg(pos, task.needs_carry, task.tile, view, quantity)
             continue
         move = _step_toward(pos, task.tile)
         chosen[i] = move if move is not None else task.action
