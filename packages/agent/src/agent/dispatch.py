@@ -35,6 +35,54 @@ MELON_RIPE_AGE = 12  # max_yield_day
 MELON_STALE_AGE = 13  # one past max_yield_day: harvest regardless of watered_today
 MELON_MAX_YIELD = 6
 
+# Strawberry lifecycle (engine-verified: tests/test_invariants.py claims 1-8,
+# plus a full 720-step planting-window probe). seed $100, first_yield_day 10,
+# interval 2, max_yield 4, ongoing True.
+#
+# Production is credited by the END-OF-DAY refresh, never by WATER (claim 2 --
+# the engine's watering bonus sits behind a `not ongoing` guard, so melon's
+# "water inside the window for +1" rule does NOT transfer). The refresh on day
+# C credits yield for day C+1, and fires when (C+1) - planted_day - 10 is a
+# non-negative even number, so yield becomes visible at ages 10/12/14/16 and
+# the refresh that produced it ran at ages 9/11/13/15 (claim 3).
+#
+# max_yield_day (10) is dead code here: both of its readers sit behind
+# `not ongoing` guards, so nothing is built on it.
+STRAWBERRY_MAX_YIELD = 4
+STRAWBERRY_TICK_AGES = (9, 11, 13, 15)  # the refresh ages that credit yield
+STRAWBERRY_FINAL_AGE = 16  # last age at which yield appears; sweep whatever is left
+# Coverage is `day..day+2` inclusive and is read on the refresh day, so
+# fertilizing at age 9 covers the age-9 AND age-11 ticks, and age 13 covers
+# 13 and 15 -- two units per tile buys the bonus on all four ticks. Ages
+# 9/11/13/15 would buy nothing extra and burn two units, because re-applying
+# to an already-covered tile still consumes the item (engine FERTILIZE takes
+# the unit before the max() that may not move the coverage day at all).
+STRAWBERRY_FERTILIZE_AGES = (9, 13)
+# Anti-weed maintenance during the ten-day dead zone before the first tick.
+# Watering is mandatory on the planting day itself (engine _new_plant seeds
+# consecutive_unwatered=1, so an unwatered fresh planting weeds overnight),
+# then every other day is enough to stay under the two-consecutive-misses
+# threshold. Age 8 rather than a pure even cadence so it runs straight into
+# the age-9 tick with no dry gap.
+STRAWBERRY_MAINTENANCE_AGES = (2, 4, 6, 8)
+# Ticks land at planted_day + 10/12/14/16 and the last end-of-day refresh of
+# the game runs on day 28 (step 719 is never processed), so a tile planted by
+# day 12 banks all four ticks through the normal end-of-day shed transfer.
+# Day 13 still fires all four but puts the last one on day 29, where it banks
+# $0 without a manual DROP; later plantings lose ticks off the tail one at a
+# time and day 20 yields nothing at all. 12 is therefore the last *fully*
+# productive planting day, and the cutoff is set there rather than at the
+# first-yield boundary.
+STRAWBERRY_PLANT_CUTOFF_DAY = 12
+# Sized to fill a zone of any plausible size well inside the cutoff rather
+# than to melon's 2/day stagger. Melon's flat cap is what strands its zone:
+# at melon 20+ the zone reserves tiles the cap cannot fill for days, and those
+# idle tile-days are what makes melon 22/24 gate worse than melon 16-20. A
+# strawberry tile is worth more idle-time than a melon one (it must be planted
+# by day 12 or it silently loses ticks), so the daily cap must not be the
+# binding constraint -- the seed budget in plan.py is, and it self-throttles.
+STRAWBERRY_PLANT_DAILY_CAP = 6
+
 # The last game day. Harvested or dropped goods can't reach the shed before
 # the market closes once it's this late (the market reads shed contents
 # pre-drop), so they sell for $0 — stop manufacturing more of them and rush
@@ -229,11 +277,60 @@ def _pasture_task(
     return None
 
 
+def _strawberry_task(x: int, y: int, tile: dict[str, Any], age: int, day: int) -> _Task | None:
+    """The single most urgent chore on an occupied strawberry tile, or None.
+
+    First-match-wins, like every other crop branch, and that ordering carries
+    the design:
+
+    P0 the planting day, unwatered. Not optional -- the engine seeds a fresh
+       plant with ``consecutive_unwatered = 1``, so skipping this one water
+       weeds the tile overnight and burns the $100 seed.
+    P1 ``yield_units`` at ``STRAWBERRY_MAX_YIELD``. The engine clamps with
+       ``min(max_yield, yield + bonus)``, so a fertilized tile fills to 4 in
+       two ticks and every later tick adds nothing until it is drained.
+       Harvesting on the cap (ages 12 and 16) is what makes the fertilizer
+       bonus worth 8 units a cycle instead of 4 -- lazy harvest silently
+       halves it, with no error and no signal.
+    P1 anything still on the tile at the final age, fertilized or not: the
+       unfertilized path only ever reaches 4 on the last tick, so without
+       this sweep it would never be harvested at all.
+    P2 water on a tick age. Ordered ahead of FERTILIZE deliberately: the
+       engine computes ``fertilized = was_watered and covered``, so an
+       unwatered tick day pays no bonus however well fertilized it is, which
+       makes water strictly the more valuable of the two. Both still land the
+       same day -- tasks regenerate every turn, so the tile takes water on one
+       turn and fertilizer on the next.
+    P2 anti-weed maintenance water in the dead zone before the first tick.
+    P2 fertilize at age 9 or 13 when coverage has lapsed. The comparison is
+       against ``day``, matching the engine's own ``fertilized_until_day >=
+       current_day`` read, so an already-covered tile is never re-fertilized
+       into a wasted unit.
+    """
+    watered_today = bool(tile.get("watered_today", False))
+    yield_units = int(tile.get("yield_units", 0))
+
+    if age == 0 and not watered_today:
+        return _Task((x, y), ["WATER"], priority=0)
+    if yield_units >= STRAWBERRY_MAX_YIELD:
+        return _Task((x, y), ["HARVEST"], priority=1)
+    if yield_units > 0 and age >= STRAWBERRY_FINAL_AGE:
+        return _Task((x, y), ["HARVEST"], priority=1)
+    if age in STRAWBERRY_TICK_AGES and not watered_today:
+        return _Task((x, y), ["WATER"], priority=2)
+    if age in STRAWBERRY_MAINTENANCE_AGES and not watered_today:
+        return _Task((x, y), ["WATER"], priority=2)
+    if age in STRAWBERRY_FERTILIZE_AGES and int(tile.get("fertilized_until_day", -1)) < day:
+        return _Task((x, y), ["FERTILIZE"], priority=2, needs_carry="FERTILIZER")
+    return None
+
+
 def _field_tasks(
     view: FarmView,
     tiles: list[tuple[int, int]],
     melon_tiles: frozenset[tuple[int, int]] = frozenset(),
     pasture_tiles: frozenset[tuple[int, int]] = frozenset(),
+    strawberry_tiles: frozenset[tuple[int, int]] = frozenset(),
 ) -> list[_Task]:
     """Work needed on the target tiles, tagged with an urgency class.
 
@@ -290,6 +387,7 @@ def _field_tasks(
     """
     wheat_planted_today = 0
     melon_planted_today = 0
+    strawberry_planted_today = 0
     for x, y in tiles:
         cell: Tile = view.tiles[y][x]
         if (
@@ -297,12 +395,20 @@ def _field_tasks(
             and cell.get("kind") == "PLANT"
             and int(cell.get("planted_day", -1)) == view.day
         ):
-            if (x, y) in melon_tiles:
+            # Keyed off the tile's OWN crop, not zone membership, because a
+            # strawberry-zone tile can legitimately hold wheat once the
+            # strawberry planting window has closed (see the zone's own
+            # fall-through below). Zone membership would then charge that
+            # wheat planting to strawberry's stagger and stall the wheat line.
+            if cell.get("crop") == "STRAWBERRY":
+                strawberry_planted_today += 1
+            elif (x, y) in melon_tiles:
                 melon_planted_today += 1
             else:
                 wheat_planted_today += 1
     plant_budget = max(0, plant_quota(view.day, len(tiles)) - wheat_planted_today)
     melon_budget = max(0, MELON_PLANT_DAILY_CAP - melon_planted_today)
+    strawberry_budget = max(0, STRAWBERRY_PLANT_DAILY_CAP - strawberry_planted_today)
     # Shed count PLUS whatever any unit is already carrying: once a unit
     # PICKUPs the last shed animal, the shed's own count drops to 0, but the
     # PLACE task for its target tile must keep being generated (by this same
@@ -319,6 +425,7 @@ def _field_tasks(
         tile: Tile = view.tiles[y][x]
         is_melon = (x, y) in melon_tiles
         is_pasture = (x, y) in pasture_tiles
+        is_strawberry = (x, y) in strawberry_tiles and not is_pasture and not is_melon
         if tile is None:
             if is_pasture:
                 # Every empty tile in the zone gets built, full stop. This used
@@ -342,6 +449,39 @@ def _field_tasks(
                     )
                     tasks.append(crop_task)
                     melon_budget -= 1
+            elif is_strawberry:
+                if (
+                    view.day <= STRAWBERRY_PLANT_CUTOFF_DAY
+                    and view.hour <= 20
+                    and strawberry_budget > 0
+                ):
+                    tasks.append(
+                        _Task(
+                            (x, y),
+                            ["PLANT", "STRAWBERRY"],
+                            priority=3,
+                            uses_seed=True,
+                            crop="STRAWBERRY",
+                        )
+                    )
+                    strawberry_budget -= 1
+                elif view.hour <= 20 and plant_budget > 0:
+                    # The reservation trap, fixed rather than inherited. A zone
+                    # that keeps claiming tiles it can no longer plant is just
+                    # idle ground: melon reserves its whole zone all game
+                    # against a flat 2/day cap, which is what strands ~110
+                    # tile-days at melon 20 and makes 22/24 gate worse than
+                    # 16-20. Strawberry's window CLOSES (day 12, after which a
+                    # planting cannot bank a full four ticks), and a tile that
+                    # finished its cycle and was dug re-enters as empty ground
+                    # well after that -- so once the window is shut, or the
+                    # daily cap is spent, an empty zone tile falls through to
+                    # wheat instead of being held for a crop that can no
+                    # longer profitably go in it.
+                    tasks.append(
+                        _Task((x, y), ["PLANT", "WHEAT"], priority=3, uses_seed=True, crop="WHEAT")
+                    )
+                    plant_budget -= 1
             elif view.hour <= 20 and plant_budget > 0:
                 tasks.append(
                     _Task((x, y), ["PLANT", "WHEAT"], priority=3, uses_seed=True, crop="WHEAT")
@@ -353,7 +493,15 @@ def _field_tasks(
             age = view.day - int(tile.get("planted_day", view.day))
             watered_today = bool(tile.get("watered_today", False))
             yield_units = int(tile.get("yield_units", 0))
-            if is_melon:
+            # Keyed off the tile's own crop rather than zone membership: a
+            # strawberry-zone tile legitimately holds WHEAT once the planting
+            # window has closed, and it must then be worked on wheat's much
+            # shorter timeline, not strawberry's.
+            if tile.get("crop") == "STRAWBERRY":
+                strawberry_task = _strawberry_task(x, y, tile, age, view.day)
+                if strawberry_task is not None:
+                    tasks.append(strawberry_task)
+            elif is_melon:
                 if age == 0 and not watered_today:
                     tasks.append(_Task((x, y), ["WATER"], priority=0))
                 elif yield_units >= MELON_MAX_YIELD:
@@ -415,6 +563,7 @@ def dispatch(
     tiles: list[tuple[int, int]],
     melon_tiles: frozenset[tuple[int, int]] = frozenset(),
     pasture_tiles: frozenset[tuple[int, int]] = frozenset(),
+    strawberry_tiles: frozenset[tuple[int, int]] = frozenset(),
 ) -> Actions:
     units: list[tuple[int, int]] = [view.farmer, *view.hands]
     chosen: list[UnitAction] = [["PASS"] for _ in units]
@@ -439,10 +588,14 @@ def dispatch(
             chosen[i] = _mule(units[i], view.unlocked_quadrants)
             fielded.discard(i)
 
-    tasks = _field_tasks(view, tiles, melon_tiles, pasture_tiles)
-    # Wheat and melon draw from separate seed pools; keyed by the task's own
-    # crop so exhausting one never blocks the other's PLANT tasks.
-    seed_budgets = {"WHEAT": view.seeds.get("WHEAT", 0), "MELON": view.seeds.get("MELON", 0)}
+    tasks = _field_tasks(view, tiles, melon_tiles, pasture_tiles, strawberry_tiles)
+    # Wheat, melon and strawberry draw from separate seed pools; keyed by the
+    # task's own crop so exhausting one never blocks the others' PLANT tasks.
+    seed_budgets = {
+        "WHEAT": view.seeds.get("WHEAT", 0),
+        "MELON": view.seeds.get("MELON", 0),
+        "STRAWBERRY": view.seeds.get("STRAWBERRY", 0),
+    }
     claimed: set[tuple[int, int]] = set()
     assigned: dict[int, _Task] = {}
 

@@ -34,6 +34,7 @@ def make_view(
     tiles: list[list[Tile]] | None = None,
     seeds: int = 0,
     melon_seeds: int = 0,
+    strawberry_seeds: int = 0,
     shed: dict[str, int] | None = None,
     inventories: list[dict[str, int]] | None = None,
     prices: dict[str, float] | None = None,
@@ -55,7 +56,7 @@ def make_view(
         unlocked_quadrants=unlocked_quadrants,
         farmer=farmer,
         hands=hands,
-        seeds={"WHEAT": seeds, "MELON": melon_seeds},
+        seeds={"WHEAT": seeds, "MELON": melon_seeds, "STRAWBERRY": strawberry_seeds},
         shed=shed or {},
         inventories=inv,
         prices=prices or {"WHEAT": 25.0, "EGG": 50.0, "FERTILIZER": 100.0},
@@ -69,6 +70,7 @@ def plant(
     planted_day: int = 0,
     watered_today: bool = False,
     yield_units: int = 1,
+    fertilized_until_day: int = -1,
 ) -> dict[str, Any]:
     return {
         "kind": "PLANT",
@@ -77,8 +79,28 @@ def plant(
         "watered_today": watered_today,
         "consecutive_unwatered": 1,
         "yield_units": yield_units,
-        "fertilized_until_day": -1,
+        "fertilized_until_day": fertilized_until_day,
     }
+
+
+def strawberry(
+    *,
+    planted_day: int = 0,
+    watered_today: bool = False,
+    yield_units: int = 0,
+    fertilized_until_day: int = -1,
+) -> dict[str, Any]:
+    """A strawberry tile, shaped as the engine's ``_new_plant`` leaves an
+    ongoing crop: ``yield_units`` starts at 0, not wheat's 1 -- the engine
+    seeds that opening unit only for non-ongoing crops, and every strawberry
+    unit arrives later from the end-of-day refresh."""
+    return plant(
+        crop="STRAWBERRY",
+        planted_day=planted_day,
+        watered_today=watered_today,
+        yield_units=yield_units,
+        fertilized_until_day=fertilized_until_day,
+    )
 
 
 def goose_tile(

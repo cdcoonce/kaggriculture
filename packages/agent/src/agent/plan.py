@@ -27,11 +27,18 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from agent.constants import COW_TARGET, LAND_ORDER, LAND_PRICES, SHEEP_TARGET
-from agent.dispatch import MELON_PLANT_CUTOFF_DAY, MELON_PLANT_DAILY_CAP, plant_quota
+from agent.dispatch import (
+    MELON_PLANT_CUTOFF_DAY,
+    MELON_PLANT_DAILY_CAP,
+    STRAWBERRY_PLANT_CUTOFF_DAY,
+    STRAWBERRY_PLANT_DAILY_CAP,
+    plant_quota,
+)
 
 FEED_RESERVE = 3
 SEED_PRICE = 10
 MELON_SEED_PRICE = 80
+STRAWBERRY_SEED_PRICE = 100
 GOOSE_COST = 300
 GOOSE_LAST_BUY_DAY = 14  # $300 payback needs ~12 egg days; later purchase never breaks even
 PLANT_CUTOFF_DAY = 25  # last profitable wheat planting day (4 growth days + sale)
@@ -75,6 +82,9 @@ def plan_day(
     plantable_target_tiles: int,
     melon_seeds: int = 0,
     empty_melon_tiles: int = 0,
+    strawberry_seeds: int = 0,
+    empty_strawberry_tiles: int = 0,
+    strawberry_plant_daily_cap: int = STRAWBERRY_PLANT_DAILY_CAP,
     wheat_on_hand: int,
     goose_owned: bool,
     hires_today: int,
@@ -139,6 +149,32 @@ def plan_day(
             budget -= n * SHEEP_PRICE
             animal_room -= n
             turn_cap_left -= n
+
+    # Strawberry sits AFTER the animal pipeline and ahead of wheat. It is the
+    # highest-value crop the board can grow (4 of the 8 shop types buy it,
+    # against melon's 0, and a fertilized tile yields 8 units a cycle), which
+    # argues for putting it earlier -- but the animal pipeline is measured and
+    # shipped, and replay evidence puts 40-69% of the strongest opponents'
+    # revenue in cow/sheep products. Funding an unproven crop by starving a
+    # proven one would confound the very gate that is supposed to price this
+    # change, so strawberry draws on what the animals leave and the knob sweep
+    # gets to argue for a promotion on its own evidence.
+    #
+    # There is room for it to do that: production ticks at planted_day +
+    # 10/12/14/16 against a last-refresh day of 28 mean a tile planted by day
+    # 12 still banks a full four ticks, so the seed line has a thirteen-day
+    # runway funded out of ongoing revenue rather than needing the whole
+    # commitment out of the opening bankroll.
+    if day <= STRAWBERRY_PLANT_CUTOFF_DAY:
+        # Two days of the dispatcher's own strawberry stagger, same reasoning
+        # as the melon and wheat seed lines above.
+        strawberry_seed_target = min(2 * strawberry_plant_daily_cap, empty_strawberry_tiles)
+        need = strawberry_seed_target - strawberry_seeds
+        affordable = int(budget // STRAWBERRY_SEED_PRICE)
+        n = min(need, affordable)
+        if n > 0:
+            buys.append(["BUY_SEED", "STRAWBERRY", n])
+            budget -= n * STRAWBERRY_SEED_PRICE
 
     if day <= PLANT_CUTOFF_DAY:
         # Hold at most two days of the dispatcher's plant quota: seeds beyond

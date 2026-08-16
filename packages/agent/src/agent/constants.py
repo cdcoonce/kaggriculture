@@ -157,6 +157,44 @@ def pasture_tiles(
     return target_tiles(unlocked)[MELON_TILE_TARGET : MELON_TILE_TARGET + target]
 
 
+STRAWBERRY_TILE_TARGET = 0  # shipped default: the zone is empty, so the mechanic is dormant
+
+# Strawberry is anchored to a FIXED reference frame for the same reason
+# pastures are (see PASTURE_REFERENCE_QUADRANTS above), and the argument is
+# stronger here than for melon. A strawberry tile is occupied for seventeen
+# days -- plant, four production ticks at ages 10/12/14/16, then decay to
+# WEED -- so it is mid-cycle across essentially any land purchase. melon_tiles
+# deliberately tracks the LIVE unlocked_quadrants and lets its zone drift
+# toward whichever corner is newly closest; a strawberry zone that drifted the
+# same way would silently stop watering an occupied tile the instant a
+# BUY_LAND reshuffled target_tiles' nearest-shed-first ordering, and two
+# consecutive unwatered days turn a live plant into a WEED (engine
+# _daily_refresh_plants). That loses the tile, the $100 seed, and every tick
+# it had not yet produced, with no signal at all. NW+NE matches pasture's
+# frame and is enough: the zone never needs to reach past it, and NE unlocks
+# on turn 0 in every observed game.
+STRAWBERRY_REFERENCE_QUADRANTS: tuple[str, ...] = ("NW", "NE")
+
+
+@cache
+def strawberry_tiles(
+    unlocked: tuple[str, ...], target: int = STRAWBERRY_TILE_TARGET
+) -> list[tuple[int, int]]:
+    """The strawberry zone: the ``target`` tiles right after pasture's.
+
+    Offset by the module-level ``MELON_TILE_TARGET``/``PASTURE_TILE_TARGET``
+    rather than by any live PolicyConfig value, exactly as ``pasture_tiles``
+    is -- so overriding ``melon_tile_target`` or the animal targets resizes
+    those zones without sliding this one out from under an occupied tile.
+
+    ``target`` defaults to 0, so every existing caller and every default
+    ``PolicyConfig`` gets an empty zone and byte-identical behavior to the
+    pre-strawberry chassis. Memoized for the same reason as ``target_tiles``.
+    """
+    start = MELON_TILE_TARGET + PASTURE_TILE_TARGET
+    return target_tiles(unlocked)[start : start + target]
+
+
 def nearest_shed_access(pos: tuple[int, int], unlocked: tuple[str, ...]) -> tuple[int, int]:
     """The closest shed-access tile among the currently-unlocked quadrants."""
     unlocked_set = set(unlocked)

@@ -699,3 +699,105 @@ def test_feed_reserve_scales_with_placed_animal_count() -> None:
         animals_placed=10,
     )
     assert ["BUY_PRODUCT", "WHEAT", 8] in plan.buys  # target 10+3=13, gap 13-5=8
+
+
+# --- Strawberry seed line -------------------------------------------------
+
+
+def _sb_plan(**overrides: object) -> object:
+    base: dict[str, object] = {
+        "day": 0,
+        "money": 3000.0,
+        "wheat_seeds": 0,
+        "plantable_target_tiles": 24,
+        "wheat_on_hand": 0,
+        "goose_owned": True,
+        "hires_today": 0,
+        "unlocked_quadrants": ("NW",),
+        "active_tiles": 24,
+    }
+    base.update(overrides)
+    return plan_day(**base)  # type: ignore[arg-type]
+
+
+def _sb_buy(plan: object) -> list[object] | None:
+    return next((b for b in plan.buys if b[0] == "BUY_SEED" and b[1] == "STRAWBERRY"), None)  # type: ignore[attr-defined]
+
+
+def test_no_strawberry_seed_is_bought_for_a_zero_tile_zone() -> None:
+    # The shipped default. empty_strawberry_tiles is 0, so the line must emit
+    # nothing at all -- this is what makes the whole mechanic a bit-exact
+    # no-op against the pre-strawberry chassis.
+    assert _sb_buy(_sb_plan()) is None
+
+
+def test_strawberry_seed_buy_holds_two_days_of_the_planting_stagger() -> None:
+    # Same "two days of headroom" sizing as the melon and wheat seed lines:
+    # enough to keep the dispatcher's stagger fed without parking cash in
+    # seed that could be buying land or animals.
+    plan = _sb_plan(empty_strawberry_tiles=30, strawberry_plant_daily_cap=6)
+    assert _sb_buy(plan) == ["BUY_SEED", "STRAWBERRY", 12]
+
+
+def test_strawberry_seed_buy_is_capped_by_the_empty_zone() -> None:
+    plan = _sb_plan(empty_strawberry_tiles=3, strawberry_plant_daily_cap=6)
+    assert _sb_buy(plan) == ["BUY_SEED", "STRAWBERRY", 3]
+
+
+def test_strawberry_seed_buy_nets_off_seed_already_held() -> None:
+    # plan_day is re-run every turn and must stay idempotent: seed bought on
+    # an earlier turn of the same day has to count against the target or the
+    # line would re-buy the whole stagger every turn.
+    plan = _sb_plan(empty_strawberry_tiles=30, strawberry_plant_daily_cap=6, strawberry_seeds=10)
+    assert _sb_buy(plan) == ["BUY_SEED", "STRAWBERRY", 2]
+
+    full = _sb_plan(empty_strawberry_tiles=30, strawberry_plant_daily_cap=6, strawberry_seeds=12)
+    assert _sb_buy(full) is None
+
+
+def test_strawberry_seed_buy_is_bounded_by_the_remaining_budget() -> None:
+    # Seed is $100 -- by far the most expensive on the board -- so the budget
+    # bound is the real throttle on how fast the zone fills, not the daily cap.
+    plan = _sb_plan(money=350.0, empty_strawberry_tiles=30, strawberry_plant_daily_cap=6)
+    assert _sb_buy(plan) == ["BUY_SEED", "STRAWBERRY", 3]
+
+
+def test_strawberry_seed_buy_stops_after_the_last_fully_productive_planting_day() -> None:
+    # Production ticks land at planted_day + 10/12/14/16 and the last
+    # end-of-day refresh runs on day 28, so day 12 is the last planting that
+    # banks all four ticks through the normal shed transfer. Buying seed past
+    # it converts cash into tiles that cannot finish their cycle.
+    assert _sb_buy(_sb_plan(day=12, empty_strawberry_tiles=30)) is not None
+    assert _sb_buy(_sb_plan(day=13, empty_strawberry_tiles=30)) is None
+
+
+def test_strawberry_never_outbids_the_animal_pipeline() -> None:
+    # Deliberate ordering: the animal pipeline is measured and shipped, and
+    # replay evidence puts 40-69% of the strongest opponents' revenue in
+    # cow/sheep products. Strawberry draws on what animals leave, so a gate
+    # on the strawberry knob prices strawberry rather than pricing a
+    # strawberry-funded raid on the ranch.
+    # $800 funds exactly two cows and nothing else. The cows must take it and
+    # the strawberry line must come away empty -- with the ordering reversed,
+    # eight $100 seeds would eat the same budget and starve the ranch.
+    contested = _sb_plan(
+        money=800.0,
+        empty_strawberry_tiles=30,
+        empty_pastures=2,
+        cows_owned=0,
+        sheep_owned=0,
+    )
+    assert ["BUY_ANIMAL", "COW", 2] in contested.buys  # type: ignore[attr-defined]
+    assert _sb_buy(contested) is None
+
+    # It does still get the genuine remainder, so this is a priority rather
+    # than a blockade.
+    leftover = _sb_plan(
+        money=1000.0,
+        empty_strawberry_tiles=30,
+        empty_pastures=2,
+        cows_owned=0,
+        sheep_owned=0,
+    )
+    assert ["BUY_ANIMAL", "COW", 2] in leftover.buys  # type: ignore[attr-defined]
+    assert _sb_buy(leftover) == ["BUY_SEED", "STRAWBERRY", 2]

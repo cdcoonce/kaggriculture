@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from agent.constants import PASTURE_TILE_TARGET, target_tiles
 from agent.dispatch import dispatch
-from viewfactory import built_pasture, make_view, pasture, plant
+from viewfactory import built_pasture, make_view, pasture, plant, strawberry
 
 NW_TILES = target_tiles(("NW",))
 
@@ -578,3 +578,144 @@ def test_carrying_unit_keeps_place_task_after_shed_count_drops_to_zero() -> None
     )
     actions = dispatch(view, NW_TILES, frozenset(), frozenset({(2, 2)}))
     assert actions.hands[0] == ["PLACE", "COW"]
+
+
+# --- Strawberry (ongoing crop) -------------------------------------------
+#
+# The engine facts these pin are verified in tests/test_invariants.py claims
+# 1-8 and by a full 720-step planting-window probe. What is checked here is
+# that the DISPATCHER acts on them, since every one of these rules fails
+# silently in the engine: a missed water weeds the tile, a lazy harvest halves
+# the fertilizer bonus, and a wasted FERTILIZE just consumes the unit.
+
+SB = (2, 2)
+SB_ZONE = frozenset({SB})
+
+
+def _sb_view(
+    tile: dict[str, object],
+    *,
+    day: int,
+    hands: list[tuple[int, int]] | None = None,
+    inventories: list[dict[str, int]] | None = None,
+    shed: dict[str, int] | None = None,
+) -> object:
+    tiles = make_view().tiles
+    tiles[SB[1]][SB[0]] = tile
+    return make_view(
+        step=day * 24,
+        hands=hands if hands is not None else [SB],
+        tiles=tiles,
+        inventories=inventories,
+        shed=shed,
+    )
+
+
+def _sb_action(tile: dict[str, object], *, day: int, **kwargs: object) -> list[object]:
+    view = _sb_view(tile, day=day, **kwargs)  # type: ignore[arg-type]
+    return dispatch(view, NW_TILES, frozenset(), frozenset(), SB_ZONE).hands[0]
+
+
+def test_strawberry_is_watered_on_its_planting_day() -> None:
+    # Not optional: the engine seeds a fresh plant with
+    # consecutive_unwatered = 1, so an unwatered planting day is already one
+    # of the two consecutive misses that turn the tile into a WEED overnight
+    # -- losing the $100 seed and all four ticks before any of them fire.
+    assert _sb_action(strawberry(planted_day=5), day=5) == ["WATER"]
+
+
+def test_strawberry_waters_on_every_tick_age() -> None:
+    # The engine computes `fertilized = was_watered and covered`, so an
+    # unwatered tick day pays no fertilizer bonus no matter how well the tile
+    # is fertilized. Each of these four ages is a refresh that credits yield.
+    for age in (9, 11, 13, 15):
+        tile = strawberry(planted_day=0, watered_today=False)
+        assert _sb_action(tile, day=age) == ["WATER"], f"no water on tick age {age}"
+
+
+def test_strawberry_maintenance_water_runs_every_other_day_before_the_ticks() -> None:
+    # Two consecutive unwatered days weed the tile, so the ten-day dead zone
+    # between planting and the first tick still needs an alternating cadence.
+    # Odd ages are deliberately left alone -- a single dry day is safe, and
+    # watering one would be pure wasted labor.
+    for age in (2, 4, 6, 8):
+        assert _sb_action(strawberry(planted_day=0), day=age) == ["WATER"], (
+            f"no maintenance water at age {age}"
+        )
+    for age in (1, 3, 5, 7):
+        assert _sb_action(strawberry(planted_day=0), day=age) == ["PASS"], (
+            f"wasted a turn watering age {age}, which is safe to skip"
+        )
+
+
+def test_strawberry_harvests_on_the_yield_cap_not_on_an_age() -> None:
+    # The engine clamps with min(max_yield, yield + bonus), so a fertilized
+    # tile fills to 4 in two ticks and every later tick adds nothing until
+    # it is drained. Harvesting on the cap is what makes fertilizer worth 8
+    # units a cycle instead of 4; waiting for a fixed age silently halves it.
+    capped = strawberry(planted_day=0, yield_units=4, watered_today=True)
+    assert _sb_action(capped, day=12) == ["HARVEST"]
+
+    # Below the cap mid-cycle there is nothing to do but keep the cadence --
+    # harvesting 2 units here would cost a trip and bank the same total.
+    partial = strawberry(planted_day=0, yield_units=2, watered_today=True)
+    assert _sb_action(partial, day=10) == ["PASS"]
+
+
+def test_strawberry_sweeps_a_sub_cap_tile_at_the_final_age() -> None:
+    # The unfertilized path accrues +1 per tick and so only ever reaches 4 on
+    # the last one. Without this sweep an unfertilized tile would never clear
+    # the cap rule and would never be harvested at all.
+    tile = strawberry(planted_day=0, yield_units=3, watered_today=True)
+    assert _sb_action(tile, day=16) == ["HARVEST"]
+
+
+def test_strawberry_fertilizes_only_at_ages_nine_and_thirteen() -> None:
+    # Coverage is day..day+2 inclusive and is read on the refresh day, so age
+    # 9 covers the age-9 and age-11 ticks and age 13 covers 13 and 15. Two
+    # units buy the bonus on all four ticks; fertilizing at 11 or 15 would
+    # buy nothing and still consume the unit.
+    for age in (9, 13):
+        tile = strawberry(planted_day=0, watered_today=True)
+        assert _sb_action(tile, day=age, inventories=[{}, {"FERTILIZER": 1}]) == ["FERTILIZE"], (
+            f"no fertilize at age {age}"
+        )
+    # Asserted as an absence rather than as PASS: the hand stands ON the tile
+    # holding a unit, so a wrongly-emitted FERTILIZE would be dispatched
+    # verbatim with no walking leg to mask it -- but a unit holding sellable
+    # goods with nothing to do correctly walks them home instead of idling,
+    # so PASS is not the right negative.
+    for age in (11, 15):
+        tile = strawberry(planted_day=0, watered_today=True)
+        assert _sb_action(tile, day=age, inventories=[{}, {"FERTILIZER": 1}]) != ["FERTILIZE"], (
+            f"wasted a FERTILIZER unit at age {age}, which age 9/13 coverage already spans"
+        )
+
+
+def test_strawberry_never_refertilizes_a_covered_tile() -> None:
+    # The engine takes the FERTILIZER unit BEFORE the max() that may not move
+    # fertilized_until_day at all, so re-applying to a covered tile is a
+    # silent, uncompensated loss of the unit.
+    covered = strawberry(planted_day=0, watered_today=True, fertilized_until_day=13)
+    assert _sb_action(covered, day=13, inventories=[{}, {"FERTILIZER": 1}]) != ["FERTILIZE"]
+
+    lapsed = strawberry(planted_day=0, watered_today=True, fertilized_until_day=12)
+    assert _sb_action(lapsed, day=13, inventories=[{}, {"FERTILIZER": 1}]) == ["FERTILIZE"]
+
+
+def test_strawberry_water_outranks_fertilize_on_the_same_tile() -> None:
+    # Both are due on a tick day, but only one task per tile is emitted per
+    # turn. Water has to win: `fertilized = was_watered and covered` means an
+    # unwatered tick day pays no bonus however well fertilized it is, so
+    # fertilizing first would risk spending the unit on a dry tick.
+    tile = strawberry(planted_day=0, watered_today=False)
+    assert _sb_action(tile, day=9, inventories=[{}, {"FERTILIZER": 1}]) == ["WATER"]
+
+
+def test_strawberry_fetches_fertilizer_from_the_shed_before_applying_it() -> None:
+    # FERTILIZE draws from the acting unit's own inventory, so a hand with an
+    # empty inventory has to make the shed trip first -- the same carry leg
+    # FEED and PLACE already use.
+    tile = strawberry(planted_day=0, watered_today=True)
+    action = _sb_action(tile, day=9, hands=[(2, 2)], inventories=[{}, {}], shed={"FERTILIZER": 2})
+    assert action in (["EAST"], ["SOUTH"]), f"expected a walk toward the shed, got {action}"
