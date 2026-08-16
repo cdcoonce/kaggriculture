@@ -131,6 +131,7 @@ def analyze(env, seat, turns_per_day, fertilize_ages):
     seen_planted = set()
     open_leg = defaultdict(list)
     leg_reversals = defaultdict(int)
+    turns_by_slot = defaultdict(int)
     leg_lengths = []
 
     for i, step in enumerate(steps):
@@ -139,6 +140,7 @@ def analyze(env, seat, turns_per_day, fertilize_ages):
 
         for slot, unit in _indexed_unit_actions(_get(state, "action")):
             unit_turns += 1
+            turns_by_slot[slot] += 1
             verb = unit[0]
             verbs[verb] += 1
             if verb == "COLLECT_FERTILIZER":
@@ -236,6 +238,11 @@ def analyze(env, seat, turns_per_day, fertilize_ages):
             "reversal_share_of_moves": (
                 round(sum(leg_reversals.values()) / moves, 4) if moves else None
             ),
+            # Per slot, so the cause is separable: reversals that scale with
+            # crew size point at units stealing each other's claims, while a
+            # flat per-unit rate points at the task set itself churning.
+            "reversals_by_slot": dict(sorted(leg_reversals.items())),
+            "turns_by_slot": dict(sorted(turns_by_slot.items())),
         },
         "verbs": dict(verbs.most_common()),
         "market_ops": dict(market_ops.most_common()),
