@@ -36,6 +36,13 @@ MOVES = frozenset({"NORTH", "SOUTH", "EAST", "WEST"})
 # nothing -- notably a FERTILIZE task claimed against an empty shed, where
 # _carry_leg walks the unit to the tile and then has nothing to hand it.
 IDLE = frozenset({"PASS"})
+# Moving goods is overhead, not output: a PICKUP or DROP changes where a unit
+# is holding something, never what exists on the farm. Folding them into
+# "productive" (as `unit_turns - moves - idle` alone does) makes any change
+# that trades field work for shed logistics look like a gain -- a batched
+# fetch that fires 800 extra PICKUPs reads as +1.1pp productive while banking
+# less money.
+LOGISTICS = frozenset({"PICKUP", "DROP"})
 OPPOSITE = {"NORTH": "SOUTH", "SOUTH": "NORTH", "EAST": "WEST", "WEST": "EAST"}
 
 
@@ -133,12 +140,76 @@ def analyze(env, seat, turns_per_day, fertilize_ages):
     leg_reversals = defaultdict(int)
     turns_by_slot = defaultdict(int)
     leg_lengths = []
+    # Legs and their steps, keyed by the verb that closed the leg. See the
+    # accounting loop for why that verb is the walk's purpose.
+    legs_by_closer = Counter()
+    leg_steps_by_closer = Counter()
+    unterminated_legs = 0
+    unterminated_steps = 0
+    # Steps walked before a night that destroyed the walker. They bought
+    # nothing and belong to no purpose; see the day-boundary flush below.
+    orphaned_legs = 0
+    orphaned_steps = 0
+    # Actions submitted for a slot the engine had no unit for. The engine
+    # discards these (_apply_unit_action returns early on a None position),
+    # so counting them inflates unit_turns and moves with turns nobody took.
+    phantom_turns = 0
+    phantom_moves = 0
+    shed_tiles = None
+    # Real oracle, replacing the conservation check that used to sit here. A
+    # leg bucketed shed_trip or fetch claims the unit walked to the SHED, so
+    # the unit must be standing on shed-adjacent ground when it DROPs or
+    # PICKUPs. That is falsifiable and it fails under a wrong bucketing --
+    # unlike `steps_accounted == moves`, which is a conservation identity over
+    # the same leg lengths and holds under ANY closer-to-bucket map, including
+    # one that swaps fetch and shed_trip outright.
+    shed_closer_on_shed = 0
+    shed_closer_off_shed = 0
 
     for i, step in enumerate(steps):
         day = i // turns_per_day
         state = step[seat]
 
+        # A leg is a run of moves by ONE unit. Slots do not carry across a
+        # night: _end_of_day sets farm["hands"] = [] and teleports the farmer
+        # back to spawn, so every unit walking at midnight ceases to exist and
+        # the slot is refilled tomorrow by a different unit starting somewhere
+        # else. Without this flush, yesterday's abandoned steps are glued onto
+        # a fresh unit's first walk and credited to whatever verb it happens to
+        # emit -- and because spawn tiles are shed-adjacent, that verb is
+        # usually PICKUP. That artifact is what made `fetch` look like the
+        # longest bucket on the board; force-closing here collapses it to the
+        # shortest.
+        if i and i % turns_per_day == 0:
+            for slot, residue in open_leg.items():
+                if residue:
+                    orphaned_legs += 1
+                    orphaned_steps += len(residue)
+                    leg_lengths.append(len(residue))
+            open_leg.clear()
+
+        # Slots the engine actually had a unit for this turn. The observation
+        # predates action resolution and HIRE settles with the market orders
+        # afterward, so this count is exact for the turn being read.
+        obs_now = _get(state, "observation")
+        farms_now = _get(obs_now, "farms") if obs_now is not None else None
+        live_slots = None
+        unit_pos = []
+        if farms_now and seat < len(farms_now):
+            hands_now = farms_now[seat].get("hands") or []
+            live_slots = 1 + len(hands_now)
+            unit_pos = [farms_now[seat].get("farmer")] + list(hands_now)
+            if shed_tiles is None:
+                size = len(farms_now[seat].get("tiles") or []) or 10
+                lo, hi = size // 2 - 1, size // 2
+                shed_tiles = {(lo, lo), (lo, hi), (hi, lo), (hi, hi)}
+
         for slot, unit in _indexed_unit_actions(_get(state, "action")):
+            if live_slots is not None and slot >= live_slots:
+                phantom_turns += 1
+                if unit[0] in MOVES:
+                    phantom_moves += 1
+                continue
             unit_turns += 1
             turns_by_slot[slot] += 1
             verb = unit[0]
@@ -159,6 +230,23 @@ def analyze(env, seat, turns_per_day, fertilize_ages):
                 open_leg[slot].append(verb)
             elif open_leg[slot]:
                 leg_lengths.append(len(open_leg[slot]))
+                # The verb that closes a leg is what the walk actually bought.
+                # A leg is by construction a run of moves terminated by a
+                # non-move, so the terminator is observable even though the
+                # dispatcher's intent is not: DROP closes a mule trip to the
+                # shed, PICKUP closes a fetch, a field verb closes a walk to
+                # work, and PASS closes a walk that bought nothing. Realized
+                # purpose, not intended -- which is the honest basis for
+                # sizing a lever, since an abandoned intent never cost a step
+                # it didn't take.
+                legs_by_closer[verb] += 1
+                leg_steps_by_closer[verb] += len(open_leg[slot])
+                if verb in ("PICKUP", "DROP") and shed_tiles is not None:
+                    here = unit_pos[slot] if slot < len(unit_pos) else None
+                    if here is not None and tuple(here) in shed_tiles:
+                        shed_closer_on_shed += 1
+                    else:
+                        shed_closer_off_shed += 1
                 open_leg[slot] = []
         for order in (_get(state, "action") or {}).get("market") or []:
             if order:
@@ -204,9 +292,38 @@ def analyze(env, seat, turns_per_day, fertilize_ages):
                 if stock > 0:
                     stocked_demand_by_day[day].add((x, y))
 
+    # Walks still in flight when the game ended bought nothing measurable, but
+    # they did cost steps, so they are reported rather than dropped -- silently
+    # discarding them would make the purpose buckets under-count `moves`.
+    for slot, residue in open_leg.items():
+        if residue:
+            unterminated_legs += 1
+            unterminated_steps += len(residue)
+
     moves = sum(v for k, v in verbs.items() if k in MOVES)
     idle = sum(v for k, v in verbs.items() if k in IDLE)
-    productive = unit_turns - moves - idle
+    logistics = sum(v for k, v in verbs.items() if k in LOGISTICS)
+    productive = unit_turns - moves - idle - logistics
+
+    # Roll the closing verbs up into the four purposes a walk can serve. The
+    # buckets partition every closed leg, and steps across them plus the
+    # unterminated residue must equal `moves` -- asserted in the payload as
+    # `steps_accounted`, so a silent mis-bucketing is visible rather than
+    # absorbed.
+    def _purpose(closer):
+        if closer == "DROP":
+            return "shed_trip"
+        if closer == "PICKUP":
+            return "fetch"
+        if closer in IDLE:
+            return "wasted"
+        return "field_work"
+
+    purpose_legs = Counter()
+    purpose_steps = Counter()
+    for closer, n in legs_by_closer.items():
+        purpose_legs[_purpose(closer)] += n
+        purpose_steps[_purpose(closer)] += leg_steps_by_closer[closer]
 
     total_demand = sum(len(v) for v in demand_by_day.values())
     total_fires = sum(fert_fires_by_day.values())
@@ -227,9 +344,12 @@ def analyze(env, seat, turns_per_day, fertilize_ages):
         "unit_turns": unit_turns,
         "moves": moves,
         "idle_pass": idle,
+        "logistics": logistics,
         "productive": productive,
         "walking_share": round(moves / unit_turns, 4) if unit_turns else None,
         "idle_share": round(idle / unit_turns, 4) if unit_turns else None,
+        "logistics_share": round(logistics / unit_turns, 4) if unit_turns else None,
+        "productive_share": round(productive / unit_turns, 4) if unit_turns else None,
         "walk_legs": {
             "count": len(leg_lengths),
             "mean_length": round(_mean(leg_lengths), 2) if leg_lengths else None,
@@ -243,6 +363,41 @@ def analyze(env, seat, turns_per_day, fertilize_ages):
             # flat per-unit rate points at the task set itself churning.
             "reversals_by_slot": dict(sorted(leg_reversals.items())),
             "turns_by_slot": dict(sorted(turns_by_slot.items())),
+        },
+        # Where the walking actually goes. `steps` is the lever-sizing number:
+        # a purpose's share of `moves` is the ceiling on what perfecting that
+        # purpose could return, before any discount for the part of the walk
+        # that was necessary anyway.
+        "leg_purpose": {
+            "legs": dict(purpose_legs.most_common()),
+            "steps": dict(purpose_steps.most_common()),
+            "step_share_of_moves": {
+                k: round(v / moves, 4) for k, v in purpose_steps.most_common()
+            },
+            "step_share_of_unit_turns": {
+                k: round(v / unit_turns, 4) for k, v in purpose_steps.most_common()
+            },
+            "unterminated_legs": unterminated_legs,
+            "unterminated_steps": unterminated_steps,
+            # Walks whose walker was destroyed at a day boundary. Reported
+            # separately and NOT bucketed: they have no terminal verb even in
+            # principle, so any purpose assigned to them would be invented.
+            "orphaned_legs": orphaned_legs,
+            "orphaned_steps": orphaned_steps,
+            # Conservation only. This says no leg was dropped or double
+            # counted; it says NOTHING about whether a leg landed in the right
+            # bucket -- it holds under any closer-to-bucket map. Read
+            # `shed_closer_off_shed` for that.
+            "steps_accounted": (
+                sum(purpose_steps.values()) + unterminated_steps + orphaned_steps
+            ),
+            # Oracle: every shed_trip/fetch leg should close on shed-adjacent
+            # ground. Nonzero `off_shed` means the bucketing is wrong.
+            "shed_closer_on_shed": shed_closer_on_shed,
+            "shed_closer_off_shed": shed_closer_off_shed,
+            "phantom_turns": phantom_turns,
+            "phantom_moves": phantom_moves,
+            "closers": dict(legs_by_closer.most_common()),
         },
         "verbs": dict(verbs.most_common()),
         "market_ops": dict(market_ops.most_common()),

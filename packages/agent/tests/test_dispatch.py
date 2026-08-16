@@ -358,6 +358,93 @@ def test_unfed_pasture_animal_picks_up_wheat_at_shed_access() -> None:
     assert actions.hands[0] == ["PICKUP", "WHEAT", 1]
 
 
+def _unfed_herd(n: int) -> tuple[list[list[object]], frozenset[tuple[int, int]]]:
+    """``n`` unfed pasture tiles down the west edge, plus their tile set."""
+    tiles = make_view().tiles
+    herd = [(0, y) for y in range(n)]
+    for x, y in herd:
+        tiles[y][x] = pasture(fed_today=False)
+    return tiles, frozenset(herd)
+
+
+def test_feed_batch_cap_defaults_to_todays_one_unit_fetch() -> None:
+    # The shipped agent must be bit-identical until a gate says otherwise.
+    # Batching measured WORSE than the default at cap 8: PICKUP +56% for flat
+    # FEED, reproducible across bands and configs. The cause is the shed
+    # share, and endogenously so -- a batch drains the shed into inventories
+    # and pulls more units into fetching at once, so each gets less. It is
+    # not the mule threshold (binds on under 1% of normal-day fetches), and
+    # there was no round trip to amortize in the first place: corrected recon
+    # puts fetch legs at 2.5% of movement and 1.48 steps, the shortest bucket.
+    tiles, herd = _unfed_herd(4)
+    view = make_view(
+        hands=[(4, 4)], tiles=tiles, shed={"WHEAT": 10}, inventories=[{"WHEAT": 1}, {}]
+    )
+    assert dispatch(view, NW_TILES, frozenset(), herd).hands[0] == ["PICKUP", "WHEAT", 1]
+
+
+def test_feed_fetch_batches_wheat_for_every_unfed_animal() -> None:
+    # One shed round trip per animal fed is the largest single walking cost
+    # on the board (recon: fetch legs are 18% of all movement and the longest
+    # legs there are). The engine caps no unit's inventory, so a unit at the
+    # shed should draw the whole herd's feed in one visit and then walk the
+    # cluster, instead of shuttling back for each animal in turn.
+    tiles, herd = _unfed_herd(4)
+    view = make_view(
+        hands=[(4, 4)], tiles=tiles, shed={"WHEAT": 10}, inventories=[{"WHEAT": 1}, {}]
+    )
+    action = dispatch(view, NW_TILES, frozenset(), herd, feed_batch_cap=8).hands[0]
+    assert action == ["PICKUP", "WHEAT", 4]
+
+
+def test_feed_batch_stays_below_the_mule_threshold() -> None:
+    # The mule check runs against LAST turn's inventory, before any task is
+    # assigned. A batch that lands the unit at or above HAND_MULE_LOAD gets it
+    # routed straight back to the shed to DROP next turn -- feeding nobody and
+    # manufacturing the very shed trip the batch exists to avoid. Headroom is
+    # the threshold minus what the unit already carries.
+    tiles, herd = _unfed_herd(8)
+    view = make_view(
+        hands=[(4, 4)], tiles=tiles, shed={"WHEAT": 20}, inventories=[{"WHEAT": 1}, {"MILK": 6}]
+    )
+    action = dispatch(view, NW_TILES, frozenset(), herd, feed_batch_cap=8).hands[0]
+    assert action == ["PICKUP", "WHEAT", 2], (
+        f"batch ignored the 6 units already carried against HAND_MULE_LOAD=9 (got {action})"
+    )
+
+
+def test_feed_batch_collapses_to_one_in_the_endgame() -> None:
+    # From ENDGAME_DAY the mule threshold is 1, so there is no headroom at all
+    # and batching must degrade to exactly today's behavior rather than
+    # stranding wheat that can no longer reach the shed before the market
+    # closes.
+    tiles, herd = _unfed_herd(6)
+    view = make_view(
+        step=29 * 24,
+        hands=[(4, 4)],
+        tiles=tiles,
+        shed={"WHEAT": 20},
+        inventories=[{"WHEAT": 1}, {}],
+    )
+    action = dispatch(view, NW_TILES, frozenset(), herd, feed_batch_cap=8).hands[0]
+    assert action == ["PICKUP", "WHEAT", 1]
+
+
+def test_feed_batch_splits_the_shed_between_concurrent_fetchers() -> None:
+    # Two units fetching the same turn each see the same shed. Sizing each
+    # batch against the full stock would collectively overdraw it -- and since
+    # the engine applies PICKUP before market orders, the overdraw silently
+    # shrinks that turn's SELL WHEAT instead of erroring.
+    tiles, herd = _unfed_herd(6)
+    view = make_view(
+        hands=[(4, 4), (4, 4)], tiles=tiles, shed={"WHEAT": 5}, inventories=[{"WHEAT": 1}, {}, {}]
+    )
+    hands = dispatch(view, NW_TILES, frozenset(), herd, feed_batch_cap=8).hands
+    drawn = sum(a[2] for a in hands if a and a[0] == "PICKUP")
+    assert drawn <= 5, f"two fetchers drew {drawn} from a 5-unit shed"
+    assert all(a == ["PICKUP", "WHEAT", 2] for a in hands), hands
+
+
 def test_unfed_pasture_animal_with_no_wheat_anywhere_walks_toward_tile() -> None:
     # Best-effort fallback when the feed-reserve top-up hasn't caught up yet:
     # walk toward the animal rather than stall at the shed forever. FEED
@@ -782,6 +869,41 @@ def test_strawberry_zone_falls_through_to_wheat_once_the_daily_cap_is_spent() ->
     action = dispatch(view, NW_TILES, frozenset(), frozenset(), frozenset(zone)).hands[0]
     assert action == ["PLANT", "WHEAT"], (
         f"cap-spent strawberry tile idled instead of falling through to wheat (got {action})"
+    )
+
+
+def test_strawberry_daily_cap_is_tunable_not_just_the_module_constant() -> None:
+    # The cap reached PolicyConfig but stopped at plan.py's seed-purchase
+    # target: _field_tasks still read the module constant, so every eval arm
+    # that "swept the cap" actually planted at STRAWBERRY_PLANT_DAILY_CAP and
+    # only varied how many seeds got bought. Pin the planting gate itself to
+    # the argument, or the knob is decorative.
+    day = 5
+    cap = 2
+    assert cap < STRAWBERRY_PLANT_DAILY_CAP, "fixture must sit below the default to be a real test"
+    zone = [(x, 0) for x in range(5)] + [(0, 1), (1, 1)]
+    planted, spare = zone[:cap], zone[cap]
+
+    tiles = make_view().tiles
+    for x, y in NW_TILES:
+        if (x, y) != spare:
+            tiles[y][x] = (
+                strawberry(planted_day=day, watered_today=True)
+                if (x, y) in planted
+                else plant(planted_day=day - 1, watered_today=False)
+            )
+
+    view = make_view(step=day * 24, hands=[spare], tiles=tiles, seeds=5, strawberry_seeds=5)
+    action = dispatch(
+        view,
+        NW_TILES,
+        frozenset(),
+        frozenset(),
+        frozenset(zone),
+        strawberry_plant_daily_cap=cap,
+    ).hands[0]
+    assert action == ["PLANT", "WHEAT"], (
+        f"a cap of {cap} was ignored: the tile planted strawberry anyway (got {action})"
     )
 
 

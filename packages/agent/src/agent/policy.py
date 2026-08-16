@@ -27,7 +27,12 @@ from agent.constants import (
     strawberry_tiles,
     target_tiles,
 )
-from agent.dispatch import STRAWBERRY_PLANT_DAILY_CAP, dispatch
+from agent.dispatch import (
+    FEED_BATCH_CAP,
+    HAND_MULE_LOAD,
+    STRAWBERRY_PLANT_DAILY_CAP,
+    dispatch,
+)
 from agent.market import (
     FERT_MIN_PRICE,
     MILK_MIN_PRICE,
@@ -80,6 +85,15 @@ class PolicyConfig:
     cow_target: int = COW_TARGET
     sheep_target: int = SHEEP_TARGET
     wheat_rush_tiles: int = _WHEAT_RUSH_TILES_DEFAULT
+
+    # Feed logistics. Both default to today's behavior. Raising
+    # feed_batch_cap measures WORSE (PICKUP +56% for flat FEED); the cause is
+    # that the batch drains the shed into unit inventories and doubles the
+    # concurrent fetcher count, collapsing the per-unit share -- self
+    # inflicted, not a market fact, and not the mule threshold, which binds
+    # on well under 1% of normal-day fetches. See dispatch.FEED_BATCH_CAP.
+    feed_batch_cap: int = FEED_BATCH_CAP
+    hand_mule_load: int = HAND_MULE_LOAD
 
     # Strawberry satellite. Defaults to a zero-tile zone, which makes every
     # strawberry code path unreachable and the whole mechanic a bit-exact
@@ -297,7 +311,15 @@ def make_policy(
             sheep_target=resolved_config.sheep_target,
         )
         actions = dispatch(
-            view, tiles, melon_set, pasture_set, strawberry_set, prior_claims=unit_claims
+            view,
+            tiles,
+            melon_set,
+            pasture_set,
+            strawberry_set,
+            prior_claims=unit_claims,
+            strawberry_plant_daily_cap=resolved_config.strawberry_plant_daily_cap,
+            feed_batch_cap=resolved_config.feed_batch_cap,
+            hand_mule_load=resolved_config.hand_mule_load,
         )
         unit_claims.clear()
         unit_claims.update(actions.claims)
