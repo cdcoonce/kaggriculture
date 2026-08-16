@@ -103,6 +103,45 @@ less than that is detectable at the repo's default confirm size.
 >
 > This correction was produced by checking the claim against every arm on disk
 > instead of against the one arm that motivated it.
+>
+> ### CORRECTION TO THE CORRECTION (adversarial pass, same session)
+>
+> A five-claim adversarial pass — one skeptic per claim told to refute, plus an
+> independent second opinion on every refutation — found that **two further
+> statements made in this session were wrong, and one of them was this
+> document's own correction.** Recorded here rather than quietly fixed.
+>
+> **The saturation claim was over-corrected and is restored.** Mid-session a probe
+> found peak hand carry load 22 and 3 hand-turns at load >= 20, and I concluded
+> "byte-identity at n=8 was luck". That conclusion does not hold. Re-measured
+> from inside the dispatcher: all >= 20 traffic is a *single* hand (slot 11) on a
+> *single* seed at steps 573-575 of day 23, and the load histogram is empty at
+> 19, 20 and 21. Re-running the same 24 seeds at `hand_mule_load=24` gives a
+> bit-identical histogram at every bucket and identical final money on 24 of 24
+> seeds; shadow-diffing those three turns through `dispatch` at threshold 24 on
+> the identical view returns the identical action vector. There is a mechanism:
+> the "nobody idles" fallback (`dispatch.py:789-794`) already mules any loaded
+> unit that drew no task, so the threshold branch is redundant in exactly this
+> case. **Treat 20/24/32 as one arm**, while recording that the ceiling is
+> empirical, not structural.
+>
+> **The "4.7% of hand-turns" claim is retracted outright.** I asserted that the
+> code comment ("binds on well under 1% of normal-day fetches") understates the
+> mule's intervention rate. It does not, and the comparison was invalid:
+> - Wrong denominator. Normal-day WHEAT pickups by hands number ~5,805 against
+>   ~160,000 hand-turns — a 25x difference in base. "Fraction of fetches" and
+>   "fraction of hand-turns" are not the same statistic.
+> - Wrong config. The 4.7% was measured at `hand_mule_load=20`. At the shipped
+>   default of 9 the figure is 2.68%, so the number overstated its own statistic
+>   by 1.85x.
+> - Wrong event. "Sitting at load >= 9" is a state; the comment's "binds" is a
+>   fetch-conditioned decision — the argmin of the clamp expression, as it is for
+>   the two sibling terms.
+>
+> The comment is correct as written. The earlier note in this file suggesting the
+> mule's decoherence was "backwards" relative to its intervention rate rested on
+> that bad comparison and is withdrawn with it; nothing here establishes any
+> ordering between intervention rate and pairing quality.
 
 ## Fixed design (locked before launch)
 
