@@ -31,6 +31,7 @@ from agent.dispatch import STRAWBERRY_PLANT_DAILY_CAP, dispatch
 from agent.market import (
     FERT_MIN_PRICE,
     MILK_MIN_PRICE,
+    STRAWBERRY_MIN_PRICE,
     VALVE_SOFT_CAP,
     WOOL_MILK_SELL_CAP,
     WOOL_MIN_PRICE,
@@ -86,6 +87,7 @@ class PolicyConfig:
     # unchanged until a gate says otherwise.
     strawberry_tile_target: int = STRAWBERRY_TILE_TARGET
     strawberry_plant_daily_cap: int = STRAWBERRY_PLANT_DAILY_CAP
+    strawberry_floor: float = STRAWBERRY_MIN_PRICE
 
     # M2c (kaggriculture#59): two-tier shed valve + WOOL/MILK crash latches.
     # See the VALVE_*/*_CRASH_TRIGGER module constants above and market.py's
@@ -310,6 +312,15 @@ def make_policy(
             wool_floor=resolved_config.wool_floor,
             milk_floor=resolved_config.milk_floor,
             fert_floor=resolved_config.fert_floor,
+            strawberry_floor=resolved_config.strawberry_floor,
+            # Derived, not a separate knob, so it can never drift out of sync
+            # with the zone it exists to serve -- and so it is exactly 0 (and
+            # the sell path exactly unchanged) whenever strawberry is off.
+            # One unit per zone tile covers a whole same-day planting cohort's
+            # age-9 or age-13 wave; a staggered zone never needs that many at
+            # once, so this is a safe upper bound on a single wave rather than
+            # the season's total draw.
+            fert_reserve=resolved_config.strawberry_tile_target,
             wool_crashed=wool_latch.latched,
             milk_crashed=milk_latch.latched,
             wool_milk_sell_cap=resolved_config.wool_milk_sell_cap,

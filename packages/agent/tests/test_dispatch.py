@@ -4,7 +4,7 @@ and how both widen once land purchases unlock more quadrants."""
 from __future__ import annotations
 
 from agent.constants import PASTURE_TILE_TARGET, target_tiles
-from agent.dispatch import dispatch
+from agent.dispatch import STRAWBERRY_PLANT_DAILY_CAP, dispatch
 from viewfactory import built_pasture, make_view, pasture, plant, strawberry
 
 NW_TILES = target_tiles(("NW",))
@@ -719,3 +719,67 @@ def test_strawberry_fetches_fertilizer_from_the_shed_before_applying_it() -> Non
     tile = strawberry(planted_day=0, watered_today=True)
     action = _sb_action(tile, day=9, hands=[(2, 2)], inventories=[{}, {}], shed={"FERTILIZER": 2})
     assert action in (["EAST"], ["SOUTH"]), f"expected a walk toward the shed, got {action}"
+
+
+def test_strawberry_zone_falls_through_to_wheat_once_its_window_closes() -> None:
+    # The reservation trap. Melon reserves its whole zone all game against a
+    # flat 2/day cap, stranding roughly 110 tile-days at melon 20 -- that idle
+    # ground is what makes melon 22/24 gate WORSE than 16-20. Strawberry's
+    # window closes at day 12, and a tile whose cycle finished and was dug
+    # re-enters as empty ground well after that, so a zone that kept claiming
+    # its tiles would hold prime near-shed ground doing nothing for the whole
+    # back half of the game.
+    #
+    # This is a silent failure with no in-game signal, and it survived a
+    # deliberate deletion of the fall-through branch with the entire suite
+    # still green -- so it is pinned here explicitly.
+    # Every other target tile is filled with an age-1 wheat plant, which the
+    # dispatcher deliberately gives no task at all (one dry day is safe, and
+    # age 1 is outside the yield window). That leaves the tile under test as
+    # the only one on the board that can generate work, so the assertion is
+    # about the branch rather than about who won the nearest-tile race or
+    # what was left of wheat's daily quota.
+    def _isolated(day: int) -> list[list[object]]:
+        tiles = make_view().tiles
+        for x, y in NW_TILES:
+            if (x, y) != SB:
+                tiles[y][x] = plant(planted_day=day - 1, watered_today=False)
+        return tiles
+
+    inside = make_view(step=12 * 24, hands=[SB], tiles=_isolated(12), seeds=5, strawberry_seeds=5)
+    assert dispatch(inside, NW_TILES, frozenset(), frozenset(), SB_ZONE).hands[0] == [
+        "PLANT",
+        "STRAWBERRY",
+    ]
+
+    closed = make_view(step=13 * 24, hands=[SB], tiles=_isolated(13), seeds=5)
+    assert dispatch(closed, NW_TILES, frozenset(), frozenset(), SB_ZONE).hands[0] == [
+        "PLANT",
+        "WHEAT",
+    ], "an empty strawberry tile past the cutoff was reserved instead of falling through to wheat"
+
+
+def test_strawberry_zone_falls_through_to_wheat_once_the_daily_cap_is_spent() -> None:
+    # Same trap, the other trigger: inside the window but with today's
+    # stagger already spent, the remaining zone tiles must not idle until
+    # tomorrow -- wheat's own quota can still use them today.
+    day = 5
+    zone = [(x, 0) for x in range(5)] + [(0, 1), (1, 1)]
+    planted, spare = zone[:STRAWBERRY_PLANT_DAILY_CAP], zone[STRAWBERRY_PLANT_DAILY_CAP]
+
+    tiles = make_view().tiles
+    for x, y in NW_TILES:
+        if (x, y) != spare:
+            # planted_day == day for the zone tiles, so they count against
+            # today's stagger; age-1 wheat everywhere else emits no task.
+            tiles[y][x] = (
+                strawberry(planted_day=day, watered_today=True)
+                if (x, y) in planted
+                else plant(planted_day=day - 1, watered_today=False)
+            )
+
+    view = make_view(step=day * 24, hands=[spare], tiles=tiles, seeds=5, strawberry_seeds=5)
+    action = dispatch(view, NW_TILES, frozenset(), frozenset(), frozenset(zone)).hands[0]
+    assert action == ["PLANT", "WHEAT"], (
+        f"cap-spent strawberry tile idled instead of falling through to wheat (got {action})"
+    )
