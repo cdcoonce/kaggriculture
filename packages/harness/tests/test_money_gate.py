@@ -284,6 +284,102 @@ class TestRunMoneyGateVetoes:
         )
         assert ("candidate_degenerate" in result.money_verdict.vetoes) is expected
 
+    def test_an_arm_dead_in_one_seat_only_is_still_vetoed(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # N3, adversarial2/q6. The seed unit is (seat0 + seat1) / 2, so an arm
+        # that banks the $2,000 starting-cash signature in seat 0 and a
+        # healthy $37,167 in seat 1 averages to $19,583 on EVERY seed: the
+        # fraction at or below the $3,000 floor was 0.000 and NO veto fired,
+        # while under the per-game rule this replaced every seat-0 row was
+        # under the floor. Half a dead agent is a dead agent.
+        rows = [
+            _row(seed, seat, 2000.0 if seat == 0 else 37167.0)
+            for seed in range(40)
+            for seat in (0, 1)
+        ]
+        candidate_arm = _result(rows)
+        baseline_arm = _arm({seed: 0.0 for seed in range(40)}, candidate="frozen:base")
+        self._patch_arms(monkeypatch, candidate_arm, baseline_arm)
+
+        result = run_money_gate(
+            "champion", "zoo:tape-thunder-719", 40, 0, baseline="frozen:base", run_canary=False
+        )
+        assert seat_mean_money(rows)[0] == 19583.5  # the seed average is healthy
+        assert "candidate_degenerate" in result.money_verdict.vetoes
+
+    def test_a_healthy_arm_with_an_ordinary_low_seat_is_not_vetoed(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # N3 calibration. Watching the seats separately doubles the number of
+        # observations the fraction is computed over, so it has to stay clear
+        # of a healthy arm's low tail. Measured on this machine over 3 healthy
+        # 40-seed arms against `zoo:tape-thunder-719` (scratchpad seatprobe,
+        # seed_base 950000): the fraction of seat-0 games at or below $3,000
+        # is 0.000 and of seat-1 games 0.000, with per-seat MINIMA of $20,014
+        # / $14,080 (default), $18,818 / $20,329 (melon_tile_target=16) and
+        # $20,758 / $21,443 (cow+sheep=0). Even the deliberate
+        # `wheat_rush_tiles=0` regression only put 0.025 of its seat-0 games
+        # under the floor -- ten times below the 0.25 trigger.
+        rows = [
+            _row(seed, seat, 2000.0 if (seed == 0 and seat == 0) else 37167.0)
+            for seed in range(40)
+            for seat in (0, 1)
+        ]
+        candidate_arm = _result(rows)
+        baseline_arm = _arm({seed: 0.0 for seed in range(40)}, candidate="frozen:base")
+        self._patch_arms(monkeypatch, candidate_arm, baseline_arm)
+
+        result = run_money_gate(
+            "champion", "zoo:tape-thunder-719", 40, 0, baseline="frozen:base", run_canary=False
+        )
+        assert result.money_verdict.vetoes == ()
+
+    def test_a_baseline_dead_in_one_seat_only_is_still_vetoed(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        candidate_arm = _arm({seed: 40000.0 for seed in range(40)})
+        baseline_rows = [
+            _row(seed, seat, 2000.0 if seat == 1 else 37167.0)
+            for seed in range(40)
+            for seat in (0, 1)
+        ]
+        baseline_arm = _result(baseline_rows, candidate="frozen:base")
+        self._patch_arms(monkeypatch, candidate_arm, baseline_arm)
+
+        result = run_money_gate(
+            "champion", "zoo:tape-thunder-719", 40, 0, baseline="frozen:base", run_canary=False
+        )
+        assert "baseline_degenerate" in result.money_verdict.vetoes
+
+    def test_an_opponent_starved_in_one_seat_only_is_still_vetoed(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # The same blindness on the opponent floor: an opponent held at the
+        # starting-cash signature in one seat is a broken matchup whatever
+        # the seat average says.
+        rows = [
+            _row(seed, seat, 40000.0, opponent_money=500.0 if seat == 0 else 110000.0)
+            for seed in range(40)
+            for seat in (0, 1)
+        ]
+        candidate_arm = _result(rows)
+        baseline_arm = _result(
+            [
+                _row(seed, seat, 20000.0, opponent_money=500.0 if seat == 0 else 110000.0)
+                for seed in range(40)
+                for seat in (0, 1)
+            ],
+            candidate="frozen:base",
+        )
+        self._patch_arms(monkeypatch, candidate_arm, baseline_arm)
+
+        result = run_money_gate(
+            "champion", "zoo:tape-thunder-719", 40, 0, baseline="frozen:base", run_canary=False
+        )
+        assert seat_mean_opponent_money(rows)[0] == 55250.0  # the seed average is healthy
+        assert "opponent_degenerate" in result.money_verdict.vetoes
+
     def test_a_single_low_seed_no_longer_invalidates_a_large_real_gain(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:

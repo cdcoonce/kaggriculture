@@ -12,7 +12,15 @@ from dataclasses import dataclass
 from typing import Any
 
 from harness.episodes import GameRow, play_game
-from harness.stats import GateVerdict, MoneyVerdict, gate_verdict, money_verdict
+from harness.stats import (
+    CATASTROPHIC_TAIL_FLOOR,
+    CATASTROPHIC_TAIL_QUANTILE,
+    DISPERSION_EFFECT_REL_TOL,
+    GateVerdict,
+    MoneyVerdict,
+    gate_verdict,
+    money_verdict,
+)
 
 #: Specs whose policy is built from ``agent.policy.PolicyConfig`` and therefore
 #: accept an ``agent_config`` override (see ``harness.episodes.resolve_agent``).
@@ -169,7 +177,9 @@ class MoneyGateResult:
     # reports a mismatch that is really a knob the ledger forgot.
     alpha: float
     min_seeds: int
-    catastrophic_k: float
+    catastrophic_tail_quantile: float
+    catastrophic_tail_floor: float
+    degenerate_dispersion_ratio: float
     candidate_money_floor: float
     opponent_money_floor: float
     degenerate_seed_fraction: float
@@ -211,8 +221,34 @@ def seat_mean_opponent_money(rows: Sequence[GameRow]) -> dict[int, float]:
     return _seat_mean(rows, "opponent_money")
 
 
+def _by_seat(rows: Sequence[GameRow], attribute: str) -> dict[int, dict[int, float]]:
+    """``{seat: {seed: money}}`` -- the same rows WITHOUT collapsing the seats.
+
+    Used only by the liveness floors; the money statistic always collapses.
+    """
+    split: dict[int, dict[int, float]] = {}
+    for row in rows:
+        seat = split.setdefault(row.candidate_seat, {})
+        if row.seed in seat:
+            raise ValueError(
+                f"seed {row.seed} contributes seat {row.candidate_seat} more than once"
+            )
+        seat[row.seed] = float(getattr(row, attribute))
+    return split
+
+
+def seat_split_money(rows: Sequence[GameRow]) -> dict[int, dict[int, float]]:
+    """``{seat: {seed: candidate_money}}``."""
+    return _by_seat(rows, "candidate_money")
+
+
+def seat_split_opponent_money(rows: Sequence[GameRow]) -> dict[int, dict[int, float]]:
+    """``{seat: {seed: opponent_money}}``."""
+    return _by_seat(rows, "opponent_money")
+
+
 def _fraction_at_or_below(by_seed: Mapping[int, float], floor: float) -> float:
-    """Fraction of SEEDS whose seat-averaged money sits at or below ``floor``.
+    """Fraction of SEEDS whose money sits at or below ``floor``.
 
     The unit is the seed, matching the statistic. The per-GAME form this
     replaced (``any(row.candidate_money <= floor)``) is a hair trigger with
@@ -224,6 +260,34 @@ def _fraction_at_or_below(by_seed: Mapping[int, float], floor: float) -> float:
     if not by_seed:
         return 0.0
     return sum(1 for money in by_seed.values() if money <= floor) / len(by_seed)
+
+
+def _worst_seat_fraction_at_or_below(
+    by_seat: Mapping[int, Mapping[int, float]], floor: float
+) -> float:
+    """Largest per-SEAT fraction of seeds at or below ``floor``.
+
+    The floors keep the seed as the unit of the FRACTION and drop the seat
+    AVERAGING, which is a different thing and was the defect: a seed's money
+    is ``(seat0 + seat1) / 2``, so an arm banking the $2,000 starting-cash
+    signature in seat 0 and a healthy $37,167 in seat 1 averages to $19,583
+    on every seed and no floor could see it (adversarial2/q6). Under the
+    per-game rule this replaced, every seat-0 row was under the floor.
+
+    Averaging the two seats is right for the money STATISTIC -- it is what
+    makes one observation one seed and buys the 2-60x variance reduction --
+    and wrong for a liveness floor, which is asking whether the agent is
+    playing at all. Splitting by seat keeps the seed unit for both.
+
+    Measured on this machine over three healthy 40-seed arms against
+    ``zoo:tape-thunder-719``, the per-seat fraction at or below the $3,000
+    floor is 0.000 in both seats (per-seat minima $14,080-$21,443), and the
+    deliberate ``wheat_rush_tiles=0`` regression reaches only 0.025 in seat
+    0. The 0.25 trigger keeps its margin.
+    """
+    if not by_seat:
+        return 0.0
+    return max(_fraction_at_or_below(by_seed, floor) for by_seed in by_seat.values())
 
 
 def opponent_digest(opponent: str) -> str | None:
@@ -261,7 +325,9 @@ def run_money_gate(
     threshold: float = 1000.0,
     alpha: float = 0.05,
     min_seeds: int = 8,
-    catastrophic_k: float = 5.0,
+    catastrophic_tail_quantile: float = CATASTROPHIC_TAIL_QUANTILE,
+    catastrophic_tail_floor: float = CATASTROPHIC_TAIL_FLOOR,
+    degenerate_dispersion_ratio: float = DISPERSION_EFFECT_REL_TOL,
     candidate_money_floor: float = 3000.0,
     opponent_money_floor: float = 10000.0,
     degenerate_seed_fraction: float = 0.25,
@@ -282,7 +348,8 @@ def run_money_gate(
     candidate-induced survival -- a candidate that breaks on its worst seeds
     would outscore one that never breaks.
 
-    ``degenerate_seed_fraction`` is the tolerance on the money floors: the
+    ``degenerate_seed_fraction`` is the tolerance on the money floors, applied
+    PER SEAT (see ``_worst_seat_fraction_at_or_below``): the
     ``candidate_degenerate`` / ``baseline_degenerate`` / ``opponent_degenerate``
     vetoes fire only when at least this FRACTION of seeds sits at or below the
     relevant floor. The default 0.25 is chosen from both ends of the gap it
@@ -409,14 +476,30 @@ def run_money_gate(
         extra_vetoes.append("baseline_crash")
     if any(row.opponent_crashed for row in all_rows):
         extra_vetoes.append("opponent_crash")
-    if _fraction_at_or_below(candidate_by_seed, candidate_money_floor) >= degenerate_seed_fraction:
+    candidate_seats = seat_split_money(candidate_result.rows)
+    baseline_seats = seat_split_money(baseline_result.rows)
+    if (
+        _worst_seat_fraction_at_or_below(candidate_seats, candidate_money_floor)
+        >= degenerate_seed_fraction
+    ):
         extra_vetoes.append("candidate_degenerate")
-    if _fraction_at_or_below(baseline_by_seed, candidate_money_floor) >= degenerate_seed_fraction:
+    if (
+        _worst_seat_fraction_at_or_below(baseline_seats, candidate_money_floor)
+        >= degenerate_seed_fraction
+    ):
         extra_vetoes.append("baseline_degenerate")
-    opponent_by_seed = {
-        seed: min(candidate_opponent[seed], baseline_opponent[seed]) for seed in seeds
+    candidate_opponent_seats = seat_split_opponent_money(candidate_result.rows)
+    baseline_opponent_seats = seat_split_opponent_money(baseline_result.rows)
+    opponent_by_seat = {
+        seat: {
+            seed: min(money, baseline_opponent_seats[seat][seed]) for seed, money in by_seed.items()
+        }
+        for seat, by_seed in candidate_opponent_seats.items()
     }
-    if _fraction_at_or_below(opponent_by_seed, opponent_money_floor) >= degenerate_seed_fraction:
+    if (
+        _worst_seat_fraction_at_or_below(opponent_by_seat, opponent_money_floor)
+        >= degenerate_seed_fraction
+    ):
         extra_vetoes.append("opponent_degenerate")
     if candidate_canary_crashed or baseline_canary_crashed:
         extra_vetoes.append("canary_crash")
@@ -427,7 +510,9 @@ def run_money_gate(
         threshold=threshold,
         alpha=alpha,
         min_seeds=min_seeds,
-        catastrophic_k=catastrophic_k,
+        catastrophic_tail_quantile=catastrophic_tail_quantile,
+        catastrophic_tail_floor=catastrophic_tail_floor,
+        degenerate_dispersion_ratio=degenerate_dispersion_ratio,
         extra_vetoes=extra_vetoes,
     )
 
@@ -456,7 +541,9 @@ def run_money_gate(
         threshold=threshold,
         alpha=alpha,
         min_seeds=min_seeds,
-        catastrophic_k=catastrophic_k,
+        catastrophic_tail_quantile=catastrophic_tail_quantile,
+        catastrophic_tail_floor=catastrophic_tail_floor,
+        degenerate_dispersion_ratio=degenerate_dispersion_ratio,
         candidate_money_floor=candidate_money_floor,
         opponent_money_floor=opponent_money_floor,
         degenerate_seed_fraction=degenerate_seed_fraction,

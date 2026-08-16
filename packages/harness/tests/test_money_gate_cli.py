@@ -107,7 +107,9 @@ def _fake_result(
         threshold=threshold,
         alpha=0.05,
         min_seeds=2,
-        catastrophic_k=5.0,
+        catastrophic_tail_quantile=0.15,
+        catastrophic_tail_floor=19000.0,
+        degenerate_dispersion_ratio=0.05,
         candidate_money_floor=3000.0,
         opponent_money_floor=10000.0,
         degenerate_seed_fraction=0.25,
@@ -129,8 +131,10 @@ def _patch(monkeypatch: pytest.MonkeyPatch, result: MoneyGateResult) -> list[dic
 
 PASSING = [6000.0, 5200.0, 7100.0, 4900.0, 8000.0, 5500.0, 6400.0, 5800.0, 7300.0, 6100.0]
 FAILING = [200.0, -400.0, 900.0, 1500.0, -800.0, 300.0, 1100.0, -100.0, 600.0, 250.0]
-#: Bound clears the threshold; half the seeds are strictly worse.
-BLOCKED = [-300.0] * 5 + [12000.0] * 5
+#: Bound clears the threshold; the lower tail is wiped out. At n=10 the
+#: interpolation index is 0.15 * 9 = 1.35, so two seeds under the floor fire
+#: it.
+BLOCKED = [-30000.0] * 3 + [40000.0] * 7
 
 
 class TestMoneyGateCli:
@@ -173,9 +177,10 @@ class TestMoneyGateCli:
     def test_cli_prints_fail_and_exits_1_when_a_blocker_fires_on_a_clearing_bound(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
     ) -> None:
-        # D2. Half the seeds regress while the mean bound clears $1,000 by
-        # 2x. That is a sound measurement of an unacceptable candidate, so it
-        # is FAIL (exit 1, keep tuning), NOT INVALID (exit 2, rerun it).
+        # Three of ten seeds lose $30,000 -- most of the measured bank --
+        # while the mean bound clears $1,000. That is a sound measurement of
+        # an unacceptable candidate, so it is FAIL (exit 1, keep tuning), NOT
+        # INVALID (exit 2, rerun it).
         _patch(monkeypatch, _fake_result(deltas=BLOCKED))
 
         exit_code = main([*BASE_ARGV, "--eval-dir", str(tmp_path)])
@@ -184,8 +189,9 @@ class TestMoneyGateCli:
         assert exit_code == 1
         assert output.splitlines()[-1] == "FAIL"
         assert "vetoes: none" in output
-        assert "blockers: half_the_seeds_regress" in output
-        assert "n_regressed=5/10" in output
+        assert "blockers: catastrophic_tail" in output
+        assert "tail_quantile=-30000.0" in output
+        assert "n_regressed=3/10" in output
 
     def test_cli_prints_invalid_and_exits_2_when_any_veto_fires(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]

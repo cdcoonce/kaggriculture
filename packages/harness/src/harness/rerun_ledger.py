@@ -16,6 +16,11 @@ from typing import Any
 
 from harness.gate import opponent_digest, run_gate, run_money_gate
 from harness.ledger import json_float
+from harness.stats import (
+    CATASTROPHIC_TAIL_FLOOR,
+    CATASTROPHIC_TAIL_QUANTILE,
+    DISPERSION_EFFECT_REL_TOL,
+)
 
 COMPARED_FIELDS = ("wins", "losses", "ties", "any_candidate_crash", "passed")
 
@@ -24,6 +29,7 @@ COMPARED_FIELDS = ("wins", "losses", "ties", "any_candidate_crash", "passed")
 #: equality is correct here and any drift is a real determinism regression.
 MONEY_EXACT_FIELDS = (
     "n_seeds",
+    "tail_quantile",
     "candidate_mean",
     "baseline_mean",
     "mean_delta",
@@ -53,15 +59,33 @@ MONEY_CLOSE_FIELDS = ("t_crit", "ci_lower_mean", "ci_lower", "skew_delta", "mde_
 MONEY_NULLABLE_FIELDS = frozenset({"ci_lower_mean", "ci_lower", "ci_lower_hl", "mde_80"})
 
 #: Knobs recorded inside the money block, with the defaults that applied
-#: before each knob existed, so an older entry still replays.
+#: before each knob existed, so an older entry still replays. A knob that has
+#: been REMOVED (``catastrophic_k``, whose studentized veto no longer exists)
+#: simply drops out: an older entry's recorded value is ignored, and the rule
+#: change shows up honestly as a ``vetoes`` / ``blockers`` mismatch rather
+#: than as a crash.
 _MONEY_KNOB_DEFAULTS = {
     "alpha": 0.05,
     "min_seeds": 8,
-    "catastrophic_k": 5.0,
+    "catastrophic_tail_quantile": CATASTROPHIC_TAIL_QUANTILE,
+    "catastrophic_tail_floor": CATASTROPHIC_TAIL_FLOOR,
+    "degenerate_dispersion_ratio": DISPERSION_EFFECT_REL_TOL,
     "candidate_money_floor": 3000.0,
     "opponent_money_floor": 10000.0,
     "degenerate_seed_fraction": 0.25,
 }
+
+#: Printed in place of a recorded value the entry does not carry. A field
+#: added to ``MONEY_EXACT_FIELDS`` after an entry was written used to raise
+#: ``KeyError`` from inside the comparison loop, after paying for a full
+#: two-arm replay; a sentinel compares unequal to every fresh value, so the
+#: run reports a MISMATCH naming the field instead of a traceback.
+NOT_RECORDED = "NOT RECORDED"
+
+
+def _show(recorded: object) -> str:
+    """``repr`` of a recorded value, or the bare sentinel for a missing one."""
+    return NOT_RECORDED if recorded is NOT_RECORDED else repr(recorded)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -80,7 +104,21 @@ def main(argv: list[str] | None = None) -> int:
     # A money entry records TWO arms; a single `run_gate` call cannot
     # reproduce it, so the money block has to dispatch rather than bolt extra
     # fields onto a comparison that was never computed.
-    if identity.get("baseline") is not None:
+    #
+    # The dispatch keys on the money BLOCK, not on `identity.baseline`. Keying
+    # on the baseline meant a money entry that lost that one key fell through
+    # to the single-arm path, compared wins/losses/ties, ignored the whole
+    # money statistic and printed PASS -- a green reproduction of something
+    # never recomputed.
+    if "money_verdict" in payload:
+        if identity.get("baseline") is None:
+            print(f"rerun-ledger: {args.ledger_path}")
+            print(
+                "  this entry records a money_verdict but no identity.baseline, "
+                "so the second arm cannot be replayed"
+            )
+            print("UNREPLAYABLE: identity.baseline is missing")
+            return 2
         return _rerun_money(args.ledger_path, payload)
 
     result = run_gate(
@@ -196,26 +234,28 @@ def _rerun_money(ledger_path: Path, payload: dict[str, Any]) -> int:
             f"[{'match' if matched else 'MISMATCH'}]"
         )
     for field in MONEY_EXACT_FIELDS:
-        recorded = recorded_money[field]
-        matched = fresh_money[field] == recorded
+        recorded = recorded_money.get(field, NOT_RECORDED)
+        matched = recorded is not NOT_RECORDED and fresh_money[field] == recorded
         if not matched:
             mismatched.append(field)
         print(
-            f"  money.{field}: recorded={recorded!r} fresh={fresh_money[field]!r} "
-            f"[{'match' if matched else 'MISMATCH'}]"
+            f"  money.{field}: recorded={_show(recorded)} "
+            f"fresh={fresh_money[field]!r} [{'match' if matched else 'MISMATCH'}]"
         )
     for field in MONEY_CLOSE_FIELDS:
-        recorded = recorded_money[field]
+        recorded = recorded_money.get(field, NOT_RECORDED)
         fresh = fresh_money[field]
-        if recorded is None or fresh is None:
+        if recorded is NOT_RECORDED:
+            matched = False
+        elif recorded is None or fresh is None:
             matched = recorded is None and fresh is None
         else:
             matched = math.isclose(fresh, recorded, rel_tol=1e-9, abs_tol=1e-6)
         if not matched:
             mismatched.append(field)
         print(
-            f"  money.{field}: recorded={recorded!r} fresh={fresh_money[field]!r} "
-            f"[{'match' if matched else 'MISMATCH'}]"
+            f"  money.{field}: recorded={_show(recorded)} "
+            f"fresh={fresh_money[field]!r} [{'match' if matched else 'MISMATCH'}]"
         )
 
     if mismatched:

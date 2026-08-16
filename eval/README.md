@@ -48,16 +48,17 @@ satisfies the Kaggle submission precondition.
 | `money_verdict` | `n_seeds`, `alpha`, `threshold` | one observation is one SEED, both seats averaged |
 | | `candidate_mean`, `baseline_mean`, `mean_delta`, `median_delta` | seat-averaged money, per seed |
 | | `sd_delta`, `stderr`, `skew_delta`, `min_delta`, `df` | dispersion of the paired difference |
-| | `n_regressed` | seeds strictly WORSE than baseline; drives `half_the_seeds_regress` |
+| | `n_regressed` | seeds strictly WORSE than baseline. **Diagnostic only — it does not gate** |
 | | `t_crit`, `ci_lower_mean`, `ci_lower` | one-sided 95% Student-t lower bound on the mean. `ci_lower` IS this bound — it is the whole criterion |
 | | `hl_shift`, `hl_skip`, `hl_exact_alpha`, `ci_lower_hl` | Hodges-Lehmann pseudomedian and its exact distribution-free bound. **Diagnostic only — it does not gate** |
+| | `tail_quantile` | the `catastrophic_tail_quantile`-th quantile of the per-seed differences; drives `catastrophic_tail` |
 | | `mde_80` | how far ABOVE `threshold` a per-seed effect must be for this run to clear the bound ~80% of the time, at the `sd_delta` observed. Not a bound, and silent about `blockers` |
-| | `vetoes` | the RUN is invalid (exit 2): `too_few_seeds`, `degenerate_dispersion`, `catastrophic_seed`, `candidate_crash`, `baseline_crash`, `opponent_crash`, `candidate_degenerate`, `baseline_degenerate`, `opponent_degenerate`, `canary_crash` |
-| | `blockers` | the run is valid and the CANDIDATE fails (exit 1): `half_the_seeds_regress` |
+| | `vetoes` | the RUN is invalid (exit 2): `too_few_seeds`, `degenerate_dispersion`, `candidate_crash`, `baseline_crash`, `opponent_crash`, `candidate_degenerate`, `baseline_degenerate`, `opponent_degenerate`, `canary_crash` |
+| | `blockers` | the run is valid and the CANDIDATE fails (exit 1): `catastrophic_tail` (the worst-off 15% of seeds each lost more than $19,000) |
 | | `passed` | `ci_lower > threshold AND vetoes == [] AND blockers == []` |
 | | `opponent_mean_delta`, `min_opponent_money` | market-suppression and dead-opponent diagnostics |
 | | `candidate_canary_ran`/`_crashed`, `baseline_canary_ran`/`_crashed` | unshelled crash canary |
-| | `min_seeds`, `catastrophic_k`, `candidate_money_floor`, `opponent_money_floor`, `degenerate_seed_fraction` | veto knobs, recorded so `rerun-ledger` reproduces the same vetoes |
+| | `min_seeds`, `catastrophic_tail_quantile`, `catastrophic_tail_floor`, `degenerate_dispersion_ratio`, `candidate_money_floor`, `opponent_money_floor`, `degenerate_seed_fraction` | veto and blocker knobs, recorded so `rerun-ledger` reproduces the same verdict |
 
 Bounds that are not finite (`ci_lower*`, `mde_80` under `too_few_seeds`) are
 written as JSON `null`, never as the non-standard `-Infinity` literal.

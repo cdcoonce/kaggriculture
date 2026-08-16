@@ -14,6 +14,7 @@ from harness.stats import (
     gate_verdict,
     hl_lower_bound,
     hodges_lehmann,
+    lower_tail_quantile,
     mde_multiplier,
     money_verdict,
     sample_skewness,
@@ -208,6 +209,48 @@ class TestWalshAverages:
         assert hl_lower_bound(diffs) == walsh_averages(diffs)[10] == 395.0
 
 
+class TestLowerTailQuantile:
+    def test_it_is_the_linear_interpolated_order_statistic(self) -> None:
+        values = [float(x) for x in range(10)]  # h = q * 9
+        assert lower_tail_quantile(values, 0.0) == 0.0
+        assert lower_tail_quantile(values, 1.0) == 9.0
+        assert lower_tail_quantile(values, 0.5) == 4.5
+        assert lower_tail_quantile(values, 0.15) == pytest.approx(1.35, abs=1e-12)
+
+    def test_it_does_not_care_about_input_order(self) -> None:
+        assert lower_tail_quantile([9.0, 1.0, 5.0, 3.0], 0.25) == lower_tail_quantile(
+            [1.0, 3.0, 5.0, 9.0], 0.25
+        )
+
+    def test_a_single_observation_is_its_own_quantile(self) -> None:
+        assert lower_tail_quantile([1234.5], 0.15) == 1234.5
+
+    def test_it_is_monotone_non_increasing_when_any_value_is_lowered(self) -> None:
+        # The property the whole guard rests on: worsening a seed can never
+        # RAISE the tail statistic, so more damage never buys silence.
+        values = [1000.0 * i for i in range(20)]
+        previous = lower_tail_quantile(values, 0.15)
+        for index in range(20):
+            values[index] -= 50_000.0
+            current = lower_tail_quantile(values, 0.15)
+            assert current <= previous
+            previous = current
+
+    def test_it_is_one_lipschitz_in_every_observation(self) -> None:
+        # No knife edge: a $0.50 grid step on one seed moves the statistic by
+        # at most $0.50, whatever the sample looks like.
+        values = [-500.0] * 31 + [0.5] + [9000.0] * 32
+        before = lower_tail_quantile(values, 0.15)
+        for index in range(len(values)):
+            nudged = list(values)
+            nudged[index] -= 0.5
+            assert abs(lower_tail_quantile(nudged, 0.15) - before) <= 0.5
+
+    def test_it_rejects_an_empty_sample(self) -> None:
+        with pytest.raises(ValueError, match="empty"):
+            lower_tail_quantile([], 0.15)
+
+
 class TestSampleSkewness:
     def test_skewness_matches_hand_computed_values_and_is_zero_for_constant_input(self) -> None:
         assert sample_skewness([1.0, 2.0, 3.0, 4.0, 10.0]) == pytest.approx(
@@ -286,12 +329,14 @@ class TestMoneyVerdictFixtures:
         assert verdict.blockers == ()
         assert verdict.passed is True
 
-    def test_jackpot_that_regresses_most_seeds_is_blocked_not_passed(self) -> None:
-        # D2 TEETH-CHECK, the exact adversarial/p4 fixture. 39 of 64 seeds
-        # LOSE $3,000 and 25 gain $12,000. The t bound clears the threshold,
-        # the median seed is $3,000 worse, and under the old conjunction this
-        # PASSED — the HL leg's bound was $4,500, because it bounds the
-        # pseudomedian and not the median.
+    def test_the_hl_diagnostic_is_recorded_and_never_decides_the_jackpot(self) -> None:
+        # CORRECTED (N2). Was
+        # `test_jackpot_that_regresses_most_seeds_is_blocked_not_passed` and
+        # asserted `blockers == ("half_the_seeds_regress",)`, pinning the
+        # count rule. The p4 fixture's verdict now lives in
+        # `TestRegressionCountsAreDiagnosticsNow`; what survives here is the
+        # part that is still true -- the HL bound is computed, recorded, and
+        # decides nothing.
         deltas = [-3000.0] * 39 + [12000.0] * 25
         cand, base = _paired(deltas, _spread_baseline(64, 12558.0))
         verdict = money_verdict(cand, base, threshold=1000.0)
@@ -300,14 +345,22 @@ class TestMoneyVerdictFixtures:
         assert verdict.n_regressed == 39
         assert verdict.ci_lower == pytest.approx(1320.14221408821, abs=1e-9)
         assert verdict.ci_lower > 1000.0
-        assert verdict.ci_lower_hl == 4500.0  # the old leg said $4,500: PASS
+        assert verdict.ci_lower_hl == 4500.0  # bounds the pseudomedian, not the median
+        assert verdict.ci_lower == verdict.ci_lower_mean
         assert verdict.vetoes == ()
-        assert verdict.blockers == ("half_the_seeds_regress",)
-        assert verdict.passed is False
 
-    def test_catastrophic_tail_is_stopped_by_the_mean_bound(self) -> None:
+    def test_one_wiped_out_seed_in_twenty_is_stopped_by_the_mean_bound(self) -> None:
         # 19 of 20 seeds improve; one seed loses $100,000 and the true mean is
         # NEGATIVE. The HL diagnostic reads +$2,000 and is ignored.
+        #
+        # CORRECTED (N1). This test used to be named
+        # `test_catastrophic_tail_is_stopped_by_the_mean_bound` and asserted
+        # `vetoes == ()` at n=20 as INTENDED behaviour. It was pinning a dead
+        # zone: the old `catastrophic_seed` cut was a studentized extreme
+        # deviate, which obeys `(mean - min)/sd <= (n-1)/sqrt(n)`, so with
+        # k=5 it could not fire below n=27 at ANY loss magnitude while
+        # `min_seeds` defaults to 8. The empty tuple was an algebraic
+        # impossibility being read as a judgement.
         deltas = [2000.0] * 19 + [-100000.0]
         baseline = [0.0 if i % 2 else 60000.0 for i in range(20)]
         cand, base = _paired(deltas, baseline)
@@ -318,31 +371,205 @@ class TestMoneyVerdictFixtures:
         assert verdict.ci_lower_mean == pytest.approx(-11918.577338758969, abs=1e-9)
         assert verdict.ci_lower == pytest.approx(-11918.577338758969, abs=1e-9)
         assert verdict.vetoes == ()
-        assert verdict.passed is False
-
-    def test_catastrophic_seed_veto_stops_what_the_bound_passes(self) -> None:
-        # TEETH-CHECK. 63 seeds at +$6,000 clear the bound comfortably and
-        # only the veto notices the seed that was torched.
-        deltas = [6000.0] * 63 + [-100000.0]
-        baseline = [24609.0 if i % 2 else 49725.0 for i in range(64)]
-        cand, base = _paired(deltas, baseline)
-        verdict = money_verdict(cand, base, threshold=1000.0)
-
-        assert verdict.ci_lower_mean == pytest.approx(1578.8025702979971, abs=1e-9)
-        assert verdict.ci_lower_mean > 1000.0
-        assert verdict.n_regressed == 1
         assert verdict.blockers == ()
-        assert "catastrophic_seed" in verdict.vetoes
         assert verdict.passed is False
 
 
-class TestCatastrophicSeedScale:
-    def test_the_veto_is_invariant_to_the_baseline_arms_dispersion(self) -> None:
-        # D4 TEETH-CHECK, the adversarial/p8 reproduction. IDENTICAL candidate
-        # behaviour against four baselines that differ only in how much money
-        # varies seed to seed. Scaling the cut by sd(baseline LEVELS) fired at
-        # sd $512 and was silent at sd $40,951 — the same candidate, opposite
-        # verdicts, decided by the opponent.
+class TestCatastrophicTailIsNotDecidedByN:
+    """N1. The same failure SHAPE must get the same verdict at every ``n``."""
+
+    #: adversarial2/q4's closing fixture: all but one seed at +$30,000 and
+    #: ONE seed losing $100,000 -- 2.7x the measured champion bank. Under the
+    #: studentized cut this PASSED at n=20 and n=26 and was INVALID at n=64:
+    #: the identical failure, opposite verdicts, decided only by n.
+    N_VALUES = (20, 26, 27, 40, 64)
+
+    @pytest.mark.parametrize("n", (8, *N_VALUES))
+    def test_the_guard_reads_that_shape_the_same_way_at_every_n(self, n: int) -> None:
+        deltas = [-100000.0] + [30000.0] * (n - 1)
+        verdict = money_verdict(*_paired(deltas, _flat_baseline(n)), threshold=1000.0)
+
+        assert verdict.min_delta == -100000.0
+        assert verdict.vetoes == ()
+        assert verdict.blockers == ()
+
+    @pytest.mark.parametrize("n", N_VALUES)
+    def test_the_whole_verdict_is_the_same_at_every_n_q4_measured(self, n: int) -> None:
+        # n=8 is excluded here and only here: at eight seeds the BOUND cannot
+        # resolve this effect (ci_lower -$17,037), which is a precision fact
+        # about n and not a guard firing. q4 measured n = 20, 26, 27, 40, 64.
+        deltas = [-100000.0] + [30000.0] * (n - 1)
+        verdict = money_verdict(*_paired(deltas, _flat_baseline(n)), threshold=1000.0)
+        assert verdict.ci_lower > 1000.0
+        assert verdict.passed is True
+
+    def test_the_verdict_is_literally_constant_across_that_n_sweep(self) -> None:
+        verdicts = [
+            money_verdict(
+                *_paired([-100000.0] + [30000.0] * (n - 1), _flat_baseline(n)), threshold=1000.0
+            )
+            for n in self.N_VALUES
+        ]
+        assert {(v.vetoes, v.blockers, v.passed) for v in verdicts} == {((), (), True)}
+
+    def test_the_guard_has_no_studentized_ceiling(self) -> None:
+        # The old cut `min(0, mean) - k*sd` could not exceed (n-1)/sqrt(n)
+        # standard deviations, so at n=20 a seed losing TEN MILLION DOLLARS
+        # produced `vetoes == ()`. A dollar floor on an order statistic has
+        # no such ceiling.
+        for n in (8, 20, 26):
+            deltas = [-10_000_000.0] * (n // 4) + [1000.0] * (n - n // 4)
+            verdict = money_verdict(*_paired(deltas, _flat_baseline(n)), min_seeds=n)
+            assert verdict.blockers == ("catastrophic_tail",)
+
+
+class TestCatastrophicTailBlocker:
+    """The single magnitude-aware lower-tail guard that replaced N1 + N2."""
+
+    def test_it_blocks_a_real_regression_the_count_rule_permitted(self) -> None:
+        # PROPERTY 1a, adversarial2/q5(b) verbatim. 31 of 64 seeds are
+        # BANKRUPTED (-$37,000, the whole measured bank) while 33 gain
+        # $80,000. `2 * n_regressed >= n` is 62 >= 64 -- FALSE -- so the
+        # count rule reported `blockers = ()` and the run PASSED.
+        deltas = [-37000.0] * 31 + [80000.0] * 33
+        verdict = money_verdict(*_paired(deltas, _flat_baseline(64)), threshold=1000.0)
+
+        assert verdict.n_regressed == 31  # one short of the old count trigger
+        assert verdict.tail_quantile == -37000.0
+        assert verdict.ci_lower > 1000.0  # the bound alone would promote this
+        assert verdict.blockers == ("catastrophic_tail",)
+        assert verdict.passed is False
+
+    def test_it_permits_a_real_gain_the_count_rule_refused(self) -> None:
+        # PROPERTY 1b, adversarial2/q5(a) verbatim. 32 seeds are worse by
+        # FIFTY CENTS and 32 gain a million dollars: a true +$500,000/seed.
+        # The count rule blocked this, and ramping the gain to 1e12 never
+        # passed -- unbounded true improvement, structurally refused.
+        deltas = [-0.5] * 32 + [1_000_000.0] * 32
+        verdict = money_verdict(*_paired(deltas, _flat_baseline(64)), threshold=1000.0)
+
+        assert verdict.n_regressed == 32  # exactly the old count trigger
+        assert verdict.mean_delta == pytest.approx(499_999.75, abs=1e-9)
+        assert verdict.tail_quantile == -0.5
+        assert verdict.ci_lower == pytest.approx(394837.2422574607, abs=1e-6)
+        assert verdict.blockers == ()
+        assert verdict.passed is True
+
+    def test_it_permits_the_realistic_sparse_gain(self) -> None:
+        # PROPERTY 2, adversarial2/q5(a) row 3. A knob that costs $200 on 40
+        # seeds and earns $20,000 on 24 is a true +$7,375/seed -- more than
+        # SEVEN TIMES the promotion threshold -- and the count rule refused it.
+        deltas = [-200.0] * 40 + [20000.0] * 24
+        verdict = money_verdict(*_paired(deltas, _flat_baseline(64)), threshold=1000.0)
+
+        assert verdict.n_regressed == 40
+        assert verdict.mean_delta == pytest.approx(7375.0, abs=1e-9)
+        assert verdict.tail_quantile == -200.0
+        assert verdict.ci_lower == pytest.approx(5318.173190695476, abs=1e-6)
+        assert verdict.blockers == ()
+        assert verdict.passed is True
+
+    @pytest.mark.parametrize("n", [8, 20, 26, 27, 40, 64])
+    def test_it_fires_at_every_n_from_min_seeds_upward(self, n: int) -> None:
+        # PROPERTY 3. A quarter of the seeds bankrupted at -$37,000 while the
+        # rest gain $80,000: the bound clears the threshold at every n, and
+        # the guard stops it at every n -- including n=8 and n=20, the whole
+        # of the old veto's dead zone.
+        n_bad = n // 4
+        deltas = [-37000.0] * n_bad + [80000.0] * (n - n_bad)
+        verdict = money_verdict(*_paired(deltas, _flat_baseline(n)), threshold=1000.0, min_seeds=8)
+
+        assert verdict.ci_lower > 1000.0
+        assert verdict.tail_quantile < -19000.0
+        assert verdict.blockers == ("catastrophic_tail",)
+        assert verdict.passed is False
+
+    def test_it_fires_at_n_eight_on_two_bankrupted_seeds(self) -> None:
+        # PROPERTY 3, stated as a single explicit fixture at `min_seeds`.
+        deltas = [-37000.0, -37000.0, 80000.0, 80000.0, 80000.0, 80000.0, 80000.0, 80000.0]
+        verdict = money_verdict(*_paired(deltas, _flat_baseline(8)), threshold=1000.0)
+
+        assert verdict.n_seeds == 8
+        assert verdict.tail_quantile == pytest.approx(-31150.0, abs=1e-9)
+        assert verdict.ci_lower > 1000.0
+        assert verdict.blockers == ("catastrophic_tail",)
+        assert verdict.passed is False
+
+    @pytest.mark.parametrize("epsilon", [0.5, -0.5])
+    def test_one_grid_step_on_one_seed_does_not_flip_the_verdict(self, epsilon: float) -> None:
+        # PROPERTY 4, adversarial2/q5(c) verbatim. Flipping seed 31 from
+        # +$0.50 to -$0.50 -- ONE money grid step -- took `n_regressed` from
+        # 31 to 32 and flipped PASS to FAIL while the bound moved under two
+        # cents. A dollar floor on an order statistic cannot do that.
+        deltas = [-500.0] * 31 + [epsilon] + [9000.0] * 32
+        verdict = money_verdict(*_paired(deltas, _flat_baseline(64)), threshold=1000.0)
+
+        assert verdict.n_regressed == (32 if epsilon < 0 else 31)
+        assert verdict.tail_quantile == -500.0
+        assert verdict.ci_lower > 1000.0
+        assert verdict.blockers == ()
+        assert verdict.passed is True
+
+    def test_the_bound_and_the_tail_both_move_by_cents_for_a_cent_of_input(self) -> None:
+        # PROPERTY 4 as the general statement: the guard's statistic is
+        # 1-Lipschitz in every seed, so no single grid step can move it far
+        # enough to change a verdict that was not already on the line.
+        base_deltas = [-500.0] * 31 + [0.5] + [9000.0] * 32
+        flipped = [-500.0] * 31 + [-0.5] + [9000.0] * 32
+        first = money_verdict(*_paired(base_deltas, _flat_baseline(64)), threshold=1000.0)
+        second = money_verdict(*_paired(flipped, _flat_baseline(64)), threshold=1000.0)
+
+        assert abs(first.tail_quantile - second.tail_quantile) <= 1.0
+        assert abs(first.ci_lower - second.ci_lower) < 0.05
+
+    def test_more_catastrophes_never_switch_the_guard_off(self) -> None:
+        # PROPERTY 5, adversarial2/q4's masking fixture. The studentized cut
+        # fired for 1 and 2 catastrophic seeds at -$200,000 and went SILENT
+        # at 3 and 4, because sd inflates faster than the cut moves. An order
+        # statistic is monotone: worsening any seed can only lower it.
+        fired = []
+        for n_bad in range(65):
+            deltas = [-200000.0] * n_bad + [1000.0] * (64 - n_bad)
+            verdict = money_verdict(*_paired(deltas, _flat_baseline(64)), threshold=1000.0)
+            fired.append(bool(verdict.blockers))
+
+        first_true = fired.index(True)
+        assert all(fired[k] for k in range(first_true, 65))  # an up-set: never switches off
+        assert first_true == 10  # 10 of 64 = 15.6%, just over the 15% tail
+        assert fired[1:5] == [False] * 4  # no alternation where masking used to live
+
+    def test_making_a_catastrophe_worse_never_switches_the_guard_off(self) -> None:
+        # PROPERTY 5 along the magnitude axis rather than the count axis.
+        tails = []
+        for loss in (20000.0, 50000.0, 200000.0, 1e9, 1e15):
+            deltas = [-loss] * 12 + [1000.0] * 52
+            verdict = money_verdict(*_paired(deltas, _flat_baseline(64)), threshold=1000.0)
+            tails.append(verdict.tail_quantile)
+            assert verdict.blockers == ("catastrophic_tail",)
+        assert all(a > b for a, b in zip(tails, tails[1:], strict=False))
+
+    def test_the_guard_ignores_the_dispersion_of_the_differences(self) -> None:
+        # CORRECTED (N1). This fixture used to be
+        # `test_the_veto_tracks_the_dispersion_of_the_differences` and
+        # asserted that the SAME -$3,000 seed is "catastrophic" in a tight arm
+        # and "ordinary" in a loose one. Scaling by sd(d) is exactly what
+        # produced the masking above: the adversary buys silence by adding
+        # noise. The dollar floor is scale-free, so both arms now agree.
+        tight = [1500.0 + 10.0 * (i % 33) for i in range(64)]
+        tight[0] = -3000.0
+        loose = [1500.0 + 200.0 * (i % 33) for i in range(64)]
+        loose[0] = -3000.0
+
+        tight_verdict = money_verdict(*_paired(tight, _flat_baseline(64)), threshold=1000.0)
+        loose_verdict = money_verdict(*_paired(loose, _flat_baseline(64)), threshold=1000.0)
+        assert tight_verdict.blockers == loose_verdict.blockers == ()
+        assert tight_verdict.passed is loose_verdict.passed is True
+
+    def test_the_guard_is_invariant_to_the_baseline_arms_dispersion(self) -> None:
+        # D4 TEETH-CHECK, the adversarial/p8 reproduction, retained. IDENTICAL
+        # candidate behaviour against four baselines that differ only in how
+        # much money varies seed to seed. Scaling the cut by sd(baseline
+        # LEVELS) fired at sd $512 and was silent at sd $40,951.
         deltas = [1500.0 + 40.0 * (i % 37) for i in range(64)]
         deltas[0] = -3000.0
         verdicts = [
@@ -350,54 +577,96 @@ class TestCatastrophicSeedScale:
             for sd in (512.0, 2048.0, 12558.0, 40951.0)
         ]
         assert [v.vetoes for v in verdicts] == [()] * 4
+        assert [v.blockers for v in verdicts] == [()] * 4
         assert [v.passed for v in verdicts] == [True] * 4
 
-    def test_the_veto_tracks_the_dispersion_of_the_differences(self) -> None:
-        # Same worst seed, different noise scale in the DIFFERENCES: at
-        # sd(d) ~ $190 a -$3,000 seed is 15 sd out and catastrophic; at
-        # sd(d) ~ $3,800 the same seed is ordinary.
-        tight = [1500.0 + 10.0 * (i % 33) for i in range(64)]
-        tight[0] = -3000.0
-        loose = [1500.0 + 200.0 * (i % 33) for i in range(64)]
-        loose[0] = -3000.0
-
-        assert "catastrophic_seed" in money_verdict(*_paired(tight, _flat_baseline(64))).vetoes
-        assert "catastrophic_seed" not in money_verdict(*_paired(loose, _flat_baseline(64))).vetoes
-
-    def test_a_uniformly_degraded_arm_is_a_regression_not_a_catastrophic_seed(self) -> None:
+    def test_a_uniformly_degraded_arm_fails_on_the_bound_with_no_guard_at_all(self) -> None:
         # The silent-degradation signature: every seed ~-$13,240 with small
-        # dispersion. Anchoring the cut at zero would call the worst of those
-        # seeds a catastrophe and report INVALID, hiding the one diagnostic
-        # `harness.money_gate` tells operators to read.
+        # dispersion. The BOUND is the instrument for a uniform regression --
+        # it reads far below the threshold -- and the tail guard stays quiet,
+        # so `harness.money_gate`'s large-negative-delta diagnostic survives.
         deltas = [-13240.0 + 100.0 * i for i in range(64)]
         verdict = money_verdict(*_paired(deltas, _flat_baseline(64)), threshold=1000.0)
 
-        assert verdict.vetoes == ()
-        assert verdict.blockers == ("half_the_seeds_regress",)
         assert verdict.mean_delta < -5000.0
+        assert verdict.ci_lower < 0.0
+        assert verdict.vetoes == ()
+        assert verdict.blockers == ()
         assert verdict.passed is False
 
+    def test_the_floor_clears_the_worst_tail_measured_on_a_real_passing_arm(self) -> None:
+        # The lower anchor of the $19,000 derivation. `empirical/arms2.json`
+        # arm `improve_feed_8` is a REAL +$5,510/seed improvement whose bound
+        # clears the threshold at $2,137, and its 15th-percentile seed is
+        # -$9,835. Nothing that reaches promotion may be within reach of the
+        # floor; this pins the 1.93x margin.
+        worst_real_tail = -9835.0
+        deltas = [worst_real_tail] * 11 + [12000.0] * 53
+        verdict = money_verdict(*_paired(deltas, _flat_baseline(64)), threshold=1000.0)
 
-class TestHalfTheSeedsRegressBlocker:
-    def test_an_exactly_even_split_blocks(self) -> None:
+        assert verdict.tail_quantile == pytest.approx(worst_real_tail, abs=1e-9)
+        assert verdict.blockers == ()
+
+    def test_the_floor_fires_below_a_full_bank_loss(self) -> None:
+        # The upper anchor: the measured champion bank against the tape is
+        # $37,167, so a seed at -$37,167 has lost everything it had.
+        deltas = [-37167.0] * 11 + [25000.0] * 53
+        verdict = money_verdict(*_paired(deltas, _flat_baseline(64)), threshold=1000.0)
+
+        assert verdict.tail_quantile == pytest.approx(-37167.0, abs=1e-9)
+        assert verdict.ci_lower > 1000.0
+        assert verdict.blockers == ("catastrophic_tail",)
+
+    def test_both_knobs_are_overridable(self) -> None:
+        deltas = [-25000.0] * 16 + [90000.0] * 48
+        assert money_verdict(*_paired(deltas, _flat_baseline(64))).blockers == (
+            "catastrophic_tail",
+        )
+        # Raise the floor above the tail: the same run stops being blocked.
+        assert (
+            money_verdict(
+                *_paired(deltas, _flat_baseline(64)), catastrophic_tail_floor=30000.0
+            ).blockers
+            == ()
+        )
+        # Or move the quantile past the 16 bad seeds (25% of 64).
+        assert (
+            money_verdict(
+                *_paired(deltas, _flat_baseline(64)), catastrophic_tail_quantile=0.40
+            ).blockers
+            == ()
+        )
+
+
+class TestRegressionCountsAreDiagnosticsNow:
+    def test_an_exactly_even_split_of_tiny_losses_is_no_longer_blocked(self) -> None:
+        # CORRECTED (N2). This fixture used to assert
+        # `blockers == ("half_the_seeds_regress",)`. 32 seeds worse by $100
+        # against 32 seeds better by $50,000 is a true +$24,950/seed; refusing
+        # it was the structural unpassability D1 removed from the HL leg,
+        # reintroduced with a harsher trigger.
         deltas = [-100.0] * 32 + [50000.0] * 32
         verdict = money_verdict(*_paired(deltas, _flat_baseline(64)), threshold=1000.0)
-        assert verdict.n_regressed == 32
-        assert verdict.blockers == ("half_the_seeds_regress",)
-        assert verdict.passed is False
-
-    def test_one_seed_short_of_half_does_not_block(self) -> None:
-        deltas = [-100.0] * 31 + [50000.0] * 33
-        verdict = money_verdict(*_paired(deltas, _flat_baseline(64)), threshold=1000.0)
-        assert verdict.n_regressed == 31
-        assert verdict.blockers == ()
+        assert verdict.n_regressed == 32  # still RECORDED
+        assert verdict.blockers == ()  # but no longer GATING
         assert verdict.passed is True
 
-    def test_unchanged_seeds_are_not_counted_as_regressions(self) -> None:
-        # D2's subtlety. A knob that does not bite on most seeds leaves them
-        # at EXACTLY zero, so the median is zero while nothing got worse. A
-        # sign test on `median_delta` would refuse this; counting strictly
-        # regressed seeds does not.
+    def test_one_seed_short_of_half_gets_the_same_verdict_as_half(self) -> None:
+        # The count rule's knife edge, stated as the property it violated.
+        even = money_verdict(
+            *_paired([-100.0] * 32 + [50000.0] * 32, _flat_baseline(64)), threshold=1000.0
+        )
+        odd = money_verdict(
+            *_paired([-100.0] * 31 + [50000.0] * 33, _flat_baseline(64)), threshold=1000.0
+        )
+        assert (even.n_regressed, odd.n_regressed) == (32, 31)
+        assert even.blockers == odd.blockers == ()
+        assert even.passed is odd.passed is True
+
+    def test_unchanged_seeds_are_still_not_counted_as_regressions(self) -> None:
+        # A knob that does not bite on most seeds leaves them at EXACTLY
+        # zero, so the median is zero while nothing got worse. `n_regressed`
+        # counts strictly negative deltas and keeps reporting that honestly.
         deltas = [0.0] * 40 + [20000.0] * 24
         verdict = money_verdict(*_paired(deltas, _flat_baseline(64)), threshold=1000.0)
         assert verdict.median_delta == 0.0
@@ -405,14 +674,38 @@ class TestHalfTheSeedsRegressBlocker:
         assert verdict.blockers == ()
         assert verdict.passed is True
 
-    def test_a_measured_real_tuning_gain_is_not_blocked(self) -> None:
-        # empirical/tc_improvement.json: melon_tile_target=16 over 40 real
-        # seeds, +$845 mean, 19 of 40 seeds regressed. Just inside the line,
-        # and it must stay inside it.
+    def test_the_diagnostics_survive_on_the_verdict(self) -> None:
         deltas = [-100.0] * 19 + [4000.0] * 21
         verdict = money_verdict(*_paired(deltas, _flat_baseline(40)), threshold=1000.0)
         assert verdict.n_regressed == 19
+        assert verdict.median_delta == 4000.0
+        assert verdict.min_delta == -100.0
         assert verdict.blockers == ()
+
+    def test_the_p4_jackpot_now_passes_and_that_is_a_decision_not_an_accident(self) -> None:
+        # HONEST COVERAGE CHANGE. The adversarial/p4 fixture the count rule
+        # was introduced for: 39 of 64 seeds LOSE $3,000 and 25 gain $12,000,
+        # a true +$2,859/seed whose bound clears the threshold. Under the
+        # count rule this was blocked; under a magnitude-aware guard at the
+        # measured default floor it PASSES, because -$3,000 is 8% of the
+        # $37,167 bank and real healthy arms produce 15th-percentile seeds
+        # three times worse than that (-$9,835 on `arms2/improve_feed_8`).
+        # Refusing it would need a $2,500 floor, which would block real
+        # promotable arms. The knob is the lever, and it is recorded.
+        deltas = [-3000.0] * 39 + [12000.0] * 25
+        cand, base = _paired(deltas, _spread_baseline(64, 12558.0))
+
+        default = money_verdict(cand, base, threshold=1000.0)
+        assert default.median_delta == -3000.0
+        assert default.n_regressed == 39
+        assert default.tail_quantile == -3000.0
+        assert default.ci_lower > 1000.0
+        assert default.blockers == ()
+        assert default.passed is True
+
+        strict = money_verdict(cand, base, threshold=1000.0, catastrophic_tail_floor=2500.0)
+        assert strict.blockers == ("catastrophic_tail",)
+        assert strict.passed is False
 
 
 class TestMoneyVerdictVetoes:
@@ -447,6 +740,94 @@ class TestMoneyVerdictVetoes:
         assert verdict.ci_lower > 1000.0
         assert verdict.vetoes == ("degenerate_dispersion",)
         assert verdict.passed is False
+
+    @pytest.mark.parametrize("wobble", [0.5, 30.0, 31.0, 100.0, 500.0, 1000.0])
+    def test_the_dollar_sized_wobble_hole_is_closed_by_the_effect_relative_leg(
+        self, wobble: float
+    ) -> None:
+        # N5, adversarial2/q3. The sd tolerance used to be a fixed number of
+        # DOLLARS (1e-4 of the money scale, ~$3.72 here), so q3's binary
+        # search found that ~$30 of wobble on ONE of 64 seeds walked straight
+        # through it and flipped the verdict INVALID -> PASS. The dollar
+        # figure cannot simply be widened -- real arms live down there
+        # (`survey2/fert_0`: mean $1.31, sd $3.40) -- so the veto gained a leg
+        # anchored on the EFFECT, whose tolerance here is 5% of $2,500 = $125.
+        deltas = [2500.0] * 63 + [2500.0 + wobble]
+        verdict = money_verdict(*_paired(deltas, _flat_baseline(64)), threshold=1000.0)
+        assert verdict.sd_delta < 0.05 * abs(verdict.mean_delta)
+        assert verdict.vetoes == ("degenerate_dispersion",)
+        assert verdict.passed is False
+
+    def test_the_evasion_now_costs_thirty_one_times_more_wobble(self) -> None:
+        # The measured width of what is left. Re-injecting the old fixed-dollar
+        # rule and running this same search puts the smallest evading
+        # single-seed wobble at $32.31; anchoring on the effect moves it to
+        # $1,008, because sd(one wobbled seed of 64) is w*sqrt(63)/64 and that
+        # has to exceed 5% of the $2,500 effect. (q3 reported "~$30" from a
+        # search bracketed at [0, 1000], which saturates.)
+        low, high = 0.0, 100_000.0
+        for _ in range(80):
+            middle = 0.5 * (low + high)
+            deltas = [2500.0] * 63 + [2500.0 + middle]
+            if money_verdict(*_paired(deltas, _flat_baseline(64))).vetoes:
+                low = middle
+            else:
+                high = middle
+        assert high == pytest.approx(1008.0, rel=0.02)
+
+    def test_a_uniform_million_dollar_gain_stays_invalid_when_one_seed_wobbles(self) -> None:
+        # N5's sharpest form in q3: a $1,000,000/seed "gain" with sd 0 is a
+        # harness fault across independent seeds, and the old rule agreed --
+        # until ONE seed was moved by ~$3,800, at which point the SAME run
+        # became a PASS, because the tolerance did not scale with the effect.
+        # It does now: at a $1,000,000 effect the tolerance is $50,000.
+        for wobble in (0.0, 3800.0, 100_000.0):
+            deltas = [*[1_000_000.0] * 63, 1_000_000.0 + wobble]
+            verdict = money_verdict(*_paired(deltas, _flat_baseline(64)), threshold=1000.0)
+            assert verdict.vetoes == ("degenerate_dispersion",)
+            assert verdict.passed is False
+
+    def test_a_real_low_effect_arm_is_no_longer_false_vetoed(self) -> None:
+        # N5's other half. `survey2/fert_0` is a REAL measured arm -- mean
+        # $1.31, sd $3.40 over 32 seeds -- and the old $3.72 dollar tolerance
+        # called it INVALID ("rerun the measurement") when the right answer is
+        # FAIL on the bound. It is the only one of the 64 measured arms that
+        # sat under $3.72; the floor is now $0.372 and nothing sits under it.
+        deltas = [1.31 + 3.4 * math.sin(i * 1.9) for i in range(32)]
+        verdict = money_verdict(*_paired(deltas, _flat_baseline(32)), threshold=1000.0)
+        assert verdict.sd_delta == pytest.approx(2.407, abs=0.01)
+        assert verdict.sd_delta > 0.05 * abs(verdict.mean_delta)
+        assert verdict.vetoes == ()
+        assert verdict.passed is False
+
+    def test_a_sparse_knob_leaving_most_seeds_at_exactly_zero_is_not_degenerate(self) -> None:
+        # A knob that does not bite leaves seeds at EXACTLY 0.0 -- measured at
+        # 18 of 40 on `empirical2/sparse_scan` arm `milk_crash_trigger=0`.
+        # Its `sd_delta` is far above 5% of the mean, so neither leg fires and
+        # the sparse gains the remediation exists to let through get through.
+        deltas = [0.0] * 40 + [float(20000 + 7 * i) for i in range(24)]
+        verdict = money_verdict(*_paired(deltas, _flat_baseline(64)), threshold=1000.0)
+        assert verdict.vetoes == ()
+        assert verdict.passed is True
+
+    def test_every_real_arm_clears_the_dispersion_ratio_by_at_least_thirteen_times(self) -> None:
+        # Calibration. Across the 54 real arms with a nonzero mean_delta the
+        # SMALLEST sd_delta/|mean_delta| is 0.6925 (`a2_regression` and
+        # `a2_improvement_large`). The 0.05 trigger is 13.9x below that.
+        worst_real_ratio = 0.6925
+        deltas = [22548.85 + 15615.37 * math.sin(i * 1.3) for i in range(40)]
+        verdict = money_verdict(*_paired(deltas, _flat_baseline(40)), threshold=1000.0)
+        assert verdict.sd_delta / abs(verdict.mean_delta) > 0.05
+        assert worst_real_ratio / 0.05 == pytest.approx(13.85, abs=0.01)
+        assert verdict.vetoes == ()
+
+    def test_the_dispersion_ratio_is_an_overridable_knob(self) -> None:
+        deltas = [2500.0 + 400.0 * math.sin(i * 1.1) for i in range(64)]
+        assert money_verdict(*_paired(deltas, _flat_baseline(64))).vetoes == ()
+        tightened = money_verdict(
+            *_paired(deltas, _flat_baseline(64)), degenerate_dispersion_ratio=0.5
+        )
+        assert tightened.vetoes == ("degenerate_dispersion",)
 
     def test_a_real_arms_dispersion_is_nowhere_near_the_degeneracy_tolerance(self) -> None:
         # The tolerance has to sit in the gap between "constant to within the
@@ -487,14 +868,16 @@ class TestMoneyVerdictVetoes:
     def test_vetoes_and_blockers_are_separate_tuples(self) -> None:
         # They mean different things downstream: a veto is INVALID (exit 2,
         # rerun the measurement), a blocker is FAIL (exit 1, keep tuning).
-        deltas = [-100.0] * 32 + [50000.0] * 32
+        # A wiped-out lower tail is a property of the CANDIDATE and is
+        # deterministic on rerun, so it is a blocker and not a veto.
+        deltas = [-37000.0] * 16 + [80000.0] * 48
         verdict = money_verdict(
             *_paired(deltas, _flat_baseline(64)),
             threshold=1000.0,
             extra_vetoes=("candidate_crash",),
         )
         assert verdict.vetoes == ("candidate_crash",)
-        assert verdict.blockers == ("half_the_seeds_regress",)
+        assert verdict.blockers == ("catastrophic_tail",)
 
     def test_vetoes_are_sorted_and_deduplicated(self) -> None:
         cand, base = _paired([2500.0] * 4, _flat_baseline(4))

@@ -130,6 +130,73 @@ class TestRerunMoneyLedger:
         assert "MISMATCH" in output
         assert "mean_delta" in output
 
+    def test_a_money_entry_without_a_baseline_is_refused_not_silently_downgraded(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # N4. The dispatch was `if identity.get("baseline") is not None`, so a
+        # money entry that lost `identity.baseline` fell through to the
+        # SINGLE-ARM replay: it compared wins/losses/ties, ignored the entire
+        # money block, printed PASS and exited 0. A green reproduction of a
+        # statistic that was never recomputed is worse than a crash.
+        import harness.rerun_ledger as rerun_module
+
+        def exploding_run_gate(*args: Any, **kwargs: Any) -> Any:
+            raise AssertionError("a money entry must never replay as a single-arm gate")
+
+        monkeypatch.setattr(rerun_module, "run_gate", exploding_run_gate)
+        path = _write_sample_money_ledger(tmp_path)
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        del payload["identity"]["baseline"]
+        path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+
+        exit_code = main([str(path)])
+
+        output = capsys.readouterr().out
+        assert exit_code == 2
+        assert "UNREPLAYABLE" in output
+        assert "identity.baseline" in output
+        assert "PASS" not in output
+
+    def test_a_money_entry_missing_a_recorded_field_reports_it_instead_of_raising(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        # N4, adversarial2/q8(b). `_MONEY_KNOB_DEFAULTS` reads every knob with
+        # `.get(name, default)` so "an older entry still replays", but
+        # `MONEY_EXACT_FIELDS` read `recorded_money[field]` with no default --
+        # and that tuple keeps GAINING fields. An entry written before a field
+        # existed raised KeyError from inside the comparison loop, AFTER
+        # paying for a full two-arm replay, and printed a traceback instead of
+        # a verdict.
+        path = _write_sample_money_ledger(tmp_path)
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        for field in ("n_regressed", "tail_quantile", "blockers"):
+            payload["money_verdict"].pop(field, None)
+        path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+
+        exit_code = main([str(path)])
+
+        output = capsys.readouterr().out
+        assert exit_code == 1
+        assert "NOT RECORDED" in output
+        assert "money.n_regressed" in output
+        assert "MISMATCH" in output
+        # ...and the fields that ARE recorded still get compared.
+        assert "money.mean_delta: recorded=" in output
+
+    def test_a_money_entry_missing_a_close_compared_field_is_also_reported(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        path = _write_sample_money_ledger(tmp_path)
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        payload["money_verdict"].pop("mde_80")
+        path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+
+        exit_code = main([str(path)])
+
+        output = capsys.readouterr().out
+        assert exit_code == 1
+        assert "money.mde_80: recorded=NOT RECORDED" in output
+
     def test_opponent_digest_mismatch_exits_2_without_playing(
         self, tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
     ) -> None:

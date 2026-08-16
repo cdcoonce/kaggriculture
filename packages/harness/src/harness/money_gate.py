@@ -33,6 +33,11 @@ from typing import Any
 
 from harness.gate import run_money_gate
 from harness.ledger import write_money_ledger
+from harness.stats import (
+    CATASTROPHIC_TAIL_FLOOR,
+    CATASTROPHIC_TAIL_QUANTILE,
+    DISPERSION_EFFECT_REL_TOL,
+)
 
 #: A `mean_delta` at or below this is worth a distinct diagnostic: no tuning
 #: knob measured so far moves money this far backwards.
@@ -77,7 +82,13 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--threshold", type=float, default=1000.0)
     parser.add_argument("--alpha", type=float, default=0.05)
     parser.add_argument("--min-seeds", type=int, default=8)
-    parser.add_argument("--catastrophic-k", type=float, default=5.0)
+    parser.add_argument(
+        "--catastrophic-tail-quantile", type=float, default=CATASTROPHIC_TAIL_QUANTILE
+    )
+    parser.add_argument("--catastrophic-tail-floor", type=float, default=CATASTROPHIC_TAIL_FLOOR)
+    parser.add_argument(
+        "--degenerate-dispersion-ratio", type=float, default=DISPERSION_EFFECT_REL_TOL
+    )
     parser.add_argument("--candidate-money-floor", type=float, default=3000.0)
     parser.add_argument("--opponent-money-floor", type=float, default=10000.0)
     parser.add_argument("--degenerate-seed-fraction", type=float, default=0.25)
@@ -96,8 +107,9 @@ def main(argv: list[str] | None = None) -> int:
     are different questions. INVALID means the RUN cannot be trusted -- rerun
     it. FAIL means the run is sound and the CANDIDATE did not earn promotion,
     either because the bound did not clear the threshold or because a
-    ``blockers`` entry refused it (``half_the_seeds_regress``: at least half
-    the seeds are strictly worse, whatever the mean says).
+    ``blockers`` entry refused it (``catastrophic_tail``: the worst-off
+    ``catastrophic_tail_quantile`` of the seeds each lost more than
+    ``catastrophic_tail_floor``, whatever the mean says).
 
     A FAIL on the bound alone is ambiguous -- read ``mde_80`` alongside it,
     because precision is a property of the candidate diff, not a constant.
@@ -122,7 +134,9 @@ def main(argv: list[str] | None = None) -> int:
         threshold=args.threshold,
         alpha=args.alpha,
         min_seeds=args.min_seeds,
-        catastrophic_k=args.catastrophic_k,
+        catastrophic_tail_quantile=args.catastrophic_tail_quantile,
+        catastrophic_tail_floor=args.catastrophic_tail_floor,
+        degenerate_dispersion_ratio=args.degenerate_dispersion_ratio,
         candidate_money_floor=args.candidate_money_floor,
         opponent_money_floor=args.opponent_money_floor,
         degenerate_seed_fraction=args.degenerate_seed_fraction,
@@ -173,6 +187,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     print(
         f"diagnostics: skew={verdict.skew_delta} min_delta={verdict.min_delta} "
+        f"tail_quantile={verdict.tail_quantile} "
         f"n_regressed={verdict.n_regressed}/{verdict.n_seeds} "
         f"opponent_mean_delta={result.opponent_mean_delta} "
         f"min_opponent_money={result.min_opponent_money}",
