@@ -330,15 +330,17 @@ def live_agent_package() -> Iterator[None]:
 
     ``resolve_agent("champion")`` imports ``agent.policy`` lazily. In the
     slow leg, ``tests/test_submit.py`` rehearses extracted submission
-    bundles first, and kaggle_environments' file-path agent loader leaves
-    each bundle's directory on ``sys.path``. Those bundles ship a stub
-    ``agent`` package carrying only ``main.py``, so the later import
-    resolves to the stub and dies with ``No module named 'agent.policy'`` --
-    the champion tests pass on their own and fail in the full run. Putting
-    the real source root first and dropping the cached modules makes this
-    test independent of collection order. The underlying cross-test leak
-    lives in ``tests/test_submit.py``, which is outside this slice's
-    footprint; it is written up in ``.afk/question.md`` for triage.
+    bundles first, and running a bundle in-process leaves its directory on
+    ``sys.path``. Those bundles ship a stub ``agent`` package carrying only
+    ``main.py``, so the later import resolves to the stub and dies with
+    ``No module named 'agent.policy'`` -- the champion tests pass on their
+    own and fail in the full run.
+
+    That cross-test leak is now fixed at the root: the repo-level
+    ``conftest.py`` restores ``sys.path`` after every test and evicts
+    anything imported from a leaked entry. This fixture is kept as local
+    defence-in-depth -- it pins the resolution this test depends on rather
+    than trusting a global fixture to stay in place.
     """
     agent_src = Path(__file__).resolve().parents[3] / "packages" / "agent" / "src"
 

@@ -12,6 +12,12 @@
 # THE GATE IS CI's GATE, VERBATIM (.github/workflows/ci.yml, ubuntu) — running here on
 # darwin, which jointly with the ubuntu PR gate covers the platform blind spot from both
 # sides. mypy is scoped to packages/agent/src exactly as in CI.
+#
+# ONE DELIBERATE EXCEPTION: CI's `full-suite` job also runs the suite UNSPLIT
+# (`uv run pytest -q`) to catch ordering-dependent pollution that the marker split hides.
+# It is omitted here on purpose — it would be a third full execution of the suite on
+# every slice, and a slice that introduces such pollution still gets caught by that job
+# on the afk/staging -> main integration PR, before anything reaches human-gated main.
 test_command = 'uv run ruff check . && uv run ruff format --check . && uv run mypy packages/agent/src && uv run pytest -m "not slow" -q && uv run pytest -m slow -q'
 permission_mode = "acceptEdits"
 

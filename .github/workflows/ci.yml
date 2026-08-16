@@ -25,6 +25,22 @@ jobs:
       - run: uv run pytest -m "not slow" -q
       - run: uv run pytest -m slow -q
 
+  # The marker split above is a fast-feedback device, not a full run: it happens
+  # to partition the suite in a way that hid an ordering-dependent import leak
+  # for months (a bare `pytest` failed 16 harness tests that both legs passed --
+  # see the root conftest.py). This job runs the suite unsplit so cross-marker
+  # pollution cannot regress silently again. It is a separate job on purpose, so
+  # the duplicated coverage costs runner time but no extra wall-clock.
+  full-suite:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.11"
+      - run: uv sync --all-packages --dev
+      - run: uv run pytest -q
+
   detect-agent-changes:
     runs-on: ubuntu-latest
     outputs:
