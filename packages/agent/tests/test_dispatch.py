@@ -832,3 +832,24 @@ def test_a_claim_never_outranks_a_higher_priority_class() -> None:
         view, NW_TILES, frozenset(), frozenset({(0, 4)}), frozenset(), prior_claims={1: (0, 0)}
     )
     assert sticky.claims[1] == (0, 4), "a P2 claim outranked P0 FEED"
+
+
+def test_a_claim_never_takes_a_tile_another_unit_already_holds() -> None:
+    # Found by a mutation check: dropping the already-claimed guard let two
+    # units be assigned the same tile, and nothing failed. A claim yields to
+    # the unit standing on the work, and its holder falls through to the
+    # ordinary nearest-task pass instead of doubling up.
+    tiles = make_view().tiles
+    tiles[0][0] = plant(planted_day=0, watered_today=False)  # (0, 0)
+    tiles[0][4] = plant(planted_day=0, watered_today=False)  # (4, 0)
+    view = make_view(
+        step=3 * 24,
+        hands=[(0, 0), (2, 0)],
+        tiles=tiles,
+        inventories=[{"WHEAT": 1}, {}, {}],
+    )
+    # Hand 1 stands on (0, 0); hand 2 walks in holding a stale claim on it.
+    sticky = dispatch(view, NW_TILES, prior_claims={2: (0, 0)})
+    assert sticky.claims[1] == (0, 0), "the unit standing on the work lost it"
+    assert sticky.claims[2] == (4, 0), "a claim double-booked an occupied tile"
+    assert len(set(sticky.claims.values())) == len(sticky.claims), "two units share a tile"
