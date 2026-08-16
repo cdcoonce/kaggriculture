@@ -86,10 +86,12 @@ class PolicyConfig:
     sheep_target: int = SHEEP_TARGET
     wheat_rush_tiles: int = _WHEAT_RUSH_TILES_DEFAULT
 
-    # Feed logistics. These two are coupled, not independent: batched wheat
-    # counts toward the mule threshold, so raising feed_batch_cap without
-    # room under hand_mule_load just routes loaded units back to the shed.
-    # Both default to today's behavior -- sweep them as a pair.
+    # Feed logistics. Both default to today's behavior. Raising
+    # feed_batch_cap measures WORSE (PICKUP +56% for flat FEED); the cause is
+    # that the batch drains the shed into unit inventories and doubles the
+    # concurrent fetcher count, collapsing the per-unit share -- self
+    # inflicted, not a market fact, and not the mule threshold, which binds
+    # on well under 1% of normal-day fetches. See dispatch.FEED_BATCH_CAP.
     feed_batch_cap: int = FEED_BATCH_CAP
     hand_mule_load: int = HAND_MULE_LOAD
 

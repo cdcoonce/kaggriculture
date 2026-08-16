@@ -368,12 +368,14 @@ def _unfed_herd(n: int) -> tuple[list[list[object]], frozenset[tuple[int, int]]]
 
 
 def test_feed_batch_cap_defaults_to_todays_one_unit_fetch() -> None:
-    # The shipped agent must be bit-identical until a gate promotes a pair.
-    # Batching measured WORSE than the default at cap 8 (PICKUP +56% for flat
-    # FEED, money -$2.6k/seed over 5 seeds): carried wheat counts toward
-    # _carry_load, so a loaded unit that then harvests trips HAND_MULE_LOAD
-    # and mules its own feed wheat back to the shed. The knob exists to sweep
-    # the pair, not because a batch is known to win.
+    # The shipped agent must be bit-identical until a gate says otherwise.
+    # Batching measured WORSE than the default at cap 8: PICKUP +56% for flat
+    # FEED, reproducible across bands and configs. The cause is the shed
+    # share, and endogenously so -- a batch drains the shed into inventories
+    # and pulls more units into fetching at once, so each gets less. It is
+    # not the mule threshold (binds on under 1% of normal-day fetches), and
+    # there was no round trip to amortize in the first place: corrected recon
+    # puts fetch legs at 2.5% of movement and 1.48 steps, the shortest bucket.
     tiles, herd = _unfed_herd(4)
     view = make_view(
         hands=[(4, 4)], tiles=tiles, shed={"WHEAT": 10}, inventories=[{"WHEAT": 1}, {}]

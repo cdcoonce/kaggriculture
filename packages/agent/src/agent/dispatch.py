@@ -25,12 +25,21 @@ UnitAction = list[object]
 HAND_MULE_LOAD = 9
 
 # How many WHEAT a unit may draw in one shed visit to feed animals. 1 is
-# today's behavior: one shed round trip per animal fed. Higher amortizes the
-# trip across a cluster, but it is NOT free -- carried wheat counts toward
-# _carry_load, so a batch pushes the unit toward HAND_MULE_LOAD, and any
-# field work it does on the way (a HARVEST) can tip it over and mule the
-# feed wheat straight back to the shed. The two constants are coupled and
-# must be swept together; the default stays at 1 until a pair is gated.
+# today's behavior and measurement says keep it there.
+#
+# The idea was to amortize a shed round trip across a cluster of animals.
+# There is no such trip to amortize: corrected recon puts fetch legs at 2.5%
+# of movement at 1.48 steps, the SHORTEST bucket on the board -- a fetch is
+# usually a unit already standing at the shed. (The earlier 18.4%-at-4.11-
+# steps figure was an instrument artifact; legs were being glued across the
+# nightly unit wipe.)
+#
+# Raising it measures worse anyway: PICKUP +56% for flat FEED, reproducible
+# across bands and configs. The cause is endogenous -- a batch drains the
+# shed into unit inventories and doubles the concurrent fetcher count, so
+# the per-fetcher share collapses. It is NOT the mule threshold, which binds
+# on under 1% of normal-day fetches; the regression survives intact with the
+# mule effectively disabled at hand_mule_load=20.
 FEED_BATCH_CAP = 1
 
 # Melon lifecycle (engine-verified against kaggle_environments 1.32.4): seed
@@ -570,7 +579,8 @@ def _carry_leg(
     ``quantity`` is sized by the caller, not here: the bounds that make a
     batch safe (this turn's mule threshold, the unit's existing load, and how
     many other units are drawing on the same shed) are only visible once
-    every task has been assigned. See the batch bounds in ``dispatch``.
+    every task has been assigned. See the batch bounds in ``dispatch``. It is
+    1 by default and measurement says leave it there -- see FEED_BATCH_CAP.
     """
     shed_access = nearest_shed_access(pos, view.unlocked_quadrants)
     if view.shed.get(item, 0) > 0:
@@ -713,27 +723,26 @@ def dispatch(
             if best is not None:
                 claim(i, best)
 
-    # One shed round trip per animal fed is the largest single walking cost in
-    # the game: recon at 34ee26c puts fetch legs at 18.4% of all movement and
-    # 4.11 steps apiece, the longest legs on the board, against 2.39 for a walk
-    # to field work. The engine caps no unit's inventory, so a unit at the shed
-    # can draw the whole herd's feed in one visit and then walk the cluster.
+    # Bounds on a batched feed fetch. The batch is off by default (see
+    # FEED_BATCH_CAP for why it measures worse); these keep the knob safe to
+    # sweep rather than making it a good idea.
     #
-    # Three bounds each silently defeat a naive batch, and none is visible from
-    # inside _carry_leg:
-    #   - the mule threshold, which is checked against LAST turn's inventory
-    #     before any task is assigned, so a batch landing the unit at or above
-    #     it routes the unit back to the shed to DROP instead of to the
-    #     animals -- manufacturing the trip the batch exists to remove. From
-    #     ENDGAME_DAY the threshold is 1, which correctly collapses the batch
-    #     to today's single unit;
+    # None of the three is visible from inside _carry_leg:
+    #   - the mule threshold, checked against LAST turn's inventory before any
+    #     task is assigned, so a batch landing the unit at or above it routes
+    #     the unit back to the shed to DROP. Measured to bind on under 1% of
+    #     normal-day fetches, so this is a guard, not the reason batching
+    #     fails. From ENDGAME_DAY the threshold is 1, which collapses the
+    #     batch to a single unit -- that path is most of what this clamp does;
     #   - the wheat this turn's SELL order is already sized against. The engine
     #     applies unit actions before market orders and SELL self-clamps to the
     #     live shed one unit at a time, so an overdraw shrinks the sale with no
     #     signal anywhere. Staying within the unfed-animal count keeps the draw
     #     inside market.py's own `animals_placed + feed_reserve` sell floor;
     #   - the other units fetching this turn, which would each size against the
-    #     same stock and collectively overdraw it.
+    #     same stock and collectively overdraw it. This is the term that
+    #     actually binds, and batching makes it bind harder by pulling more
+    #     units into fetching at once.
     feed_fetchers = [
         i
         for i, t in assigned.items()
