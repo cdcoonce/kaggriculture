@@ -133,6 +133,12 @@ def analyze(env, seat, turns_per_day, fertilize_ages):
     leg_reversals = defaultdict(int)
     turns_by_slot = defaultdict(int)
     leg_lengths = []
+    # Legs and their steps, keyed by the verb that closed the leg. See the
+    # accounting loop for why that verb is the walk's purpose.
+    legs_by_closer = Counter()
+    leg_steps_by_closer = Counter()
+    unterminated_legs = 0
+    unterminated_steps = 0
 
     for i, step in enumerate(steps):
         day = i // turns_per_day
@@ -159,6 +165,17 @@ def analyze(env, seat, turns_per_day, fertilize_ages):
                 open_leg[slot].append(verb)
             elif open_leg[slot]:
                 leg_lengths.append(len(open_leg[slot]))
+                # The verb that closes a leg is what the walk actually bought.
+                # A leg is by construction a run of moves terminated by a
+                # non-move, so the terminator is observable even though the
+                # dispatcher's intent is not: DROP closes a mule trip to the
+                # shed, PICKUP closes a fetch, a field verb closes a walk to
+                # work, and PASS closes a walk that bought nothing. Realized
+                # purpose, not intended -- which is the honest basis for
+                # sizing a lever, since an abandoned intent never cost a step
+                # it didn't take.
+                legs_by_closer[verb] += 1
+                leg_steps_by_closer[verb] += len(open_leg[slot])
                 open_leg[slot] = []
         for order in (_get(state, "action") or {}).get("market") or []:
             if order:
@@ -204,9 +221,37 @@ def analyze(env, seat, turns_per_day, fertilize_ages):
                 if stock > 0:
                     stocked_demand_by_day[day].add((x, y))
 
+    # Walks still in flight when the game ended bought nothing measurable, but
+    # they did cost steps, so they are reported rather than dropped -- silently
+    # discarding them would make the purpose buckets under-count `moves`.
+    for slot, residue in open_leg.items():
+        if residue:
+            unterminated_legs += 1
+            unterminated_steps += len(residue)
+
     moves = sum(v for k, v in verbs.items() if k in MOVES)
     idle = sum(v for k, v in verbs.items() if k in IDLE)
     productive = unit_turns - moves - idle
+
+    # Roll the closing verbs up into the four purposes a walk can serve. The
+    # buckets partition every closed leg, and steps across them plus the
+    # unterminated residue must equal `moves` -- asserted in the payload as
+    # `steps_accounted`, so a silent mis-bucketing is visible rather than
+    # absorbed.
+    def _purpose(closer):
+        if closer == "DROP":
+            return "shed_trip"
+        if closer == "PICKUP":
+            return "fetch"
+        if closer in IDLE:
+            return "wasted"
+        return "field_work"
+
+    purpose_legs = Counter()
+    purpose_steps = Counter()
+    for closer, n in legs_by_closer.items():
+        purpose_legs[_purpose(closer)] += n
+        purpose_steps[_purpose(closer)] += leg_steps_by_closer[closer]
 
     total_demand = sum(len(v) for v in demand_by_day.values())
     total_fires = sum(fert_fires_by_day.values())
@@ -243,6 +288,25 @@ def analyze(env, seat, turns_per_day, fertilize_ages):
             # flat per-unit rate points at the task set itself churning.
             "reversals_by_slot": dict(sorted(leg_reversals.items())),
             "turns_by_slot": dict(sorted(turns_by_slot.items())),
+        },
+        # Where the walking actually goes. `steps` is the lever-sizing number:
+        # a purpose's share of `moves` is the ceiling on what perfecting that
+        # purpose could return, before any discount for the part of the walk
+        # that was necessary anyway.
+        "leg_purpose": {
+            "legs": dict(purpose_legs.most_common()),
+            "steps": dict(purpose_steps.most_common()),
+            "step_share_of_moves": {
+                k: round(v / moves, 4) for k, v in purpose_steps.most_common()
+            },
+            "step_share_of_unit_turns": {
+                k: round(v / unit_turns, 4) for k, v in purpose_steps.most_common()
+            },
+            "unterminated_legs": unterminated_legs,
+            "unterminated_steps": unterminated_steps,
+            # Must equal `moves`. If it doesn't, the buckets are lying.
+            "steps_accounted": sum(purpose_steps.values()) + unterminated_steps,
+            "closers": dict(legs_by_closer.most_common()),
         },
         "verbs": dict(verbs.most_common()),
         "market_ops": dict(market_ops.most_common()),
