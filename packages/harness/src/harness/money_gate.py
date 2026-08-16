@@ -80,6 +80,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--catastrophic-k", type=float, default=5.0)
     parser.add_argument("--candidate-money-floor", type=float, default=3000.0)
     parser.add_argument("--opponent-money-floor", type=float, default=10000.0)
+    parser.add_argument("--degenerate-seed-fraction", type=float, default=0.25)
     parser.add_argument("--canary-seeds", type=int, default=6)
     parser.add_argument("--no-canary", action="store_true")
     parser.add_argument("--eval-dir", type=Path, default=Path("eval"))
@@ -91,10 +92,15 @@ def _build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     """Run the money gate and print the pinned stdout contract.
 
-    Exit codes: 0 PASS, 1 FAIL (the bound did not clear, no vetoes), 2
-    INVALID (any veto fired). A FAIL is ambiguous on its own -- read
-    ``mde_80`` alongside it, because precision is a property of the candidate
-    diff, not a constant.
+    Exit codes: 0 PASS, 1 FAIL, 2 INVALID (any veto fired). FAIL and INVALID
+    are different questions. INVALID means the RUN cannot be trusted -- rerun
+    it. FAIL means the run is sound and the CANDIDATE did not earn promotion,
+    either because the bound did not clear the threshold or because a
+    ``blockers`` entry refused it (``half_the_seeds_regress``: at least half
+    the seeds are strictly worse, whatever the mean says).
+
+    A FAIL on the bound alone is ambiguous -- read ``mde_80`` alongside it,
+    because precision is a property of the candidate diff, not a constant.
     """
     parser = _build_parser()
     args = parser.parse_args(argv)
@@ -119,6 +125,7 @@ def main(argv: list[str] | None = None) -> int:
         catastrophic_k=args.catastrophic_k,
         candidate_money_floor=args.candidate_money_floor,
         opponent_money_floor=args.opponent_money_floor,
+        degenerate_seed_fraction=args.degenerate_seed_fraction,
         canary_seeds=args.canary_seeds,
         run_canary=not args.no_canary,
     )
@@ -166,11 +173,13 @@ def main(argv: list[str] | None = None) -> int:
     )
     print(
         f"diagnostics: skew={verdict.skew_delta} min_delta={verdict.min_delta} "
+        f"n_regressed={verdict.n_regressed}/{verdict.n_seeds} "
         f"opponent_mean_delta={result.opponent_mean_delta} "
         f"min_opponent_money={result.min_opponent_money}",
         flush=True,
     )
     print(f"vetoes: {','.join(verdict.vetoes) if verdict.vetoes else 'none'}", flush=True)
+    print(f"blockers: {','.join(verdict.blockers) if verdict.blockers else 'none'}", flush=True)
     print(f"ledger: {ledger_path if ledger_path is not None else 'none'}", flush=True)
 
     if verdict.mean_delta < SILENT_DEGRADATION_DELTA:

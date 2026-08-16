@@ -1,7 +1,8 @@
-"""Paired money-difference gate math — t bound, HL bound, vetoes (issue #4)."""
+"""Paired money-difference gate math — t bound, HL diagnostic, vetoes (issue #4)."""
 
 from __future__ import annotations
 
+import itertools
 import math
 from dataclasses import fields
 from fractions import Fraction
@@ -13,6 +14,7 @@ from harness.stats import (
     gate_verdict,
     hl_lower_bound,
     hodges_lehmann,
+    mde_multiplier,
     money_verdict,
     sample_skewness,
     signed_rank_null_counts,
@@ -35,20 +37,22 @@ T_95_BY_DF = {
     255: 1.6508510924986624,
 }
 
-# (n, M, k, exact one-sided alpha) — recomputed by integer subset-sum DP and
-# cross-checked against exhaustive 2**n enumeration for every n <= 16.
+# (n, M, k, exact one-sided alpha) — the index is the LARGEST k with
+# P(W+ <= k) <= 0.05, and the alpha column is that exact tail, which is also
+# the REALIZED level of walsh[k]. Cross-checked against exhaustive 2**n
+# sign-flip enumeration below.
 SIGNED_RANK_TABLE = [
-    (6, 21, 3, Fraction(3, 64)),
-    (7, 28, 4, Fraction(5, 128)),
-    (8, 36, 6, Fraction(5, 128)),
-    (10, 55, 11, Fraction(43, 1024)),
-    (12, 78, 18, Fraction(189, 4096)),
+    (6, 21, 2, Fraction(3, 64)),
+    (7, 28, 3, Fraction(5, 128)),
+    (8, 36, 5, Fraction(5, 128)),
+    (10, 55, 10, Fraction(43, 1024)),
+    (12, 78, 17, Fraction(189, 4096)),
 ]
 SIGNED_RANK_LARGE = [
-    (20, 210, 61, 0.048653602600097656),
-    (40, 820, 287, 0.04861724743295781),
-    (60, 1830, 691, 0.04931442483830082),
-    (64, 2080, 794, 0.04974316507678737),
+    (20, 210, 60, 0.048653602600097656),
+    (40, 820, 286, 0.04861724743295781),
+    (60, 1830, 690, 0.04931442483830082),
+    (64, 2080, 793, 0.04974316507678737),
 ]
 
 
@@ -65,6 +69,19 @@ def _paired(
 def _flat_baseline(n: int) -> list[float]:
     """A baseline with modest, nonzero seed-to-seed spread (sd ~= 1414)."""
     return [37167.0 + 1000.0 * (i % 5) for i in range(n)]
+
+
+def _spread_baseline(n: int, sd: float) -> list[float]:
+    """A baseline whose per-seed money has EXACTLY dispersion ``sd``.
+
+    Uniform on a symmetric grid: sd = range / sqrt(12). Lets a fixture vary
+    the baseline's dispersion while holding the candidate's per-seed
+    behaviour fixed, which is how the `catastrophic_seed` scale defect was
+    found.
+    """
+    half_range = sd * math.sqrt(3.0)
+    step = 2.0 * half_range / (n - 1)
+    return [37167.0 - half_range + i * step for i in range(n)]
 
 
 class TestStudentTPpf:
@@ -113,7 +130,9 @@ class TestSignedRankNull:
             assert n * (n + 1) // 2 == m
             skip, alpha = signed_rank_skip_count(n)
             assert skip == k
-            assert Fraction(sum(signed_rank_null_counts(n)[:k]), 2**n) == exact
+            # The reported alpha is the INCLUSIVE tail P(W+ <= k), which is
+            # the level walsh[k] actually realizes.
+            assert Fraction(sum(signed_rank_null_counts(n)[: k + 1]), 2**n) == exact
             assert alpha == pytest.approx(float(exact), abs=1e-15)
         for n, m, k, exact_float in SIGNED_RANK_LARGE:
             assert n * (n + 1) // 2 == m
@@ -121,24 +140,52 @@ class TestSignedRankNull:
             assert skip == k
             assert alpha == pytest.approx(exact_float, abs=1e-9)
 
-    @pytest.mark.parametrize("n", list(range(6, 65)))
-    def test_signed_rank_exact_alpha_never_exceeds_nominal(self, n: int) -> None:
+    @pytest.mark.parametrize("n", list(range(5, 65)))
+    def test_signed_rank_reported_alpha_is_the_realized_level_and_is_maximal(self, n: int) -> None:
+        # The reported number must be the level the bound REALIZES, not an
+        # optimistic neighbour of it. `walsh[skip]` beats the null value iff
+        # W+ > skip, so the realized one-sided error is P(W+ <= skip).
         skip, alpha = signed_rank_skip_count(n, 0.05)
         assert skip is not None
-        assert alpha <= 0.05
-        # ...and it is the LARGEST such skip: one more would overshoot.
         counts = signed_rank_null_counts(n)
-        assert Fraction(sum(counts[: skip + 1]), 2**n) > Fraction(1, 20)
+        realized = Fraction(sum(counts[: skip + 1]), 2**n)
+        assert alpha == pytest.approx(float(realized), abs=1e-15)
+        assert realized <= Fraction(1, 20)
+        # ...and it is the LARGEST such index: one more would overshoot.
+        assert Fraction(sum(counts[: skip + 2]), 2**n) > Fraction(1, 20)
+
+    @pytest.mark.parametrize("n", [1, 2, 3, 4])
+    def test_no_distribution_free_bound_exists_below_five_seeds(self, n: int) -> None:
+        # With 2**4 = 16 sign assignments the smallest attainable tail is
+        # 1/16 = 0.0625. Returning the sample minimum and calling it a 95%
+        # bound would be a 1-in-16 lie, so there is no index at all.
+        assert signed_rank_skip_count(n, 0.05) == (None, 1.0)
+        assert hl_lower_bound([100.0 * (i + 1) for i in range(n)]) == -math.inf
+
+    @pytest.mark.parametrize("n", list(range(5, 14)))
+    def test_hl_bound_realized_level_by_exhaustive_sign_flip_enumeration(self, n: int) -> None:
+        # THE oracle for the index: for data symmetric about 0 the sign-flip
+        # randomization distribution IS the exact null, so enumerating all
+        # 2**n patterns gives the EXACT realized one-sided error of the
+        # shipped bound. Off-by-one indexing measured 0.078125 here at n=6.
+        base = [100.0 * (i + 1) + 0.5 * i * i for i in range(n)]  # distinct, no ties
+        hits = sum(
+            1
+            for signs in itertools.product((-1.0, 1.0), repeat=n)
+            if hl_lower_bound([s * b for s, b in zip(signs, base, strict=True)], 0.05) > 0.0
+        )
+        realized = Fraction(hits, 2**n)
+        _, reported = signed_rank_skip_count(n, 0.05)
+        assert realized <= Fraction(1, 20)
+        assert float(realized) == pytest.approx(reported, abs=1e-15)
 
 
 class TestWalshAverages:
-    def test_walsh_averages_has_n_times_n_plus_one_over_two_entries_and_is_sorted(self) -> None:
-        diffs = [5.0, -3.0, 11.0, 2.0, 0.5]
-        walsh = walsh_averages(diffs)
-        assert len(walsh) == 5 * 6 // 2
-        assert walsh == sorted(walsh)
-        assert min(walsh) == -3.0
-        assert max(walsh) == 11.0
+    def test_walsh_averages_enumerates_every_pair_including_the_diagonal(self) -> None:
+        walsh = walsh_averages([5.0, -3.0, 2.0])
+        # (i <= j), so the three singletons appear alongside the three pairs.
+        assert walsh == [-3.0, -0.5, 1.0, 2.0, 3.5, 5.0]
+        assert len(walsh_averages([0.0] * 5)) == 5 * 6 // 2
 
     def test_hodges_lehmann_equals_the_median_for_symmetric_input(self) -> None:
         diffs = [-4.0, -1.0, 0.0, 1.0, 4.0]
@@ -146,9 +193,19 @@ class TestWalshAverages:
         shifted = [d + 250.0 for d in diffs]
         assert hodges_lehmann(shifted) == 250.0
 
-    def test_hl_lower_bound_is_always_one_of_the_walsh_averages(self) -> None:
+    def test_hodges_lehmann_is_not_the_median_of_the_sample(self) -> None:
+        # The distinction the removed gate leg turned on: HL estimates the
+        # PSEUDOMEDIAN, and on a skewed sample it sits well away from the
+        # median of the data. Bounding it is not bounding the typical seed.
+        diffs = [-3000.0] * 9 + [12000.0] * 6
+        assert hodges_lehmann(diffs) == 4500.0
+        assert sorted(diffs)[len(diffs) // 2] == -3000.0
+
+    def test_hl_lower_bound_is_the_exact_order_statistic_the_index_names(self) -> None:
         diffs = [1200.0, -300.0, 4400.0, 800.0, 2100.0, 90.0, 5000.0, -50.0, 700.0, 1500.0]
-        assert hl_lower_bound(diffs) in set(walsh_averages(diffs))
+        skip, _ = signed_rank_skip_count(len(diffs))
+        assert skip == 10
+        assert hl_lower_bound(diffs) == walsh_averages(diffs)[10] == 395.0
 
 
 class TestSampleSkewness:
@@ -174,36 +231,84 @@ class TestMoneyVerdictFixtures:
         assert verdict.sd_delta == pytest.approx(2449.489742783178, abs=1e-12)
         assert verdict.stderr == pytest.approx(866.0254037844385, abs=1e-12)
         assert verdict.min_delta == 1000.0
+        assert verdict.n_regressed == 0
         assert verdict.t_crit == pytest.approx(1.8945786050900058, abs=1e-9)
         assert verdict.ci_lower_mean == pytest.approx(2859.246798525569, abs=1e-9)
         assert verdict.hl_shift == 4500.0
-        assert verdict.hl_skip == 6
-        assert verdict.ci_lower_hl == 3000.0
+        assert verdict.hl_skip == 5
+        assert verdict.ci_lower_hl == 2500.0
         assert verdict.ci_lower == pytest.approx(2859.246798525569, abs=1e-9)
-        assert verdict.mde_80 == pytest.approx(2153.3505158749117, abs=1e-9)
+        assert verdict.mde_80 == pytest.approx(2416.737635994086, abs=1e-9)
         assert verdict.vetoes == ()
+        assert verdict.blockers == ()
         assert verdict.passed is True
 
-    def test_jackpot_passes_the_mean_leg_and_is_stopped_by_the_rank_leg(self) -> None:
-        # TEETH-CHECK. 32 of 40 seeds get WORSE; eight jackpots drag the mean
-        # over the bar. Only the distribution-free rank leg refuses it.
-        deltas = [-300.0] * 32 + [14000.0] * 8
-        cand, base = _paired(deltas, _flat_baseline(40))
+    @pytest.mark.parametrize(
+        ("hl_side", "deltas"),
+        [
+            ("below", [0.0] * 24 + [20000.0] * 16),
+            ("above", [2000.0] * 39 + [-100000.0]),
+            ("equal", [2500.0] * 40),
+        ],
+    )
+    def test_ci_lower_is_the_t_bound_whatever_the_hl_diagnostic_says(
+        self, hl_side: str, deltas: list[float]
+    ) -> None:
+        # D1. `ci_lower` is the t bound on the mean, full stop. It used to be
+        # `min(t, hl)`, so on every shape where HL was the smaller number the
+        # HL leg silently WAS the gate. `hl_side` pins that this fixture set
+        # actually covers that case rather than only cases where t binds.
+        verdict = money_verdict(*_paired(deltas, _flat_baseline(40)), threshold=1000.0)
+        side = (
+            "equal"
+            if verdict.ci_lower_hl == verdict.ci_lower_mean
+            else ("below" if verdict.ci_lower_hl < verdict.ci_lower_mean else "above")
+        )
+        assert side == hl_side
+        assert verdict.ci_lower == verdict.ci_lower_mean
+
+    def test_a_sparse_but_real_gain_passes_where_the_conjunction_was_unpassable(self) -> None:
+        # D1 TEETH-CHECK, straight from adversarial/p6b. 40 of 64 seeds are
+        # EXACTLY unchanged and 24 gain $1,000,000 each: a true +$375,000 per
+        # seed. Every Walsh average of two unchanged seeds is itself zero, so
+        # the old HL leg reported a $0 bound and the conjunction could not
+        # pass this at ANY effect size.
+        deltas = [0.0] * 40 + [1_000_000.0] * 24
+        cand, base = _paired(deltas, _flat_baseline(64))
         verdict = money_verdict(cand, base, threshold=1000.0)
 
-        assert verdict.ci_lower_mean == pytest.approx(1016.7672081464327, abs=1e-9)
-        assert verdict.ci_lower_mean > 1000.0
-        assert verdict.ci_lower_hl == -300.0
-        assert verdict.ci_lower == -300.0
+        assert verdict.mean_delta == 375_000.0
+        assert verdict.median_delta == 0.0
+        assert verdict.ci_lower_hl == 0.0  # the leg that used to veto this
+        assert verdict.ci_lower == pytest.approx(273176.89062849234, abs=1e-6)
+        assert verdict.n_regressed == 0
         assert verdict.vetoes == ()
+        assert verdict.blockers == ()
+        assert verdict.passed is True
+
+    def test_jackpot_that_regresses_most_seeds_is_blocked_not_passed(self) -> None:
+        # D2 TEETH-CHECK, the exact adversarial/p4 fixture. 39 of 64 seeds
+        # LOSE $3,000 and 25 gain $12,000. The t bound clears the threshold,
+        # the median seed is $3,000 worse, and under the old conjunction this
+        # PASSED — the HL leg's bound was $4,500, because it bounds the
+        # pseudomedian and not the median.
+        deltas = [-3000.0] * 39 + [12000.0] * 25
+        cand, base = _paired(deltas, _spread_baseline(64, 12558.0))
+        verdict = money_verdict(cand, base, threshold=1000.0)
+
+        assert verdict.median_delta == -3000.0
+        assert verdict.n_regressed == 39
+        assert verdict.ci_lower == pytest.approx(1320.14221408821, abs=1e-9)
+        assert verdict.ci_lower > 1000.0
+        assert verdict.ci_lower_hl == 4500.0  # the old leg said $4,500: PASS
+        assert verdict.vetoes == ()
+        assert verdict.blockers == ("half_the_seeds_regress",)
         assert verdict.passed is False
 
-    def test_catastrophic_tail_passes_the_rank_leg_and_is_stopped_by_the_mean_leg(self) -> None:
-        # TEETH-CHECK. 19 of 20 seeds improve; one seed loses $100,000 and the
-        # true mean is NEGATIVE. Only the mean leg refuses it.
+    def test_catastrophic_tail_is_stopped_by_the_mean_bound(self) -> None:
+        # 19 of 20 seeds improve; one seed loses $100,000 and the true mean is
+        # NEGATIVE. The HL diagnostic reads +$2,000 and is ignored.
         deltas = [2000.0] * 19 + [-100000.0]
-        # A wide baseline keeps `catastrophic_seed` out of it, so this fixture
-        # isolates the mean leg as the sole stopper.
         baseline = [0.0 if i % 2 else 60000.0 for i in range(20)]
         cand, base = _paired(deltas, baseline)
         verdict = money_verdict(cand, base, threshold=1000.0)
@@ -215,9 +320,9 @@ class TestMoneyVerdictFixtures:
         assert verdict.vetoes == ()
         assert verdict.passed is False
 
-    def test_catastrophic_seed_veto_stops_what_both_bounds_pass(self) -> None:
-        # TEETH-CHECK. Neither bound is sufficient: 63 seeds at +$6,000 clear
-        # BOTH legs, and only the veto notices the seed that was torched.
+    def test_catastrophic_seed_veto_stops_what_the_bound_passes(self) -> None:
+        # TEETH-CHECK. 63 seeds at +$6,000 clear the bound comfortably and
+        # only the veto notices the seed that was torched.
         deltas = [6000.0] * 63 + [-100000.0]
         baseline = [24609.0 if i % 2 else 49725.0 for i in range(64)]
         cand, base = _paired(deltas, baseline)
@@ -225,10 +330,89 @@ class TestMoneyVerdictFixtures:
 
         assert verdict.ci_lower_mean == pytest.approx(1578.8025702979971, abs=1e-9)
         assert verdict.ci_lower_mean > 1000.0
-        assert verdict.ci_lower_hl == 6000.0
-        assert verdict.ci_lower_hl > 1000.0
+        assert verdict.n_regressed == 1
+        assert verdict.blockers == ()
         assert "catastrophic_seed" in verdict.vetoes
         assert verdict.passed is False
+
+
+class TestCatastrophicSeedScale:
+    def test_the_veto_is_invariant_to_the_baseline_arms_dispersion(self) -> None:
+        # D4 TEETH-CHECK, the adversarial/p8 reproduction. IDENTICAL candidate
+        # behaviour against four baselines that differ only in how much money
+        # varies seed to seed. Scaling the cut by sd(baseline LEVELS) fired at
+        # sd $512 and was silent at sd $40,951 — the same candidate, opposite
+        # verdicts, decided by the opponent.
+        deltas = [1500.0 + 40.0 * (i % 37) for i in range(64)]
+        deltas[0] = -3000.0
+        verdicts = [
+            money_verdict(*_paired(deltas, _spread_baseline(64, sd)), threshold=1000.0)
+            for sd in (512.0, 2048.0, 12558.0, 40951.0)
+        ]
+        assert [v.vetoes for v in verdicts] == [()] * 4
+        assert [v.passed for v in verdicts] == [True] * 4
+
+    def test_the_veto_tracks_the_dispersion_of_the_differences(self) -> None:
+        # Same worst seed, different noise scale in the DIFFERENCES: at
+        # sd(d) ~ $190 a -$3,000 seed is 15 sd out and catastrophic; at
+        # sd(d) ~ $3,800 the same seed is ordinary.
+        tight = [1500.0 + 10.0 * (i % 33) for i in range(64)]
+        tight[0] = -3000.0
+        loose = [1500.0 + 200.0 * (i % 33) for i in range(64)]
+        loose[0] = -3000.0
+
+        assert "catastrophic_seed" in money_verdict(*_paired(tight, _flat_baseline(64))).vetoes
+        assert "catastrophic_seed" not in money_verdict(*_paired(loose, _flat_baseline(64))).vetoes
+
+    def test_a_uniformly_degraded_arm_is_a_regression_not_a_catastrophic_seed(self) -> None:
+        # The silent-degradation signature: every seed ~-$13,240 with small
+        # dispersion. Anchoring the cut at zero would call the worst of those
+        # seeds a catastrophe and report INVALID, hiding the one diagnostic
+        # `harness.money_gate` tells operators to read.
+        deltas = [-13240.0 + 100.0 * i for i in range(64)]
+        verdict = money_verdict(*_paired(deltas, _flat_baseline(64)), threshold=1000.0)
+
+        assert verdict.vetoes == ()
+        assert verdict.blockers == ("half_the_seeds_regress",)
+        assert verdict.mean_delta < -5000.0
+        assert verdict.passed is False
+
+
+class TestHalfTheSeedsRegressBlocker:
+    def test_an_exactly_even_split_blocks(self) -> None:
+        deltas = [-100.0] * 32 + [50000.0] * 32
+        verdict = money_verdict(*_paired(deltas, _flat_baseline(64)), threshold=1000.0)
+        assert verdict.n_regressed == 32
+        assert verdict.blockers == ("half_the_seeds_regress",)
+        assert verdict.passed is False
+
+    def test_one_seed_short_of_half_does_not_block(self) -> None:
+        deltas = [-100.0] * 31 + [50000.0] * 33
+        verdict = money_verdict(*_paired(deltas, _flat_baseline(64)), threshold=1000.0)
+        assert verdict.n_regressed == 31
+        assert verdict.blockers == ()
+        assert verdict.passed is True
+
+    def test_unchanged_seeds_are_not_counted_as_regressions(self) -> None:
+        # D2's subtlety. A knob that does not bite on most seeds leaves them
+        # at EXACTLY zero, so the median is zero while nothing got worse. A
+        # sign test on `median_delta` would refuse this; counting strictly
+        # regressed seeds does not.
+        deltas = [0.0] * 40 + [20000.0] * 24
+        verdict = money_verdict(*_paired(deltas, _flat_baseline(64)), threshold=1000.0)
+        assert verdict.median_delta == 0.0
+        assert verdict.n_regressed == 0
+        assert verdict.blockers == ()
+        assert verdict.passed is True
+
+    def test_a_measured_real_tuning_gain_is_not_blocked(self) -> None:
+        # empirical/tc_improvement.json: melon_tile_target=16 over 40 real
+        # seeds, +$845 mean, 19 of 40 seeds regressed. Just inside the line,
+        # and it must stay inside it.
+        deltas = [-100.0] * 19 + [4000.0] * 21
+        verdict = money_verdict(*_paired(deltas, _flat_baseline(40)), threshold=1000.0)
+        assert verdict.n_regressed == 19
+        assert verdict.blockers == ()
 
 
 class TestMoneyVerdictVetoes:
@@ -244,13 +428,34 @@ class TestMoneyVerdictVetoes:
 
     def test_constant_nonzero_deltas_are_vetoed_as_degenerate_dispersion(self) -> None:
         # Zero dispersion across independent seeds is a harness fault, never
-        # certainty — both bounds read $2,500 and the run is still refused.
+        # certainty — the bound reads $2,500 and the run is still refused.
         cand, base = _paired([2500.0] * 10, _flat_baseline(10))
         verdict = money_verdict(cand, base, threshold=1000.0)
         assert verdict.ci_lower_mean == 2500.0
         assert verdict.ci_lower_hl == 2500.0
         assert verdict.vetoes == ("degenerate_dispersion",)
         assert verdict.passed is False
+
+    def test_a_single_grid_step_of_wobble_does_not_evade_degenerate_dispersion(self) -> None:
+        # D6 TEETH-CHECK, from adversarial/p3. Money lives on a $0.50 grid, so
+        # an exact `sd == 0` test is evaded by one seed differing by one grid
+        # step: 2500.0 on 63 seeds and 2500.5 on one gives sd $0.0625 and used
+        # to sail straight through to PASS.
+        deltas = [2500.0] * 63 + [2500.5]
+        verdict = money_verdict(*_paired(deltas, _flat_baseline(64)), threshold=1000.0)
+        assert verdict.sd_delta == pytest.approx(0.0625, abs=1e-9)
+        assert verdict.ci_lower > 1000.0
+        assert verdict.vetoes == ("degenerate_dispersion",)
+        assert verdict.passed is False
+
+    def test_a_real_arms_dispersion_is_nowhere_near_the_degeneracy_tolerance(self) -> None:
+        # The tolerance has to sit in the gap between "constant to within the
+        # money grid" and any real arm. The SMALLEST paired per-seed sd ever
+        # measured here is $6,214; the tolerance at this money scale is ~$3.70.
+        deltas = [3000.0 + 6214.0 * math.sin(i * 1.7) for i in range(64)]
+        verdict = money_verdict(*_paired(deltas, _flat_baseline(64)), threshold=1000.0)
+        assert verdict.sd_delta > 4000.0
+        assert verdict.vetoes == ()
 
     def test_too_few_seeds_never_passes_and_reports_infinite_lower_bounds(self) -> None:
         cand, base = _paired([50000.0] * 4, _flat_baseline(4))
@@ -279,6 +484,18 @@ class TestMoneyVerdictVetoes:
         assert "candidate_crash" in verdict.vetoes
         assert verdict.passed is False
 
+    def test_vetoes_and_blockers_are_separate_tuples(self) -> None:
+        # They mean different things downstream: a veto is INVALID (exit 2,
+        # rerun the measurement), a blocker is FAIL (exit 1, keep tuning).
+        deltas = [-100.0] * 32 + [50000.0] * 32
+        verdict = money_verdict(
+            *_paired(deltas, _flat_baseline(64)),
+            threshold=1000.0,
+            extra_vetoes=("candidate_crash",),
+        )
+        assert verdict.vetoes == ("candidate_crash",)
+        assert verdict.blockers == ("half_the_seeds_regress",)
+
     def test_vetoes_are_sorted_and_deduplicated(self) -> None:
         cand, base = _paired([2500.0] * 4, _flat_baseline(4))
         verdict = money_verdict(
@@ -303,6 +520,59 @@ class TestMoneyVerdictVetoes:
         exact = money_verdict(cand, base, threshold=loose.ci_lower)
         assert exact.ci_lower == loose.ci_lower
         assert exact.passed is False
+
+
+class TestMde80:
+    def test_mde_multiplier_is_the_t_sum_at_the_runs_own_df(self) -> None:
+        # D8. The z-sum 2.486475 is the n -> inf limit and understates the
+        # requirement at every finite n: 1.22% low at the default n=64.
+        assert mde_multiplier(64) == pytest.approx(2.516766, abs=1e-6)
+        assert mde_multiplier(64) > 2.486475
+        assert mde_multiplier(8) == pytest.approx(
+            student_t_ppf(0.95, 7) + student_t_ppf(0.80, 7), abs=1e-15
+        )
+        # ...and it converges DOWN to the normal constant from above.
+        assert mde_multiplier(100_000) == pytest.approx(2.486475, abs=1e-4)
+        assert mde_multiplier(1) == math.inf
+
+    def test_mde_80_is_the_multiplier_times_the_standard_error(self) -> None:
+        deltas = [float(x) for x in range(1000, 8001, 1000)]
+        verdict = money_verdict(*_paired(deltas, _flat_baseline(8)), threshold=1000.0)
+        assert verdict.mde_80 == pytest.approx(mde_multiplier(8) * verdict.stderr, abs=1e-12)
+
+    def test_mde_80_is_an_effect_ABOVE_the_threshold_not_an_absolute_effect(self) -> None:
+        # What the number does not promise: it is measured from the threshold
+        # the gate tests against, not from zero. An arm whose true per-seed
+        # gain equals mde_80 exactly sits ON the threshold-relative boundary
+        # only if the threshold is zero.
+        deltas = [2000.0 + 500.0 * math.sin(i) for i in range(64)]
+        verdict = money_verdict(*_paired(deltas, _flat_baseline(64)), threshold=1000.0)
+        detectable = verdict.threshold + verdict.mde_80
+        assert detectable > verdict.mde_80
+        assert verdict.mean_delta > detectable
+        assert verdict.passed is True
+
+
+class TestVerdictUsesTheExportedHelpers:
+    def test_the_verdicts_bounds_are_the_public_helpers_own_output(self) -> None:
+        # D9. These helpers are tested API; if `money_verdict` reimplements
+        # them inline, every test of them is testing something the gate does
+        # not run. Pin them to the shipped path.
+        deltas = [1200.0, -300.0, 4400.0, 800.0, 2100.0, 90.0, 5000.0, -50.0, 700.0, 1500.0]
+        cand, base = _paired(deltas, _flat_baseline(10))
+        verdict = money_verdict(cand, base, threshold=1000.0, min_seeds=8)
+
+        assert verdict.ci_lower_mean == t_lower_bound(
+            verdict.mean_delta, verdict.sd_delta, verdict.n_seeds, verdict.alpha
+        )
+        assert verdict.ci_lower_hl == hl_lower_bound(deltas, verdict.alpha)
+        assert verdict.hl_shift == hodges_lehmann(deltas)
+        assert verdict.mde_80 == mde_multiplier(verdict.n_seeds, verdict.alpha) * verdict.stderr
+
+    def test_a_zero_dispersion_bound_still_routes_through_t_lower_bound(self) -> None:
+        cand, base = _paired([2500.0] * 10, _flat_baseline(10))
+        verdict = money_verdict(cand, base, threshold=1000.0, min_seeds=8)
+        assert verdict.ci_lower_mean == t_lower_bound(2500.0, 0.0, 10) == 2500.0
 
 
 class TestExistingSurfaceIsUntouched:

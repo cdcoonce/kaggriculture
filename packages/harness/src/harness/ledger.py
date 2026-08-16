@@ -8,12 +8,27 @@ happen" (``eval/README.md``).
 from __future__ import annotations
 
 import json
+import math
 from pathlib import Path
 
 from harness.episodes import GameRow
 from harness.gate import GateResult, MoneyGateResult
 
 SCHEMA_VERSION = 1
+
+
+def json_float(value: float) -> float | None:
+    """``value``, or ``None`` when it is not finite.
+
+    ``json.dumps`` writes ``Infinity`` / ``-Infinity`` / ``NaN`` for
+    non-finite floats. Those are a Python extension, NOT JSON: RFC 8259 has
+    no such literals, so any conforming reader rejects the file. The money
+    verdict emits ``-inf`` bounds whenever ``too_few_seeds`` fires, which is
+    exactly the run most worth recording, so the ledger has to encode them.
+    ``null`` is the encoding: it round-trips through ``json.loads`` on every
+    parser and reads as "no bound", which is what ``-inf`` meant.
+    """
+    return value if math.isfinite(value) else None
 
 
 def _sanitize(spec: str) -> str:
@@ -164,16 +179,18 @@ def write_money_ledger(
             "stderr": verdict.stderr,
             "skew_delta": verdict.skew_delta,
             "min_delta": verdict.min_delta,
+            "n_regressed": verdict.n_regressed,
             "df": verdict.df,
             "t_crit": verdict.t_crit,
-            "ci_lower_mean": verdict.ci_lower_mean,
+            "ci_lower_mean": json_float(verdict.ci_lower_mean),
             "hl_shift": verdict.hl_shift,
             "hl_skip": verdict.hl_skip,
             "hl_exact_alpha": verdict.hl_exact_alpha,
-            "ci_lower_hl": verdict.ci_lower_hl,
-            "ci_lower": verdict.ci_lower,
-            "mde_80": verdict.mde_80,
+            "ci_lower_hl": json_float(verdict.ci_lower_hl),
+            "ci_lower": json_float(verdict.ci_lower),
+            "mde_80": json_float(verdict.mde_80),
             "vetoes": list(verdict.vetoes),
+            "blockers": list(verdict.blockers),
             "passed": verdict.passed,
             "opponent_mean_delta": result.opponent_mean_delta,
             "min_opponent_money": result.min_opponent_money,
@@ -185,6 +202,7 @@ def write_money_ledger(
             "catastrophic_k": result.catastrophic_k,
             "candidate_money_floor": result.candidate_money_floor,
             "opponent_money_floor": result.opponent_money_floor,
+            "degenerate_seed_fraction": result.degenerate_seed_fraction,
         },
         "seed_manifest": {
             "seed_base": result.seed_base,

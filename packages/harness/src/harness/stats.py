@@ -47,7 +47,13 @@ def gate_verdict(wins: int, losses: int, ties: int, threshold: float = 0.5) -> G
     )
 
 
-_MDE_Z_SUM = 2.486475  # z_.95 + z_.80, one-sided alpha=.05 at 80% power
+#: Dispersion at or below this FRACTION of the money scale is treated as no
+#: dispersion at all. Money lives on a $0.50 grid, so an exact ``sd == 0``
+#: test is trivially evaded: 2500.0 on 63 seeds and 2500.5 on one gives
+#: sd = $0.0625 and sails through. At the measured money scale (~$37,000)
+#: this tolerance is ~$3.70, about seven grid steps, while the SMALLEST
+#: paired per-seed sd ever measured on a real arm is $6,214 -- 1,679x larger.
+DISPERSION_REL_TOL = 1e-4
 
 
 @dataclass(frozen=True)
@@ -60,13 +66,48 @@ class MoneyVerdict:
     independent -- the defect ``gate_verdict`` inherits at ``gate.py:98-101``
     -- inflates one-sided Type I error to 0.079-0.124 against a nominal 0.05.
 
-    The gate is a CONJUNCTION of two one-sided 95% lower bounds on the paired
-    difference: a Student-t bound on the mean and a distribution-free
-    Hodges-Lehmann bound on the pseudomedian. ``ci_lower`` is the binding
-    (smaller) one. Neither is redundant: on right-skewed differences the HL
-    leg binds, on symmetric ones the t leg binds, and each catches a failure
-    the other cannot (a jackpot that hurts 80% of seeds; a rare catastrophic
-    seed).
+    PASS is the one-sided ``1 - alpha`` Student-t lower bound on the MEAN
+    paired difference, and nothing else: ``ci_lower > threshold``, with an
+    empty ``vetoes`` and an empty ``blockers``.
+
+    The Hodges-Lehmann bound (``hl_shift``, ``hl_skip``, ``hl_exact_alpha``,
+    ``ci_lower_hl``) is RECORDED but does NOT gate. It used to be ANDed with
+    the t bound, and that conjunction was measured to be a mistake three ways:
+
+    * it makes sparse-but-real gains structurally unpassable. Every Walsh
+      average of two at-or-below-threshold seeds is itself at or below
+      threshold, so with ``z`` unchanged seeds the HL leg can only clear the
+      threshold when ``z(z+1)/2 <= skip``. At n=64 that caps ``z`` at 39: 40
+      unchanged seeds plus 24 seeds improved by $1,000,000 each (a true
+      +$375,000/seed) could not pass at ANY effect size.
+    * it costs enormous power on ordinary sparse effects. On a genuine
+      +$4,000/seed improvement delivered by a quarter of the seeds, power was
+      0.0092 for the conjunction against 0.9813 for the t bound alone.
+    * it supplies no Type-I protection where the t leg leaks. On left-skewed
+      and catastrophe-mixture nulls the t leg realized 0.075-0.146 while the
+      HL leg realized 0.27-1.00, so the conjunction's level is the t leg's.
+
+    Its stated job -- protecting the typical seed -- it never did: it bounds
+    the PSEUDOMEDIAN (the median of pairwise averages), not the median, and
+    it passed a candidate measured to regress on 60.9% of its seeds. That job
+    now belongs to the ``half_the_seeds_regress`` blocker.
+
+    ``vetoes`` and ``blockers`` both force ``passed`` False and are kept
+    separate because they mean different things to an operator:
+    ``vetoes`` says the RUN cannot be trusted (INVALID, rerun it);
+    ``blockers`` says the run is fine and the CANDIDATE is not good enough
+    (FAIL, keep tuning).
+
+    ``mde_80`` PROMISES: a true improvement of ``threshold + mde_80`` per
+    seed clears the t bound about 80% of the time, if the per-seed
+    differences are roughly normal and the true sd equals the ``sd_delta``
+    this run happened to observe. It does NOT promise that ``mde_80`` alone
+    is detectable -- the gate tests against ``threshold``, not against zero,
+    so the detectable EFFECT is ``threshold + mde_80``. It is an estimate,
+    not a bound: ``sd_delta`` at n=64 is itself uncertain to about +-9%, and
+    the multiplier is the normal-theory ``t + t`` approximation to the
+    noncentral t, not the noncentral t. It says nothing about ``blockers``:
+    an improvement of any size still fails if half the seeds regress.
     """
 
     n_seeds: int
@@ -80,6 +121,7 @@ class MoneyVerdict:
     stderr: float
     skew_delta: float
     min_delta: float
+    n_regressed: int
     df: int
     t_crit: float
     ci_lower_mean: float
@@ -90,6 +132,7 @@ class MoneyVerdict:
     ci_lower: float
     mde_80: float
     vetoes: tuple[str, ...]
+    blockers: tuple[str, ...]
     passed: bool
 
 
@@ -237,10 +280,21 @@ def signed_rank_null_counts(n: int) -> list[int]:
 def signed_rank_skip_count(n: int, alpha: float = 0.05) -> tuple[int | None, float]:
     """Walsh-average index for a one-sided ``1 - alpha`` HL lower bound.
 
-    Returns the LARGEST ``k`` whose exact null tail ``P(W+ < k)`` still fits
-    inside ``alpha``, together with that exact probability -- so the realized
-    level is reported rather than assumed. ``(None, 1.0)`` when no ``k``
-    qualifies at all.
+    Returns the LARGEST ``k`` whose exact null tail ``P(W+ <= k)`` still fits
+    inside ``alpha``, together with that exact probability -- which is the
+    REALIZED one-sided level of ``walsh[k]``, not an optimistic neighbour of
+    it. ``(None, 1.0)`` when no ``k`` qualifies, which is every ``n <= 4``:
+    with 16 sign assignments the smallest attainable tail is 1/16 = 0.0625,
+    so no distribution-free 95% bound exists there and the caller must say so
+    rather than return the sample minimum and call it a bound.
+
+    The tail has to be ``P(W+ <= k)`` and not ``P(W+ < k)``: the bound
+    ``walsh[k]`` exceeds the null value exactly when ``W+ > k``, so the
+    one-sided error is ``P(W+ <= k)`` under the null. Indexing on the strict
+    tail returns ``k + 1`` and overshoots at every legal ``n`` -- measured by
+    exhaustive 2**n sign-flip enumeration at 0.078125 for n=6 against a
+    reported 0.046875, and still 0.05270 / 0.05002 / 0.05044 at n = 20 / 40 /
+    64.
     """
     counts = signed_rank_null_counts(n)
     total = 2**n
@@ -248,11 +302,11 @@ def signed_rank_skip_count(n: int, alpha: float = 0.05) -> tuple[int | None, flo
     best: int | None = None
     best_alpha = 1.0
     for k in range(len(counts)):
+        cumulative += counts[k]
         exact = cumulative / total
         if exact > alpha:
             break
         best, best_alpha = k, exact
-        cumulative += counts[k]
     return best, best_alpha
 
 
@@ -264,15 +318,31 @@ def hodges_lehmann(diffs: Sequence[float]) -> float:
 def hl_lower_bound(diffs: Sequence[float], alpha: float = 0.05) -> float:
     """Distribution-free one-sided lower confidence bound on the pseudomedian.
 
-    The ``k``-th smallest Walsh average, with ``k`` from
-    ``signed_rank_skip_count``. Exact under symmetry and robust to the
-    right-skewed difference distributions this gate actually sees; ``-inf``
-    when ``n`` is too small for any valid bound.
+    ``walsh[k]`` with ``k`` from ``signed_rank_skip_count``; ``-inf`` when
+    ``n`` is too small for any valid bound. Exact under symmetry.
+
+    Reported by ``money_verdict`` as a DIAGNOSTIC only. It does not gate --
+    see ``MoneyVerdict`` for the measurements that removed it from the PASS
+    rule -- but it is still recorded, so its index has to be right.
     """
     skip, _ = signed_rank_skip_count(len(diffs), alpha)
     if skip is None:
         return -math.inf
     return walsh_averages(diffs)[skip]
+
+
+def mde_multiplier(n: int, alpha: float = 0.05, power: float = 0.80) -> float:
+    """``t_{1-alpha, n-1} + t_{power, n-1}``: standard errors needed for ``power``.
+
+    The n-dependent form of the textbook ``z_{1-alpha} + z_{power}``. The
+    normal constant understates the requirement at every finite ``n`` -- at
+    the gate's default n=64 the z-sum is 2.486475 against a t-sum of
+    2.516766, a 1.22% understatement of the effect the run can actually
+    resolve. ``inf`` below n=2, where there is no dispersion estimate at all.
+    """
+    if n < 2:
+        return math.inf
+    return student_t_ppf(1.0 - alpha, n - 1) + student_t_ppf(power, n - 1)
 
 
 def sample_skewness(values: Sequence[float]) -> float:
@@ -312,9 +382,53 @@ def money_verdict(
     is part of the contract -- ``rerun-ledger`` compares the recorded bound
     against a freshly computed one by exact equality.
 
-    PASS requires ``ci_lower > threshold`` AND an empty veto tuple. A veto
-    invalidates the whole run and can never be outvoted by the size of the
-    measured gain.
+    PASS requires ALL THREE of
+
+    * ``ci_lower > threshold``, where ``ci_lower`` is the one-sided
+      ``1 - alpha`` Student-t lower bound on the MEAN paired difference and
+      nothing else. The Hodges-Lehmann bound is computed and recorded, but it
+      does not gate (see ``MoneyVerdict``);
+    * an empty ``vetoes`` -- the run is measuring what it claims to measure;
+    * an empty ``blockers`` -- the candidate itself is acceptable.
+
+    ``vetoes`` (the run is INVALID):
+
+    ``too_few_seeds``
+        fewer than ``min_seeds`` paired observations.
+    ``degenerate_dispersion``
+        a nonzero mean difference with no usable seed-to-seed dispersion,
+        judged against ``DISPERSION_REL_TOL`` times the money scale rather
+        than by ``sd == 0``. Across independent seeds that is a harness
+        fault, never certainty: the smallest paired sd measured on a real
+        40-seed arm is $6,214, and a genuine no-op differences to EXACTLY
+        zero on every seed (mean 0), which is not vetoed.
+    ``catastrophic_seed``
+        one seed lost more than ``catastrophic_k`` paired standard deviations
+        below ``min(0, mean_delta)``. The scale is the dispersion of the
+        DIFFERENCES; scaling it by the dispersion of baseline money LEVELS
+        (as this once did) makes the veto a property of the opponent -- the
+        same candidate behaviour fired at sd(baseline) $512 and was silent at
+        $40,951. Anchoring the cut at ``min(0, mean_delta)`` rather than at
+        zero keeps a uniformly-degraded arm (every seed ~-$13,240, tiny
+        dispersion) reading as the regression it is instead of as a single
+        catastrophe, and keeps an ordinary flat seed inside a large genuine
+        gain from tripping it.
+
+    ``blockers`` (the run is valid, the candidate FAILS):
+
+    ``half_the_seeds_regress``
+        at least half the seeds are strictly WORSE. This is the guard the
+        Hodges-Lehmann leg was justified by and never delivered: with the
+        conjunction in place a candidate that lost $3,000 on 39 of 64 seeds
+        and gained $12,000 on the other 25 PASSED, median difference
+        -$3,000. It is deliberately a count of REGRESSED seeds and not a
+        sign test on ``median_delta``: a sparse but real improvement leaves
+        most seeds EXACTLY unchanged and so has a zero median, and blocking
+        on a zero median would refuse the very gains the conjunction already
+        refused (40 unchanged seeds + 24 seeds at +$1,000,000). Measured on
+        the fixtures: 39/64 regressed blocks; 0/64 regressed with 24 seeds
+        improved does not; a 19/40 real tuning gain does not; an exact no-op
+        (0 regressed) does not, and fails on the bound instead.
     """
     if set(candidate_by_seed) != set(baseline_by_seed):
         raise ValueError(
@@ -334,15 +448,24 @@ def money_verdict(
     sd_delta = statistics.stdev(diffs) if n > 1 else 0.0
     stderr = sd_delta / math.sqrt(n) if n else 0.0
     min_delta = min(diffs) if n else 0.0
-    mde_80 = _MDE_Z_SUM * stderr
+    n_regressed = sum(1 for delta in diffs if delta < 0.0)
+    mde_80 = mde_multiplier(n, alpha) * stderr if n > 1 else math.inf
+
+    #: Scale-free stand-in for "one dollar": the typical absolute money in
+    #: play across both arms. Used only by `degenerate_dispersion`, so that
+    #: the tolerance does not grow with the size of the measured effect.
+    money_scale = (
+        sum(abs(candidate_by_seed[seed]) + abs(baseline_by_seed[seed]) for seed in seeds) / (2 * n)
+        if n
+        else 0.0
+    )
 
     computed: set[str] = set()
     if n < min_seeds:
         computed.add("too_few_seeds")
-    if sd_delta == 0.0 and mean_delta != 0.0:
+    if mean_delta != 0.0 and sd_delta <= DISPERSION_REL_TOL * money_scale:
         computed.add("degenerate_dispersion")
-    sd_base = statistics.stdev([baseline_by_seed[seed] for seed in seeds]) if n > 1 else 0.0
-    if sd_base > 0.0 and min_delta < -catastrophic_k * sd_base:
+    if sd_delta > 0.0 and min_delta < min(0.0, mean_delta) - catastrophic_k * sd_delta:
         computed.add("catastrophic_seed")
 
     if "too_few_seeds" in computed:
@@ -354,15 +477,17 @@ def money_verdict(
         ci_lower_hl = -math.inf
     else:
         t_crit = student_t_ppf(1.0 - alpha, n - 1)
-        ci_lower_mean = mean_delta if sd_delta == 0.0 else mean_delta - t_crit * stderr
-        walsh = walsh_averages(diffs)
-        hl_shift = statistics.median(walsh)
+        ci_lower_mean = t_lower_bound(mean_delta, sd_delta, n, alpha)
+        hl_shift = hodges_lehmann(diffs)
         skip, hl_exact_alpha = signed_rank_skip_count(n, alpha)
         hl_skip = -1 if skip is None else skip
-        ci_lower_hl = -math.inf if skip is None else walsh[skip]
+        ci_lower_hl = hl_lower_bound(diffs, alpha)
 
-    ci_lower = min(ci_lower_mean, ci_lower_hl)
+    # The t bound on the mean IS the criterion; `ci_lower` is kept as its
+    # name so ledger readers and `rerun-ledger` keep one field to compare.
+    ci_lower = ci_lower_mean
     vetoes = tuple(sorted(computed | set(extra_vetoes)))
+    blockers = ("half_the_seeds_regress",) if n > 0 and 2 * n_regressed >= n else ()
 
     return MoneyVerdict(
         n_seeds=n,
@@ -376,6 +501,7 @@ def money_verdict(
         stderr=stderr,
         skew_delta=sample_skewness(diffs),
         min_delta=min_delta,
+        n_regressed=n_regressed,
         df=n - 1,
         t_crit=t_crit,
         ci_lower_mean=ci_lower_mean,
@@ -386,5 +512,6 @@ def money_verdict(
         ci_lower=ci_lower,
         mde_80=mde_80,
         vetoes=vetoes,
-        passed=ci_lower > threshold and not vetoes,
+        blockers=blockers,
+        passed=ci_lower > threshold and not vetoes and not blockers,
     )

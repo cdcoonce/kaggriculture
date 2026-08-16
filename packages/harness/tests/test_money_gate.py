@@ -229,13 +229,13 @@ class TestRunMoneyGateVetoes:
         )
         assert "opponent_crash" in result.money_verdict.vetoes
 
-    def test_candidate_money_at_starting_cash_is_vetoed(
+    def test_a_dead_candidate_arm_is_vetoed_as_degenerate(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         # `<=`, not `<`: a fully degraded agent banks EXACTLY the $3,000 of
-        # starting cash, so the floor has to be inclusive.
-        rows = [_row(seed, seat, 40000.0) for seed in range(10) for seat in (0, 1)]
-        rows[3] = _row(1, 1, 3000.0)
+        # starting cash, so the floor has to be inclusive. A dead arm is dead
+        # on every seed, which is what this looks like.
+        rows = [_row(seed, seat, 3000.0) for seed in range(10) for seat in (0, 1)]
         candidate_arm = _result(rows)
         baseline_arm = _arm({seed: 0.0 for seed in range(10)}, candidate="frozen:base")
         self._patch_arms(monkeypatch, candidate_arm, baseline_arm)
@@ -245,12 +245,11 @@ class TestRunMoneyGateVetoes:
         )
         assert "candidate_degenerate" in result.money_verdict.vetoes
 
-    def test_baseline_money_at_starting_cash_is_vetoed(
+    def test_a_dead_baseline_arm_is_vetoed_as_degenerate(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         candidate_arm = _arm({seed: 0.0 for seed in range(10)})
-        rows = [_row(seed, seat, 40000.0) for seed in range(10) for seat in (0, 1)]
-        rows[5] = _row(2, 1, 2500.0)
+        rows = [_row(seed, seat, 2500.0) for seed in range(10) for seat in (0, 1)]
         baseline_arm = _result(rows, candidate="frozen:base")
         self._patch_arms(monkeypatch, candidate_arm, baseline_arm)
 
@@ -259,19 +258,66 @@ class TestRunMoneyGateVetoes:
         )
         assert "baseline_degenerate" in result.money_verdict.vetoes
 
-    def test_opponent_below_floor_is_vetoed(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        # A tape whose blanket `except Exception` fires degrades to all-PASS
-        # and ~$3,000 while `opponent_crashed` stays False: the floor is the
-        # only detector for a silently dead opponent.
+    @pytest.mark.parametrize(
+        ("n_dead_seeds", "expected"),
+        [(0, False), (1, False), (2, False), (3, True), (10, True)],
+    )
+    def test_the_money_floor_needs_a_fraction_of_seeds_not_a_single_game(
+        self, monkeypatch: pytest.MonkeyPatch, n_dead_seeds: int, expected: bool
+    ) -> None:
+        # D3 TEETH-CHECK. The per-GAME `any(row.candidate_money <= floor)`
+        # form had NO tolerance: one game in 80 turned a measured +$18,764
+        # gain whose bound cleared the threshold 14.7x into INVALID. The unit
+        # is now the seed and the trigger is `degenerate_seed_fraction`
+        # (0.25), so 2 of 10 seeds is a low tail and 3 of 10 is a dead arm.
         rows = [
-            _row(seed, seat, 40000.0, opponent_money=120000.0)
+            _row(seed, seat, 3000.0 if seed < n_dead_seeds else 40000.0)
             for seed in range(10)
             for seat in (0, 1)
         ]
-        rows[7] = _row(3, 1, 40000.0, opponent_money=3000.0)
+        candidate_arm = _result(rows)
+        baseline_arm = _arm({seed: 0.0 for seed in range(10)}, candidate="frozen:base")
+        self._patch_arms(monkeypatch, candidate_arm, baseline_arm)
+
+        result = run_money_gate(
+            "champion", "zoo:tape-thunder-719", 10, 0, baseline="frozen:base", run_canary=False
+        )
+        assert ("candidate_degenerate" in result.money_verdict.vetoes) is expected
+
+    def test_a_single_low_seed_no_longer_invalidates_a_large_real_gain(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # D3, the empirical reproduction (empirical/tc_regression_swapped):
+        # +$18,764/seed measured, bound $14,689 — 14.7x the threshold — and
+        # ONE baseline seed at $2,749.50 made the whole run INVALID.
+        candidate_arm = _arm({seed: 18764.0 for seed in range(40)}, base=40000.0)
+        baseline_rows = [
+            _row(seed, seat, 2749.5 if seed == 0 else 40000.0)
+            for seed in range(40)
+            for seat in (0, 1)
+        ]
+        baseline_arm = _result(baseline_rows, candidate="frozen:base")
+        self._patch_arms(monkeypatch, candidate_arm, baseline_arm)
+
+        result = run_money_gate(
+            "champion", "zoo:tape-thunder-719", 40, 0, baseline="frozen:base", run_canary=False
+        )
+        assert result.money_verdict.vetoes == ()
+        assert result.money_verdict.passed is True
+
+    def test_a_silently_dead_opponent_is_vetoed(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        # A tape whose blanket `except Exception` fires degrades to all-PASS
+        # and ~$3,000 while `opponent_crashed` stays False: the floor is the
+        # only detector for a silently dead opponent. It is dead on every
+        # seed, not on one game.
+        rows = [
+            _row(seed, seat, 40000.0, opponent_money=3000.0)
+            for seed in range(10)
+            for seat in (0, 1)
+        ]
         candidate_arm = _result(rows)
         baseline_arm = _arm(
-            {seed: 0.0 for seed in range(10)}, candidate="frozen:base", opponent_money=120000.0
+            {seed: 0.0 for seed in range(10)}, candidate="frozen:base", opponent_money=3000.0
         )
         self._patch_arms(monkeypatch, candidate_arm, baseline_arm)
 
@@ -280,6 +326,33 @@ class TestRunMoneyGateVetoes:
         )
         assert result.min_opponent_money == 3000.0
         assert "opponent_degenerate" in result.money_verdict.vetoes
+
+    def test_one_weak_opponent_seed_does_not_veto(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        # The opponent is the same tape on the same seed in BOTH arms, so a
+        # single weak opponent seed shifts both arms equally and cancels out
+        # of the paired difference entirely. Vetoing on it costs a whole run
+        # to protect a statistic it cannot move.
+        rows = [
+            _row(seed, seat, 40000.0, opponent_money=3000.0 if seed == 3 else 120000.0)
+            for seed in range(10)
+            for seat in (0, 1)
+        ]
+        candidate_arm = _result(rows)
+        baseline_arm = _result(
+            [
+                _row(seed, seat, 40000.0, opponent_money=3000.0 if seed == 3 else 120000.0)
+                for seed in range(10)
+                for seat in (0, 1)
+            ],
+            candidate="frozen:base",
+        )
+        self._patch_arms(monkeypatch, candidate_arm, baseline_arm)
+
+        result = run_money_gate(
+            "champion", "zoo:tape-thunder-719", 10, 0, baseline="frozen:base", run_canary=False
+        )
+        assert result.min_opponent_money == 3000.0
+        assert "opponent_degenerate" not in result.money_verdict.vetoes
 
 
 class TestRunMoneyGateCanary:

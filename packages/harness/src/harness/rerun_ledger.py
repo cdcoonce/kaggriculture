@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any
 
 from harness.gate import opponent_digest, run_gate, run_money_gate
+from harness.ledger import json_float
 
 COMPARED_FIELDS = ("wins", "losses", "ties", "any_candidate_crash", "passed")
 
@@ -30,12 +31,13 @@ MONEY_EXACT_FIELDS = (
     "sd_delta",
     "stderr",
     "min_delta",
+    "n_regressed",
     "hl_shift",
     "hl_skip",
     "hl_exact_alpha",
     "ci_lower_hl",
-    "mde_80",
     "vetoes",
+    "blockers",
     "passed",
 )
 
@@ -43,7 +45,12 @@ MONEY_EXACT_FIELDS = (
 #: and may differ in the last ulp across platforms; ``ci_lower_mean`` and
 #: ``ci_lower`` inherit that. This is exactly why a bootstrap bound was
 #: rejected -- it would put a stochastic number into this comparison.
-MONEY_CLOSE_FIELDS = ("t_crit", "ci_lower_mean", "ci_lower", "skew_delta")
+MONEY_CLOSE_FIELDS = ("t_crit", "ci_lower_mean", "ci_lower", "skew_delta", "mde_80")
+
+#: Money fields the ledger encodes as ``null`` when they are not finite (see
+#: ``harness.ledger.json_float``); the fresh value gets the same encoding
+#: before comparison, or a ``-inf`` bound would read as a mismatch.
+MONEY_NULLABLE_FIELDS = frozenset({"ci_lower_mean", "ci_lower", "ci_lower_hl", "mde_80"})
 
 #: Knobs recorded inside the money block, with the defaults that applied
 #: before each knob existed, so an older entry still replays.
@@ -53,6 +60,7 @@ _MONEY_KNOB_DEFAULTS = {
     "catastrophic_k": 5.0,
     "candidate_money_floor": 3000.0,
     "opponent_money_floor": 10000.0,
+    "degenerate_seed_fraction": 0.25,
 }
 
 
@@ -170,9 +178,12 @@ def _rerun_money(ledger_path: Path, payload: dict[str, Any]) -> int:
         "passed": result.candidate_result.verdict.passed,
     }
     fresh_money: dict[str, Any] = {
-        field: getattr(verdict, field) for field in MONEY_EXACT_FIELDS + MONEY_CLOSE_FIELDS
+        field: json_float(value) if field in MONEY_NULLABLE_FIELDS else value
+        for field in MONEY_EXACT_FIELDS + MONEY_CLOSE_FIELDS
+        for value in (getattr(verdict, field),)
     }
     fresh_money["vetoes"] = list(verdict.vetoes)
+    fresh_money["blockers"] = list(verdict.blockers)
 
     mismatched = []
     for field in COMPARED_FIELDS:
@@ -195,7 +206,11 @@ def _rerun_money(ledger_path: Path, payload: dict[str, Any]) -> int:
         )
     for field in MONEY_CLOSE_FIELDS:
         recorded = recorded_money[field]
-        matched = math.isclose(fresh_money[field], recorded, rel_tol=1e-9, abs_tol=1e-6)
+        fresh = fresh_money[field]
+        if recorded is None or fresh is None:
+            matched = recorded is None and fresh is None
+        else:
+            matched = math.isclose(fresh, recorded, rel_tol=1e-9, abs_tol=1e-6)
         if not matched:
             mismatched.append(field)
         print(

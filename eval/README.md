@@ -48,14 +48,19 @@ satisfies the Kaggle submission precondition.
 | `money_verdict` | `n_seeds`, `alpha`, `threshold` | one observation is one SEED, both seats averaged |
 | | `candidate_mean`, `baseline_mean`, `mean_delta`, `median_delta` | seat-averaged money, per seed |
 | | `sd_delta`, `stderr`, `skew_delta`, `min_delta`, `df` | dispersion of the paired difference |
-| | `t_crit`, `ci_lower_mean` | one-sided 95% Student-t lower bound on the mean |
-| | `hl_shift`, `hl_skip`, `hl_exact_alpha`, `ci_lower_hl` | Hodges-Lehmann pseudomedian and its exact distribution-free bound |
-| | `ci_lower` | `min(ci_lower_mean, ci_lower_hl)` — the binding leg |
-| | `mde_80` | effect this run could have resolved at 80% power; a FAIL means "no effect above this", never "no progress" |
-| | `vetoes`, `passed` | `passed = ci_lower > threshold AND vetoes == []` |
+| | `n_regressed` | seeds strictly WORSE than baseline; drives `half_the_seeds_regress` |
+| | `t_crit`, `ci_lower_mean`, `ci_lower` | one-sided 95% Student-t lower bound on the mean. `ci_lower` IS this bound — it is the whole criterion |
+| | `hl_shift`, `hl_skip`, `hl_exact_alpha`, `ci_lower_hl` | Hodges-Lehmann pseudomedian and its exact distribution-free bound. **Diagnostic only — it does not gate** |
+| | `mde_80` | how far ABOVE `threshold` a per-seed effect must be for this run to clear the bound ~80% of the time, at the `sd_delta` observed. Not a bound, and silent about `blockers` |
+| | `vetoes` | the RUN is invalid (exit 2): `too_few_seeds`, `degenerate_dispersion`, `catastrophic_seed`, `candidate_crash`, `baseline_crash`, `opponent_crash`, `candidate_degenerate`, `baseline_degenerate`, `opponent_degenerate`, `canary_crash` |
+| | `blockers` | the run is valid and the CANDIDATE fails (exit 1): `half_the_seeds_regress` |
+| | `passed` | `ci_lower > threshold AND vetoes == [] AND blockers == []` |
 | | `opponent_mean_delta`, `min_opponent_money` | market-suppression and dead-opponent diagnostics |
 | | `candidate_canary_ran`/`_crashed`, `baseline_canary_ran`/`_crashed` | unshelled crash canary |
-| | `min_seeds`, `catastrophic_k`, `candidate_money_floor`, `opponent_money_floor` | veto knobs, recorded so `rerun-ledger` reproduces the same vetoes |
+| | `min_seeds`, `catastrophic_k`, `candidate_money_floor`, `opponent_money_floor`, `degenerate_seed_fraction` | veto knobs, recorded so `rerun-ledger` reproduces the same vetoes |
+
+Bounds that are not finite (`ci_lower*`, `mde_80` under `too_few_seeds`) are
+written as JSON `null`, never as the non-standard `-Infinity` literal.
 | `per_seed` | `seed`, `candidate_money`, `baseline_money`, `delta` | the paired observations the statistic is computed from |
 | `baseline_rows` | same seven keys as `rows` | the baseline arm's per-GAME rows |
 
@@ -68,7 +73,7 @@ satisfies the Kaggle submission precondition.
   The `seed_manifest` block is the audit trail.
 - Multi-tape intersection–union: require `ci_lower > $1,000` on the
   designated primary tape **and** `ci_lower > $0` on every other available
-  tape, with `vetoes == []` on all of them. Requiring every component keeps
+  tape, with `vetoes == []` and `blockers == []` on all of them. Requiring every component keeps
   familywise error at or below α with no Bonferroni correction, and is the
   direct defense against a "gain" that is really market suppression against
   one frozen script.

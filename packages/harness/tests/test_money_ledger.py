@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import json
+import math
 from dataclasses import fields
 from pathlib import Path
 
 from harness.gate import MoneyGateResult, run_money_gate
-from harness.ledger import find_passing_promotion, write_ledger, write_money_ledger
+from harness.ledger import find_passing_promotion, json_float, write_ledger, write_money_ledger
 from harness.stats import MoneyVerdict
 
 TINY_CONFIG = {"episodeSteps": 48}
@@ -83,10 +84,10 @@ class TestWriteMoneyLedger:
         for field in fields(MoneyVerdict):
             recorded = block[field.name]
             live = getattr(result.money_verdict, field.name)
-            if field.name == "vetoes":
+            if field.name in {"vetoes", "blockers"}:
                 assert recorded == list(live)
             else:
-                assert recorded == live
+                assert recorded == json_float(live) if isinstance(live, float) else recorded == live
 
         assert block["opponent_mean_delta"] == result.opponent_mean_delta
         assert block["min_opponent_money"] == result.min_opponent_money
@@ -101,6 +102,56 @@ class TestWriteMoneyLedger:
         assert block["catastrophic_k"] == 5.0
         assert block["candidate_money_floor"] == 0.0
         assert block["opponent_money_floor"] == 0.0
+        assert block["degenerate_seed_fraction"] == 0.25
+
+
+def _reject_constant(literal: str) -> float:
+    raise AssertionError(f"non-JSON literal {literal!r} in the ledger")
+
+
+class TestLedgerIsValidJson:
+    def test_a_vetoed_run_writes_null_not_negative_infinity(self, tmp_path: Path) -> None:
+        # D7 TEETH-CHECK. `too_few_seeds` sets the bounds to -inf, and
+        # `json.dumps` writes that as the bare token `-Infinity`. RFC 8259
+        # has no such literal, so the entry is not JSON: every conforming
+        # reader outside CPython rejects the committed file.
+        result = run_money_gate(
+            "builtin:starter",
+            "builtin:pass",
+            2,
+            5,
+            baseline="builtin:starter",
+            workers=1,
+            extra_config=TINY_CONFIG,
+            min_seeds=8,
+            candidate_money_floor=0.0,
+            opponent_money_floor=0.0,
+            run_canary=False,
+        )
+        assert result.money_verdict.vetoes == ("too_few_seeds",)
+        assert result.money_verdict.ci_lower == -math.inf
+
+        text = _write(tmp_path, result).read_text(encoding="utf-8")
+        assert "Infinity" not in text
+        assert "NaN" not in text
+
+        payload = json.loads(text, parse_constant=_reject_constant)
+        block = payload["money_verdict"]
+        assert block["ci_lower"] is None
+        assert block["ci_lower_mean"] is None
+        assert block["ci_lower_hl"] is None
+
+    def test_every_float_the_ledger_writes_survives_a_strict_parser(self, tmp_path: Path) -> None:
+        text = _write(tmp_path, _sample_money_result()).read_text(encoding="utf-8")
+        payload = json.loads(text, parse_constant=_reject_constant)
+        assert payload["money_verdict"]["ci_lower"] is not None
+
+    def test_json_float_maps_only_the_non_finite_values(self) -> None:
+        assert json_float(0.0) == 0.0
+        assert json_float(-1234.5) == -1234.5
+        assert json_float(math.inf) is None
+        assert json_float(-math.inf) is None
+        assert json_float(math.nan) is None
 
     def test_identity_carries_baseline_and_digest(self, tmp_path: Path) -> None:
         payload = json.loads(_write(tmp_path, _sample_money_result()).read_text(encoding="utf-8"))

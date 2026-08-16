@@ -6,7 +6,7 @@ Eval protocol, issue #4.
 from __future__ import annotations
 
 import hashlib
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass
 from typing import Any
@@ -172,6 +172,7 @@ class MoneyGateResult:
     catastrophic_k: float
     candidate_money_floor: float
     opponent_money_floor: float
+    degenerate_seed_fraction: float
 
 
 def _seat_mean(rows: Sequence[GameRow], attribute: str) -> dict[int, float]:
@@ -208,6 +209,21 @@ def seat_mean_money(rows: Sequence[GameRow]) -> dict[int, float]:
 def seat_mean_opponent_money(rows: Sequence[GameRow]) -> dict[int, float]:
     """Same collapse, over ``GameRow.opponent_money``."""
     return _seat_mean(rows, "opponent_money")
+
+
+def _fraction_at_or_below(by_seed: Mapping[int, float], floor: float) -> float:
+    """Fraction of SEEDS whose seat-averaged money sits at or below ``floor``.
+
+    The unit is the seed, matching the statistic. The per-GAME form this
+    replaced (``any(row.candidate_money <= floor)``) is a hair trigger with
+    no tolerance at all: ONE game in 80 turned a measured +$18,764 gain whose
+    bound cleared the threshold 14.7x into INVALID. It is also perverse --
+    the larger the true improvement, the worse the comparison arm looks and
+    the likelier the veto fires on it.
+    """
+    if not by_seed:
+        return 0.0
+    return sum(1 for money in by_seed.values() if money <= floor) / len(by_seed)
 
 
 def opponent_digest(opponent: str) -> str | None:
@@ -248,6 +264,7 @@ def run_money_gate(
     catastrophic_k: float = 5.0,
     candidate_money_floor: float = 3000.0,
     opponent_money_floor: float = 10000.0,
+    degenerate_seed_fraction: float = 0.25,
     canary_seeds: int = 6,
     run_canary: bool = True,
     gate_type: str = "money",
@@ -264,6 +281,16 @@ def run_money_gate(
     would break pairing, silently change ``n``, and condition the sample on
     candidate-induced survival -- a candidate that breaks on its worst seeds
     would outscore one that never breaks.
+
+    ``degenerate_seed_fraction`` is the tolerance on the money floors: the
+    ``candidate_degenerate`` / ``baseline_degenerate`` / ``opponent_degenerate``
+    vetoes fire only when at least this FRACTION of seeds sits at or below the
+    relevant floor. The default 0.25 is chosen from both ends of the gap it
+    has to separate: a genuinely dead arm returns starting cash on ~100% of
+    seeds (the whole point of the floor), while the worst healthy arm ever
+    measured here put 1 seed of 40 -- 2.5% -- under $3,000 as an ordinary low
+    tail. 25% is ten times the observed healthy rate and four times below the
+    dead-arm rate, so neither end is close to the line.
 
     ``gate_type`` defaults to ``"money"``, which keeps these entries out of
     ``harness.ledger.find_passing_promotion``'s ``"promotion"`` filter and
@@ -382,11 +409,14 @@ def run_money_gate(
         extra_vetoes.append("baseline_crash")
     if any(row.opponent_crashed for row in all_rows):
         extra_vetoes.append("opponent_crash")
-    if any(row.candidate_money <= candidate_money_floor for row in candidate_result.rows):
+    if _fraction_at_or_below(candidate_by_seed, candidate_money_floor) >= degenerate_seed_fraction:
         extra_vetoes.append("candidate_degenerate")
-    if any(row.candidate_money <= candidate_money_floor for row in baseline_result.rows):
+    if _fraction_at_or_below(baseline_by_seed, candidate_money_floor) >= degenerate_seed_fraction:
         extra_vetoes.append("baseline_degenerate")
-    if min_opponent_money < opponent_money_floor:
+    opponent_by_seed = {
+        seed: min(candidate_opponent[seed], baseline_opponent[seed]) for seed in seeds
+    }
+    if _fraction_at_or_below(opponent_by_seed, opponent_money_floor) >= degenerate_seed_fraction:
         extra_vetoes.append("opponent_degenerate")
     if candidate_canary_crashed or baseline_canary_crashed:
         extra_vetoes.append("canary_crash")
@@ -429,4 +459,5 @@ def run_money_gate(
         catastrophic_k=catastrophic_k,
         candidate_money_floor=candidate_money_floor,
         opponent_money_floor=opponent_money_floor,
+        degenerate_seed_fraction=degenerate_seed_fraction,
     )
