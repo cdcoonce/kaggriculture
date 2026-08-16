@@ -36,6 +36,7 @@ MOVES = frozenset({"NORTH", "SOUTH", "EAST", "WEST"})
 # nothing -- notably a FERTILIZE task claimed against an empty shed, where
 # _carry_leg walks the unit to the tile and then has nothing to hand it.
 IDLE = frozenset({"PASS"})
+OPPOSITE = {"NORTH": "SOUTH", "SOUTH": "NORTH", "EAST": "WEST", "WEST": "EAST"}
 
 
 def _get(obs, key, default=None):
@@ -60,6 +61,23 @@ def _unit_actions(action):
         if hand:
             units.append(hand)
     return units
+
+
+def _indexed_unit_actions(action):
+    """(slot, verb-list) pairs. Slot 0 is the farmer, slot n the nth hand.
+
+    Slots are stable across turns because hands are only ever appended, which
+    is what makes a per-slot movement history meaningful."""
+    if not action:
+        return []
+    out = []
+    farmer = action.get("farmer")
+    if farmer:
+        out.append((0, farmer))
+    for n, hand in enumerate(action.get("hands") or []):
+        if hand:
+            out.append((n + 1, hand))
+    return out
 
 
 def _strawberry_tiles(farm):
@@ -111,18 +129,35 @@ def analyze(env, seat, turns_per_day, fertilize_ages):
     stocked_demand_by_day = defaultdict(set)
     plantings_by_day = defaultdict(int)
     seen_planted = set()
+    open_leg = defaultdict(list)
+    leg_reversals = defaultdict(int)
+    leg_lengths = []
 
     for i, step in enumerate(steps):
         day = i // turns_per_day
         state = step[seat]
 
-        for unit in _unit_actions(_get(state, "action")):
+        for slot, unit in _indexed_unit_actions(_get(state, "action")):
             unit_turns += 1
-            verbs[unit[0]] += 1
-            if unit[0] == "COLLECT_FERTILIZER":
+            verb = unit[0]
+            verbs[verb] += 1
+            if verb == "COLLECT_FERTILIZER":
                 collect_by_day[day] += 1
-            elif unit[0] == "FERTILIZE":
+            elif verb == "FERTILIZE":
                 fert_fires_by_day[day] += 1
+
+            # A "leg" is a maximal run of consecutive moves by one slot,
+            # ended by any non-move action. A reversal inside a leg is a unit
+            # that changed its mind mid-walk: targets are recomputed every
+            # turn with no persistent assignment, so every step back down a
+            # corridor it just walked up is pure waste.
+            if verb in MOVES:
+                if open_leg[slot] and open_leg[slot][-1] == OPPOSITE[verb]:
+                    leg_reversals[slot] += 1
+                open_leg[slot].append(verb)
+            elif open_leg[slot]:
+                leg_lengths.append(len(open_leg[slot]))
+                open_leg[slot] = []
         for order in (_get(state, "action") or {}).get("market") or []:
             if order:
                 market_ops[order[0]] += 1
@@ -193,6 +228,15 @@ def analyze(env, seat, turns_per_day, fertilize_ages):
         "productive": productive,
         "walking_share": round(moves / unit_turns, 4) if unit_turns else None,
         "idle_share": round(idle / unit_turns, 4) if unit_turns else None,
+        "walk_legs": {
+            "count": len(leg_lengths),
+            "mean_length": round(_mean(leg_lengths), 2) if leg_lengths else None,
+            "max_length": max(leg_lengths) if leg_lengths else None,
+            "reversals": sum(leg_reversals.values()),
+            "reversal_share_of_moves": (
+                round(sum(leg_reversals.values()) / moves, 4) if moves else None
+            ),
+        },
         "verbs": dict(verbs.most_common()),
         "market_ops": dict(market_ops.most_common()),
         "fertilizer": {
@@ -230,6 +274,16 @@ def report(res, args):
     print(f"  working  {res['productive']:>6,}  {res['productive'] / ut:.1%}" if ut else "")
     print()
     print("  top verbs: " + ", ".join(f"{k}={v}" for k, v in list(res["verbs"].items())[:12]))
+    print()
+    w = res["walk_legs"]
+    print("--- walk legs (a leg = consecutive moves between two work actions) ---")
+    print(f"  legs                 {w['count']:,}")
+    print(f"  mean / max length    {w['mean_length']} / {w['max_length']}")
+    if w["reversal_share_of_moves"] is not None:
+        print(
+            f"  mid-leg reversals    {w['reversals']:,}  "
+            f"({w['reversal_share_of_moves']:.1%} of all moves)  <- retargeting waste"
+        )
     print()
     f = res["fertilizer"]
     print("--- fertilizer ---")
