@@ -338,6 +338,7 @@ def _field_tasks(
     melon_tiles: frozenset[tuple[int, int]] = frozenset(),
     pasture_tiles: frozenset[tuple[int, int]] = frozenset(),
     strawberry_tiles: frozenset[tuple[int, int]] = frozenset(),
+    strawberry_plant_daily_cap: int = STRAWBERRY_PLANT_DAILY_CAP,
 ) -> list[_Task]:
     """Work needed on the target tiles, tagged with an urgency class.
 
@@ -415,7 +416,7 @@ def _field_tasks(
                 wheat_planted_today += 1
     plant_budget = max(0, plant_quota(view.day, len(tiles)) - wheat_planted_today)
     melon_budget = max(0, MELON_PLANT_DAILY_CAP - melon_planted_today)
-    strawberry_budget = max(0, STRAWBERRY_PLANT_DAILY_CAP - strawberry_planted_today)
+    strawberry_budget = max(0, strawberry_plant_daily_cap - strawberry_planted_today)
     # Shed count PLUS whatever any unit is already carrying: once a unit
     # PICKUPs the last shed animal, the shed's own count drops to 0, but the
     # PLACE task for its target tile must keep being generated (by this same
@@ -572,6 +573,7 @@ def dispatch(
     pasture_tiles: frozenset[tuple[int, int]] = frozenset(),
     strawberry_tiles: frozenset[tuple[int, int]] = frozenset(),
     prior_claims: dict[int, tuple[int, int]] | None = None,
+    strawberry_plant_daily_cap: int = STRAWBERRY_PLANT_DAILY_CAP,
 ) -> Actions:
     """Choose an action for every unit, and report what each one claimed.
 
@@ -612,7 +614,9 @@ def dispatch(
             chosen[i] = _mule(units[i], view.unlocked_quadrants)
             fielded.discard(i)
 
-    tasks = _field_tasks(view, tiles, melon_tiles, pasture_tiles, strawberry_tiles)
+    tasks = _field_tasks(
+        view, tiles, melon_tiles, pasture_tiles, strawberry_tiles, strawberry_plant_daily_cap
+    )
     # Wheat, melon and strawberry draw from separate seed pools; keyed by the
     # task's own crop so exhausting one never blocks the others' PLANT tasks.
     seed_budgets = {

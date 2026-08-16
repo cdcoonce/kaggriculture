@@ -297,7 +297,13 @@ def make_policy(
             sheep_target=resolved_config.sheep_target,
         )
         actions = dispatch(
-            view, tiles, melon_set, pasture_set, strawberry_set, prior_claims=unit_claims
+            view,
+            tiles,
+            melon_set,
+            pasture_set,
+            strawberry_set,
+            prior_claims=unit_claims,
+            strawberry_plant_daily_cap=resolved_config.strawberry_plant_daily_cap,
         )
         unit_claims.clear()
         unit_claims.update(actions.claims)

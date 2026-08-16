@@ -785,6 +785,41 @@ def test_strawberry_zone_falls_through_to_wheat_once_the_daily_cap_is_spent() ->
     )
 
 
+def test_strawberry_daily_cap_is_tunable_not_just_the_module_constant() -> None:
+    # The cap reached PolicyConfig but stopped at plan.py's seed-purchase
+    # target: _field_tasks still read the module constant, so every eval arm
+    # that "swept the cap" actually planted at STRAWBERRY_PLANT_DAILY_CAP and
+    # only varied how many seeds got bought. Pin the planting gate itself to
+    # the argument, or the knob is decorative.
+    day = 5
+    cap = 2
+    assert cap < STRAWBERRY_PLANT_DAILY_CAP, "fixture must sit below the default to be a real test"
+    zone = [(x, 0) for x in range(5)] + [(0, 1), (1, 1)]
+    planted, spare = zone[:cap], zone[cap]
+
+    tiles = make_view().tiles
+    for x, y in NW_TILES:
+        if (x, y) != spare:
+            tiles[y][x] = (
+                strawberry(planted_day=day, watered_today=True)
+                if (x, y) in planted
+                else plant(planted_day=day - 1, watered_today=False)
+            )
+
+    view = make_view(step=day * 24, hands=[spare], tiles=tiles, seeds=5, strawberry_seeds=5)
+    action = dispatch(
+        view,
+        NW_TILES,
+        frozenset(),
+        frozenset(),
+        frozenset(zone),
+        strawberry_plant_daily_cap=cap,
+    ).hands[0]
+    assert action == ["PLANT", "WHEAT"], (
+        f"a cap of {cap} was ignored: the tile planted strawberry anyway (got {action})"
+    )
+
+
 def test_a_walking_unit_keeps_its_claim_when_a_nearer_task_appears() -> None:
     # The dispatcher is stateless, so a unit walking toward a task re-competes
     # for it every single turn and loses it the moment anything nearer shows
