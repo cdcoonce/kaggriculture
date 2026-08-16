@@ -238,6 +238,35 @@ def test_melon_stale_harvest_ignores_watered_today() -> None:
     assert actions.hands[0] == ["HARVEST"]
 
 
+def test_melon_evicted_from_the_zone_keeps_melon_timing() -> None:
+    # melon_tiles is a proximity-ordered PREFIX of target_tiles, and a
+    # BUY_LAND re-orders target_tiles (constants.py says so explicitly, which
+    # is why pastures are pinned to a fixed frame). So the zone can shed a
+    # tile that already holds a melon. Keyed off zone membership, such a tile
+    # fell through to wheat's rules and was HARVESTed from age 5 -- but
+    # MELON's first_yield_day is 10, so the engine rejected every one of
+    # them, and because the task regenerates each turn the unit re-issued the
+    # same dead action while parked there. Measured at 27.1% of ALL HARVEST
+    # fires across three episodes, 100% melon, 100% out-of-zone.
+    tiles = make_view().tiles
+    tiles[2][2] = plant(crop="MELON", planted_day=0, watered_today=False, yield_units=2)
+    view = make_view(step=5 * 24, hands=[(2, 2)], tiles=tiles)  # age 5, engine needs 10
+    actions = dispatch(view, NW_TILES, frozenset({(3, 3)}))  # (2, 2) is NOT in the zone
+    assert actions.hands[0] == ["PASS"]
+
+
+def test_wheat_stranded_in_the_melon_zone_keeps_wheat_timing() -> None:
+    # The mirror of the same eviction: a re-ordered prefix can equally ADMIT a
+    # tile that already holds wheat. Measured against melon's window, that
+    # wheat matches no melon branch at all and is never harvested -- it just
+    # sits ripe until the game ends.
+    tiles = make_view().tiles
+    tiles[2][2] = plant(crop="WHEAT", planted_day=0, watered_today=False, yield_units=3)
+    view = make_view(step=5 * 24, hands=[(2, 2)], tiles=tiles)  # age 5, wheat is ripe
+    actions = dispatch(view, NW_TILES, frozenset({(2, 2)}))  # (2, 2) IS in the zone
+    assert actions.hands[0] == ["HARVEST"]
+
+
 def test_empty_melon_tile_gets_plant_melon_task() -> None:
     view = make_view(step=0, hands=[(2, 2)], melon_seeds=5)
     actions = dispatch(view, NW_TILES, frozenset({(2, 2)}))
