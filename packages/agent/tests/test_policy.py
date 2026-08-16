@@ -6,7 +6,13 @@ from __future__ import annotations
 from typing import Any
 
 from agent import policy
-from agent.constants import pasture_tiles
+from agent.constants import (
+    PASTURE_REFERENCE_QUADRANTS,
+    STRAWBERRY_REFERENCE_QUADRANTS,
+    melon_tiles,
+    pasture_tiles,
+    strawberry_tiles,
+)
 from agent.policy import PolicyConfig, make_policy
 from agent.shell import pass_action
 from viewfactory import built_pasture
@@ -397,3 +403,87 @@ def test_shed_crisis_teeth_check_emergency_valve_forces_wool_milk_sells() -> Non
     disabled_sells = _sells(disabled_action)
     assert "WOOL" not in disabled_sells
     assert "MILK" not in disabled_sells
+
+
+# --- Strawberry zone ------------------------------------------------------
+
+
+def test_default_config_leaves_the_strawberry_zone_empty() -> None:
+    # The whole mechanic ships dormant. Every strawberry code path is
+    # unreachable at a zero-tile zone, which is what lets the no-op paired
+    # gate below be a real check on the shared dispatch path rather than a
+    # check on freshly-added dead code.
+    config = PolicyConfig()
+    assert config.strawberry_tile_target == 0
+    assert strawberry_tiles(STRAWBERRY_REFERENCE_QUADRANTS, target=0) == []
+
+
+def test_strawberry_zone_does_not_move_melon_or_pasture() -> None:
+    # The zone is offset by the module-level MELON/PASTURE targets, so
+    # introducing it (or resizing it) must not slide either existing zone.
+    melon_before = melon_tiles(("NW", "NE"))
+    pasture_before = pasture_tiles(PASTURE_REFERENCE_QUADRANTS)
+    for target in (0, 8, 25):
+        zone = strawberry_tiles(STRAWBERRY_REFERENCE_QUADRANTS, target=target)
+        assert len(zone) == target
+        assert melon_tiles(("NW", "NE")) == melon_before
+        assert pasture_tiles(PASTURE_REFERENCE_QUADRANTS) == pasture_before
+        assert not set(zone) & set(pasture_before)
+
+
+def test_strawberry_zone_is_pinned_to_a_fixed_reference_frame() -> None:
+    # A strawberry tile is occupied for seventeen days, so it is mid-cycle
+    # across essentially any BUY_LAND. If the zone tracked the live
+    # unlocked_quadrants the way melon's does, a land purchase would
+    # re-sort target_tiles' nearest-shed-first ordering, drop occupied tiles
+    # out of the zone, and they would stop being watered -- two days later
+    # the engine turns them into WEEDs, losing the seed and every tick not
+    # yet produced, with no signal at all.
+    #
+    # Assert the drift is REAL before asserting the pin holds: comparing the
+    # pinned frame against itself would pass however decide() was wired,
+    # which is exactly the tautology this failure mode hides behind.
+    fixed = strawberry_tiles(STRAWBERRY_REFERENCE_QUADRANTS, target=12)
+    drifting = strawberry_tiles(("NW", "NE", "SW", "SE"), target=12)
+    assert drifting != fixed, (
+        "test setup: the zone no longer moves with the unlock state, so this "
+        "test can no longer detect decide() passing a live frame"
+    )
+
+    # ... and that decide() really passes the fixed frame, which is the
+    # wiring the drift above makes load-bearing.
+    seen: list[tuple[str, ...]] = []
+    real = policy.strawberry_tiles
+
+    def spy(unlocked: tuple[str, ...], target: int = 0) -> list[tuple[int, int]]:
+        seen.append(unlocked)
+        return real(unlocked, target)
+
+    policy.strawberry_tiles = spy  # type: ignore[assignment]
+    try:
+        make_policy(policy_config=PolicyConfig(strawberry_tile_target=12))(
+            raw_obs(unlocked_quadrants=("NW", "NE", "SW", "SE")), None
+        )
+    finally:
+        policy.strawberry_tiles = real  # type: ignore[assignment]
+
+    assert seen == [STRAWBERRY_REFERENCE_QUADRANTS], (
+        f"decide() sized the strawberry zone against {seen}, not the fixed frame"
+    )
+
+
+def test_strawberry_tiles_are_carved_out_of_the_wheat_zone() -> None:
+    # Both zones claiming the same ground would have wheat's seed line buying
+    # seed for tiles strawberry is about to occupy, and the dispatcher
+    # charging strawberry plantings against wheat's own daily quota.
+    def wheat_qty(market: list[list[Any]]) -> int:
+        return next((int(o[2]) for o in market if o[:2] == ["BUY_SEED", "WHEAT"]), 0)
+
+    baseline = make_policy()(raw_obs(), None)["market"]
+    with_berry = make_policy(policy_config=PolicyConfig(strawberry_tile_target=6))(raw_obs(), None)[
+        "market"
+    ]
+
+    assert wheat_qty(with_berry) < wheat_qty(baseline), (
+        "wheat still claims every tile it did before the strawberry zone existed"
+    )

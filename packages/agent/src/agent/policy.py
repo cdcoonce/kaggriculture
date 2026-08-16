@@ -20,14 +20,18 @@ from agent.constants import (
     MELON_TILE_TARGET,
     PASTURE_REFERENCE_QUADRANTS,
     SHEEP_TARGET,
+    STRAWBERRY_REFERENCE_QUADRANTS,
+    STRAWBERRY_TILE_TARGET,
     melon_tiles,
     pasture_tiles,
+    strawberry_tiles,
     target_tiles,
 )
-from agent.dispatch import dispatch
+from agent.dispatch import STRAWBERRY_PLANT_DAILY_CAP, dispatch
 from agent.market import (
     FERT_MIN_PRICE,
     MILK_MIN_PRICE,
+    STRAWBERRY_MIN_PRICE,
     VALVE_SOFT_CAP,
     WOOL_MILK_SELL_CAP,
     WOOL_MIN_PRICE,
@@ -76,6 +80,14 @@ class PolicyConfig:
     cow_target: int = COW_TARGET
     sheep_target: int = SHEEP_TARGET
     wheat_rush_tiles: int = _WHEAT_RUSH_TILES_DEFAULT
+
+    # Strawberry satellite. Defaults to a zero-tile zone, which makes every
+    # strawberry code path unreachable and the whole mechanic a bit-exact
+    # no-op against the pre-strawberry chassis -- the shipped agent is
+    # unchanged until a gate says otherwise.
+    strawberry_tile_target: int = STRAWBERRY_TILE_TARGET
+    strawberry_plant_daily_cap: int = STRAWBERRY_PLANT_DAILY_CAP
+    strawberry_floor: float = STRAWBERRY_MIN_PRICE
 
     # M2c (kaggriculture#59): two-tier shed valve + WOOL/MILK crash latches.
     # See the VALVE_*/*_CRASH_TRIGGER module constants above and market.py's
@@ -230,16 +242,26 @@ def make_policy(
         pastures = pasture_tiles(
             PASTURE_REFERENCE_QUADRANTS, target=resolved_config.pasture_tile_target
         )
+        # Fixed reference frame for the same reason pastures use one, and more
+        # urgently: a strawberry tile is occupied for seventeen days, so a zone
+        # that drifted on a BUY_LAND would orphan a live plant mid-cycle and it
+        # would weed two days later. See STRAWBERRY_REFERENCE_QUADRANTS.
+        strawberries = strawberry_tiles(
+            STRAWBERRY_REFERENCE_QUADRANTS, target=resolved_config.strawberry_tile_target
+        )
         melon_set = frozenset(melons)
         pasture_set = frozenset(pastures)
+        strawberry_set = frozenset(strawberries) - melon_set - pasture_set
         # Set difference, not a positional slice: pasture_set's positions are
         # anchored to the fixed reference frame above and are not guaranteed
         # to occupy any particular prefix of the *live* tiles ordering.
         # Capped at wheat_rush_tiles -- an explicit, config-driven bound on
         # wheat's own zone instead of an unbounded remainder.
-        wheat_tiles = [t for t in tiles if t not in melon_set and t not in pasture_set][
-            : resolved_config.wheat_rush_tiles
-        ]
+        wheat_tiles = [
+            t
+            for t in tiles
+            if t not in melon_set and t not in pasture_set and t not in strawberry_set
+        ][: resolved_config.wheat_rush_tiles]
         goose = _owned_count(view, "GOOSE") > 0
         cows_owned = _owned_count(view, "COW")
         sheep_owned = _owned_count(view, "SHEEP")
@@ -251,6 +273,9 @@ def make_policy(
             plantable_target_tiles=_plantable_targets(view, wheat_tiles),
             melon_seeds=view.seeds.get("MELON", 0),
             empty_melon_tiles=_plantable_targets(view, melons),
+            strawberry_seeds=view.seeds.get("STRAWBERRY", 0),
+            empty_strawberry_tiles=_plantable_targets(view, sorted(strawberry_set)),
+            strawberry_plant_daily_cap=resolved_config.strawberry_plant_daily_cap,
             wheat_on_hand=_wheat_on_hand(view),
             goose_owned=goose,
             hires_today=view.hires_today,
@@ -264,7 +289,7 @@ def make_policy(
             cow_target=resolved_config.cow_target,
             sheep_target=resolved_config.sheep_target,
         )
-        actions = dispatch(view, tiles, melon_set, pasture_set)
+        actions = dispatch(view, tiles, melon_set, pasture_set, strawberry_set)
 
         # Buys first, hires last: if the 10-slot cap ever truncates, it drops
         # trailing hires (which self-heal next turn) rather than a purchase.
@@ -287,6 +312,15 @@ def make_policy(
             wool_floor=resolved_config.wool_floor,
             milk_floor=resolved_config.milk_floor,
             fert_floor=resolved_config.fert_floor,
+            strawberry_floor=resolved_config.strawberry_floor,
+            # Derived, not a separate knob, so it can never drift out of sync
+            # with the zone it exists to serve -- and so it is exactly 0 (and
+            # the sell path exactly unchanged) whenever strawberry is off.
+            # One unit per zone tile covers a whole same-day planting cohort's
+            # age-9 or age-13 wave; a staggered zone never needs that many at
+            # once, so this is a safe upper bound on a single wave rather than
+            # the season's total draw.
+            fert_reserve=resolved_config.strawberry_tile_target,
             wool_crashed=wool_latch.latched,
             milk_crashed=milk_latch.latched,
             wool_milk_sell_cap=resolved_config.wool_milk_sell_cap,

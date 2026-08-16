@@ -19,6 +19,7 @@ from agent.market import (
     MELON_MILK_WOOL_BATCH_EXEMPT_DAY,
     MELON_MIN_PRICE,
     MILK_MIN_PRICE,
+    STRAWBERRY_MIN_PRICE,
     WOOL_MIN_PRICE,
     build_orders,
 )
@@ -830,3 +831,113 @@ def test_shipped_floors_permit_meaningful_volume_before_equilibrium() -> None:
             "too close to (or at/above) equilibrium and will latch shut almost "
             "immediately, backlogging the shared shed instead of selling"
         )
+
+
+# --- Strawberry sell path + fertilizer reserve ----------------------------
+
+
+def test_strawberry_sells_above_its_floor_and_holds_below() -> None:
+    # Without a sell path at all, harvested strawberry just accumulates in a
+    # 100-unit shed, trips the valve, and banks $0 -- growing the crop and
+    # selling it are not separable features.
+    sold = build_orders(
+        shed={"STRAWBERRY": 5},
+        prices={"STRAWBERRY": 120.0},
+        day=12,
+        hour=0,
+        wheat_reserve=0,
+        buys=[],
+    )
+    assert ["SELL", "STRAWBERRY", 2] in sold  # capped, not the whole shed
+
+    held = build_orders(
+        shed={"STRAWBERRY": 5},
+        prices={"STRAWBERRY": 80.0},  # under the $90 floor
+        day=12,
+        hour=0,
+        wheat_reserve=0,
+        buys=[],
+    )
+    assert not any(o[1] == "STRAWBERRY" for o in held)
+
+
+def test_strawberry_floor_permits_real_volume_before_it_latches() -> None:
+    # A floor pinned at or above the product's equilibrium quote permits
+    # almost nothing: market_price(item, I0) == base always, so every sale
+    # walks the price below the floor immediately and the crop is never sold.
+    # $90 sits at 75% of the $120 base, which the engine's own curve reaches
+    # only after ~16 units of net oversupply.
+    assert STRAWBERRY_MIN_PRICE < 120.0, "floor is at or above equilibrium: permits ~0 sales"
+    assert STRAWBERRY_MIN_PRICE == 90.0
+
+
+def test_strawberry_is_dumped_at_liquidation_regardless_of_floor() -> None:
+    dumped = build_orders(
+        shed={"STRAWBERRY": 9},
+        prices={"STRAWBERRY": 20.0},  # far below the floor
+        day=29,
+        hour=0,
+        wheat_reserve=0,
+        buys=[],
+    )
+    assert ["SELL", "STRAWBERRY", 9] in dumped
+
+
+def test_fertilizer_reserve_holds_back_input_units_from_the_sell_path() -> None:
+    # Fertilizer is the one product that is also an INPUT: a reserved unit is
+    # a doubled strawberry tick at age 9 or 13. Selling the shed to zero
+    # between animal collections makes the FERTILIZE task a silent no-op --
+    # the engine's handler bails when _inv_take fails and reports nothing.
+    prices = {"FERTILIZER": 100.0}
+    unreserved = build_orders(
+        shed={"FERTILIZER": 6}, prices=prices, day=10, hour=0, wheat_reserve=0, buys=[]
+    )
+    assert ["SELL", "FERTILIZER", 4] in unreserved  # the usual 4/turn cap
+
+    reserved = build_orders(
+        shed={"FERTILIZER": 6},
+        prices=prices,
+        day=10,
+        hour=0,
+        wheat_reserve=0,
+        buys=[],
+        fert_reserve=4,
+    )
+    assert ["SELL", "FERTILIZER", 2] in reserved  # 6 held minus 4 reserved
+
+    fully_reserved = build_orders(
+        shed={"FERTILIZER": 3},
+        prices=prices,
+        day=10,
+        hour=0,
+        wheat_reserve=0,
+        buys=[],
+        fert_reserve=4,
+    )
+    assert not any(o[1] == "FERTILIZER" for o in fully_reserved)
+
+
+def test_fertilizer_reserve_is_released_at_liquidation() -> None:
+    # By the liquidation window there is no future tick left to fertilize
+    # for, so a held-back unit is worth strictly more sold than kept.
+    dumped = build_orders(
+        shed={"FERTILIZER": 6},
+        prices={"FERTILIZER": 100.0},
+        day=29,
+        hour=0,
+        wheat_reserve=0,
+        buys=[],
+        fert_reserve=4,
+    )
+    assert ["SELL", "FERTILIZER", 6] in dumped
+
+
+def test_default_fert_reserve_leaves_the_shipped_sell_path_untouched() -> None:
+    # fert_reserve defaults to 0, so the pre-strawberry behavior is exact.
+    prices = {"FERTILIZER": 100.0, "WHEAT": 25.0, "EGG": 50.0}
+    shed = {"WHEAT": 10, "EGG": 2, "FERTILIZER": 3}
+    assert build_orders(
+        shed=shed, prices=prices, day=6, hour=0, wheat_reserve=3, buys=[]
+    ) == build_orders(
+        shed=shed, prices=prices, day=6, hour=0, wheat_reserve=3, buys=[], fert_reserve=0
+    )

@@ -171,6 +171,25 @@ WOOL_MILK_SELL_CAP = 4
 # wool: fertilizer's own floor ($15) already gates *whether* to sell at all.
 FERT_SELL_CAP = 4
 
+# Strawberry is the sharpest crashable on the board. Its above-curve is
+# LINEAR against T=100 (melon's is quadratic against T=300, wheat's is log
+# against T=400), so measured against the engine's own market_price it loses
+# 25% of its $120 base after only ~16 units of net oversupply, 50% after ~31,
+# and bottoms out at the $1 floor by ~62. Wheat needs thousands of units to
+# move at all. A season's town demand is only ~437 units and the market is
+# SHARED with the opponent, so the whole crop has to be metered out against
+# that drain rather than banked and dumped.
+#
+# The floor is the real throttle and is set at 75% of base -- the point the
+# price curve reaches at ~16 units of oversupply. It self-limits: sell until
+# the price has been walked down a quarter, then stop and let the town's
+# shops drain the glut back off before selling again. The per-turn cap
+# mirrors melon's for the same reason melon has one (never dump one harvest
+# windfall down the curve in a single order); with the floor doing the real
+# work, the cap only has to stop a single-turn spike.
+STRAWBERRY_MIN_PRICE = 90.0
+STRAWBERRY_SELL_CAP = 2
+
 # M2c (kaggriculture#59): shared per-turn cap for tier-1 (soft) valve sells,
 # applied uniformly across MELON/MILK/WOOL/FERTILIZER in place of each
 # product's own (tighter) cap -- see PolicyConfig.valve_soft_cap and the
@@ -262,6 +281,8 @@ def build_orders(
     wool_floor: float = WOOL_MIN_PRICE,
     milk_floor: float = MILK_MIN_PRICE,
     fert_floor: float = FERT_MIN_PRICE,
+    strawberry_floor: float = STRAWBERRY_MIN_PRICE,
+    fert_reserve: int = 0,
     wool_crashed: bool = False,
     milk_crashed: bool = False,
     wool_milk_sell_cap: int = WOOL_MILK_SELL_CAP,
@@ -305,6 +326,29 @@ def build_orders(
         elif melon_price >= MELON_MIN_PRICE:
             orders.append(_capped_sell("MELON", shed, MELON_SELL_CAP, liquidating=False))
 
+    # Straight after melon, ahead of milk/wool. The index-0 law is about
+    # CONTESTED goods -- an order at an earlier slot fully executes, moving
+    # the price, before either player's later order -- and strawberry is the
+    # one crop here with real shared demand: 4 of the 8 shop types buy it,
+    # against melon's 0, so the opponent is plausibly selling into the same
+    # book. Ordering among our own different products is otherwise neutral
+    # (each item walks its own inventory curve independently), so the only
+    # thing this position buys is a better slot in the one race that exists.
+    if shed.get("STRAWBERRY", 0) > 0 and _satellite_sell_allowed(day, hour, valve_tier):
+        strawberry_order = _valve_sell(
+            "STRAWBERRY",
+            shed,
+            prices.get("STRAWBERRY", 0.0),
+            strawberry_floor,
+            False,  # no crash latch: the floor is already the self-limiting throttle
+            STRAWBERRY_SELL_CAP,
+            liquidating,
+            valve_tier,
+            valve_soft_cap,
+        )
+        if strawberry_order is not None:
+            orders.append(strawberry_order)
+
     if shed.get("MILK", 0) > 0 and _satellite_sell_allowed(day, hour, valve_tier):
         milk_order = _valve_sell(
             "MILK",
@@ -335,10 +379,20 @@ def build_orders(
         if wool_order is not None:
             orders.append(wool_order)
 
-    if shed.get("FERTILIZER", 0) > 0:
+    # Fertilizer is the one product that is also an INPUT. Every unit held
+    # back here is a unit a strawberry tile can spend at age 9 or 13, and the
+    # engine pays a doubled tick only when the tile is covered -- so an
+    # unreserved sell path drains the shed to zero between animal collections
+    # and the FERTILIZE task silently no-ops (the engine's handler bails when
+    # _inv_take fails, with no error). Zeroed while liquidating, exactly like
+    # wheat_reserve below: on the last days there is no future tick left to
+    # fertilize for, so the units are worth more sold.
+    fert_held_back = 0 if liquidating else fert_reserve
+    fert_sellable = max(0, shed.get("FERTILIZER", 0) - fert_held_back)
+    if fert_sellable > 0:
         fert_order = _valve_sell(
             "FERTILIZER",
-            shed,
+            {**shed, "FERTILIZER": fert_sellable},
             prices.get("FERTILIZER", 0.0),
             fert_floor,
             False,  # fertilizer has no crash latch -- the valve covers its backlog
