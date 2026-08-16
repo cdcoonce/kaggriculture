@@ -65,6 +65,45 @@ common-random-numbers refinement. More seeds is the only available lever.
 `sd_delta` ~13-16k is the floor, so `mde_80` at n=64 is ~$4,000 — no knob worth
 less than that is detectable at the repo's default confirm size.
 
+> ### CORRECTION (appended same session, after the melon confirm)
+>
+> **The two sentences above in bold are wrong and are retracted.** They are left
+> in place rather than edited away, because the prereg's whole purpose is that it
+> cannot be rewritten after seeing a result.
+>
+> The *mechanism* survives: `_spawn_weeds` short-circuits, so the RNG draw count
+> really is policy-dependent, and a policy change really can desynchronize the
+> weed/shop stream. That is code, and it is checkable.
+>
+> What does **not** survive is the inference that 38-57% is a floor, that
+> `sd_delta` ~13-16k is irreducible, or that no CRN refinement could help.
+> Recomputing pairing quality across all 30 ledgered arms with per-seed data
+> gives a range of **-17.8% to +94.5%**:
+>
+> | arm | var. reduction | sd_delta |
+> |---|---|---|
+> | `strawberry_tile_target: 32` | **-17.8%** (worse than independent) | 14,335 |
+> | `melon_tile_target: 20` | -13.2% | 19,029 |
+> | `hand_mule_load: 20` (four runs) | 38.0% - 56.5% | 12,855 - 15,786 |
+> | melon crop-keyed fix (n=128) | **81.8%** | 7,283 |
+> | `melon_tile_target: 18` | 86.2% | 5,957 |
+> | `wheat_rush_tiles: 40` | **94.5%** | 4,086 |
+>
+> Pairing quality tracks how violently an arm perturbs the trajectory, which is
+> consistent with the mechanism — but it is arm-specific, not a property of the
+> harness, and low-perturbation arms measure cleanly at n=20.
+>
+> The genuinely interesting residue, which is a **hypothesis and not a finding**:
+> `hand_mule_load`, documented as binding on under 1% of normal-day fetches,
+> decoheres *more* than the melon fix, which changes 27% of all HARVEST fires and
+> directly empties tiles. That is backwards on any "bigger behavioural change
+> decoheres more" story. It is what a noise-mediated effect looks like next to a
+> mechanism-mediated one, but nothing here establishes that, and it must not be
+> cited as if it did.
+>
+> This correction was produced by checking the claim against every arm on disk
+> instead of against the one arm that motivated it.
+
 ## Fixed design (locked before launch)
 
 Band: **620000**, disjoint from every burned band. Nested across tapes, so all
