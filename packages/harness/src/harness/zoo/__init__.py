@@ -19,6 +19,16 @@ imported, and gate-excluded by design: they join ``extended_zoo()`` only,
 never ``SCRIPTED``/``gate_zoo()``, so the gate roster stays reproducible and
 machine-independent regardless of which tapes (if any) happen to be present
 on the machine running it.
+
+Kernel-player members (``kernel-<stem>``) are the same kind of special case:
+each one plays a decoded action plan ported from a published Kaggle
+competitor solution, self-repairing against the live observation rather than
+replaying blind (see ``harness.zoo.kernel_player``'s module docstring for the
+full design). The plan JSON is likewise third-party data, MACHINE-LOCAL by
+default at ``harness.zoo.kernel_player.DEFAULT_KERNEL_DIR``
+(``~/.kaggriculture/kernels``), discovered at runtime, and gate-excluded by
+the same construction as tapes: ``extended_zoo()`` only, never
+``SCRIPTED``/``gate_zoo()``.
 """
 
 from __future__ import annotations
@@ -29,6 +39,7 @@ from typing import Any
 from harness.zoo.chaos_legal_random import make_agent as _make_chaos_legal_random
 from harness.zoo.fert_market_crasher import make_agent as _make_fert_market_crasher
 from harness.zoo.index_front_runner import make_agent as _make_index_front_runner
+from harness.zoo.kernel_player import discover_kernels as _discover_kernels
 from harness.zoo.land_rush_hoarder import make_agent as _make_land_rush_hoarder
 from harness.zoo.melon_dumper import make_agent as _make_melon_dumper
 from harness.zoo.melon_rusher import make_agent as _make_melon_rusher
@@ -74,10 +85,17 @@ EXTENDED: dict[str, Agent] = {
 def extended_zoo() -> dict[str, Agent]:
     """Gate zoo plus extended-only members, swept only by the nightly.
 
-    Tape-player members are merged in dynamically via ``discover_tapes()``
-    on every call, rather than being folded into ``EXTENDED`` at import
-    time: tapes live in a machine-local directory that can change between
-    calls (or be entirely absent), and import time must stay filesystem-
-    free so importing this module never depends on tape files existing.
+    Tape-player and kernel-player members are merged in dynamically via
+    ``discover_tapes()``/``discover_kernels()`` on every call, rather than
+    being folded into ``EXTENDED`` at import time: both live in a
+    machine-local directory that can change between calls (or be entirely
+    absent), and import time must stay filesystem-free so importing this
+    module never depends on either kind of file existing.
     """
-    return {**BUILTIN_ANCHORS, **SCRIPTED, **EXTENDED, **_discover_tapes()}
+    return {
+        **BUILTIN_ANCHORS,
+        **SCRIPTED,
+        **EXTENDED,
+        **_discover_tapes(),
+        **_discover_kernels(),
+    }
