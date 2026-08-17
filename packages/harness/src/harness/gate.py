@@ -314,21 +314,27 @@ def _degenerate_fraction(
 
 
 def opponent_digest(opponent: str) -> str | None:
-    """``"sha256:<hex>"`` of the tape file backing ``zoo:tape-<stem>``, else None.
+    """``"sha256:<hex>"`` of the file backing ``zoo:tape-<stem>`` or
+    ``zoo:kernel-<stem>``, else None.
 
-    Tapes are machine-local and uncommitted, and nothing else identifies
-    which bytes a run used: a different ``thunder-719.json`` on another
-    machine produces different money under an identical ledger identity,
-    silently. ``None`` for every non-tape spec and for a tape file that is
+    Tapes and kernel plans are both machine-local and uncommitted, and
+    nothing else identifies which bytes a run used: a different
+    ``thunder-719.json`` (or ``sokolovsky-2883.json``) on another machine
+    produces different money under an identical ledger identity, silently.
+    ``None`` for every spec matching neither prefix, and for a file that is
     not present on this machine.
     """
-    prefix = "zoo:tape-"
-    if not opponent.startswith(prefix):
+    if opponent.startswith("zoo:tape-"):
+        from harness.zoo.tape_player import tape_path
+
+        path = tape_path(opponent.removeprefix("zoo:tape-"))
+    elif opponent.startswith("zoo:kernel-"):
+        from harness.zoo.kernel_player import kernel_path
+
+        path = kernel_path(opponent.removeprefix("zoo:kernel-"))
+    else:
         return None
 
-    from harness.zoo.tape_player import tape_path
-
-    path = tape_path(opponent.removeprefix(prefix))
     if not path.is_file():
         return None
     return "sha256:" + hashlib.sha256(path.read_bytes()).hexdigest()
