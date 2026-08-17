@@ -138,3 +138,45 @@ builds a fresh worker pool per arm, so editing `packages/agent/**` mid-run can
 hand the two arms different code. **No agent source is edited while any of these
 runs are in flight.** A prior session discarded a 768-seed confirm for exactly
 this.
+
+> ### CORRECTION (appended after both screens returned, before any interpretation was written down)
+>
+> **The power prediction above was wrong, and wrong in a way this prereg had
+> already warned itself about.** It predicted `sd_delta ~ 4,086` by carrying over
+> the `40`-arm run's dispersion, one paragraph after stating that pairing quality
+> is arm- and opponent-specific. Observed:
+>
+> | screen | arm | band | mean_delta | median | sd_delta | ci_lower | mde_80 | n_reg | skew | opponent_mean_delta | vetoes | verdict |
+> |---|---|---|---|---|---|---|---|---|---|---|---|---|
+> | A | 30 | 660600 | -270.3 | -5,744.3 | 19,416.6 | **-7,777.6** | 11,245.3 | 12/20 | +0.48 | +5,311.0 | none | FAIL |
+> | B | 20 | 660700 | +4,745.4 | +5,575.0 | 15,097.5 | **-1,092.0** | 8,743.9 | 8/20 | +0.14 | +18,264.6 | none | FAIL |
+>
+> Ledgers: `eval/gates/2026-08-17T01-29-29Z-...json`,
+> `eval/gates/2026-08-17T01-30-47Z-...json`.
+>
+> Actual `sd_delta` was 3.7-4.8x the predicted 4,086, so the real detectable
+> effect at n=20 was ~+13,900 (arm 30) and ~+6,838 (arm 20), not the ~+2,600 this
+> document predicted. **Both screens were far more underpowered than registered.**
+>
+> **Neither arm is promotable, and no confirm run is launched** — the registered
+> rule requires `ci_lower > $1,000` at the screen and neither cleared. Per the
+> "no additional seeds after a result is seen" rule, no band is extended.
+>
+> **Arm 30 is a measured negative**, not merely undetected: `mean -270` with
+> `median -5,744` and 12/20 seeds regressed.
+>
+> **Arm 20 is undetected, not absent.** Its `+4,745` sits below its own run's
+> `mde_80` of 8,744, so this is a power failure and must not be written up as
+> "the marginal wheat tile is valuable" or as "capping wheat does not help". The
+> honest statement is the interval: one-sided 95% lower bound **-1,092**.
+>
+> **A finding that outranks the bound itself.** Arm 20's `opponent_mean_delta` is
+> **+18,264.6** — the blind tape earned $18.3k more against the capped candidate
+> than against the default, while the candidate gained $4.7k. Withdrawing wheat
+> supply lifts the shared price and hands most of the benefit to an opponent that
+> sells wheat unconditionally. `opponent_mean_delta` on arm 30 is +5,311, the same
+> sign. Whatever this knob is doing, it is moving the market price far more than
+> it is moving our own conversion, and it pays the opponent roughly 4:1 against
+> us. That is an argument against re-screening this knob at higher `n` even though
+> arm 20 is formally undetermined — the effect being chased is a price artifact,
+> not the conversion gain the mechanism section hypothesized.
