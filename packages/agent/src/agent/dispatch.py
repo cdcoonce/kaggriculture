@@ -108,6 +108,9 @@ STRAWBERRY_PLANT_DAILY_CAP = 6
 ENDGAME_DAY = 29
 ENDGAME_MULE_THRESHOLD = 1
 
+# Actions in a day, matching view.py's own ``hour = step % 24``.
+HOURS_PER_DAY = 24
+
 # Pasture husbandry (M2a, engine-verified): cow $400, first_yield_day 8,
 # interval 2, max_held 6, product MILK; sheep $500, first_yield_day 6,
 # interval 3, max_held 6, product WOOL. Both use the PASTURE structure, so a
@@ -230,6 +233,29 @@ def _step_toward(pos: tuple[int, int], target: tuple[int, int]) -> UnitAction | 
     if y > ty:
         return ["NORTH"]
     return None
+
+
+def _day_budget(view: FarmView, slot: int) -> int:
+    """Actions ``slot`` still has today, counting this turn.
+
+    The engine's ``_end_of_day`` empties ``farm["hands"]``, so a hand still
+    walking when the day rolls over ceases to exist before it arrives and
+    every step it took bought nothing. Recon measures 838 such steps an
+    episode against a strong competitor plan's 140 -- the largest single line
+    in the walking diff.
+
+    Slot 0 is the farmer, which the engine respawns rather than deletes, so
+    it keeps its own scheduling and gets an unbounded budget.
+
+    Known limitation, stated rather than half-fixed: a task carrying
+    ``needs_carry`` routes the unit via the shed first, so its real journey is
+    longer than the straight-line distance this budget is compared against.
+    Those legs are under-protected. The guard therefore never blocks work that
+    would have fitted; it only fails to block some that would not.
+    """
+    if slot == 0:
+        return 10**9
+    return HOURS_PER_DAY - view.hour
 
 
 @dataclass(frozen=True)
@@ -722,10 +748,11 @@ def dispatch(
             claim(i, task)
 
         # Pass 2: everyone else still available takes the nearest unclaimed
-        # task in this class.
+        # task in this class that it can still finish today.
         for i, pos in enumerate(units):
             if i not in fielded or i in assigned:
                 continue
+            budget = _day_budget(view, i)
             best: _Task | None = None
             best_dist = 10**9
             for candidate in class_tasks:
@@ -734,6 +761,15 @@ def dispatch(
                 if candidate.uses_seed and seed_budgets[candidate.crop] <= 0:
                     continue
                 dist = abs(pos[0] - candidate.tile[0]) + abs(pos[1] - candidate.tile[1])
+                # Walk the distance, then spend one action on the work. A hand
+                # that cannot do both before the wipe is better left for a
+                # nearer task in this class than sent on a walk that is thrown
+                # away at midnight -- which is the whole point of the filter
+                # living here, in front of the claim, rather than rejecting
+                # afterwards: the unit falls through to the next candidate
+                # instead of idling.
+                if dist + 1 > budget:
+                    continue
                 if dist < best_dist:
                     best, best_dist = candidate, dist
             if best is not None:

@@ -1004,3 +1004,65 @@ def test_a_claim_never_takes_a_tile_another_unit_already_holds() -> None:
     assert sticky.claims[1] == (0, 0), "the unit standing on the work lost it"
     assert sticky.claims[2] == (4, 0), "a claim double-booked an occupied tile"
     assert len(set(sticky.claims.values())) == len(sticky.claims), "two units share a tile"
+
+
+# --- day-boundary guard -----------------------------------------------
+#
+# _end_of_day empties farm["hands"], so a hand still walking at midnight
+# ceases to exist before it arrives and every step it took bought nothing.
+# Recon puts this at 838 orphaned steps per episode against the ported
+# competitor plan's 140 -- the largest single line in the walking diff.
+#
+# Every fixture below gives the farmer a carried unit so it mules and drops
+# out of `fielded`. Without that the farmer wins the task in slot order --
+# pass 2 assigns per unit in slot order, not by global best match -- and the
+# hand these tests are about is never dispatched at all, which made the first
+# draft of the guard test pass while asserting nothing.
+
+
+def test_hand_is_not_sent_on_a_walk_the_day_boundary_will_wipe() -> None:
+    # 6 steps to walk plus 1 to work it, against the 2 actions left at hour
+    # 22. Before the guard the hand set off EAST and was deleted en route.
+    tiles = make_view().tiles
+    tiles[3][3] = plant(planted_day=0, watered_today=True, yield_units=3)
+    view = make_view(step=5 * 24 + 22, hands=[(0, 0)], tiles=tiles, inventories=[{"WHEAT": 1}, {}])
+    assert dispatch(view, NW_TILES).hands[0] == ["PASS"]
+
+
+def test_hand_is_not_sent_on_a_walk_that_is_one_action_too_long() -> None:
+    # The tight side of the boundary: 2 steps plus the work is 3 actions
+    # against 2 left. Off by one in the other direction and this walks.
+    tiles = make_view().tiles
+    tiles[3][3] = plant(planted_day=0, watered_today=True, yield_units=3)
+    view = make_view(step=5 * 24 + 22, hands=[(3, 1)], tiles=tiles, inventories=[{"WHEAT": 1}, {}])
+    assert dispatch(view, NW_TILES).hands[0] == ["PASS"]
+
+
+def test_hand_still_takes_a_task_that_exactly_fits_the_day() -> None:
+    # The loose side: 1 step plus the work is exactly the 2 actions left, so
+    # it must still go. Pins the guard against becoming "stop working in the
+    # evening" -- a strict inequality here reds this test.
+    tiles = make_view().tiles
+    tiles[3][3] = plant(planted_day=0, watered_today=True, yield_units=3)
+    view = make_view(step=5 * 24 + 22, hands=[(3, 2)], tiles=tiles, inventories=[{"WHEAT": 1}, {}])
+    assert dispatch(view, NW_TILES).hands[0] == ["SOUTH"]
+
+
+def test_far_task_is_still_taken_early_in_the_day() -> None:
+    # The same 6-step walk, taken without complaint at hour 2 when there is a
+    # whole day left to finish it in.
+    tiles = make_view().tiles
+    tiles[3][3] = plant(planted_day=0, watered_today=True, yield_units=3)
+    view = make_view(step=5 * 24 + 2, hands=[(0, 0)], tiles=tiles, inventories=[{"WHEAT": 1}, {}])
+    assert dispatch(view, NW_TILES).hands[0] == ["EAST"]
+
+
+def test_farmer_is_exempt_from_the_day_boundary_guard() -> None:
+    # The guard is scoped to hands. _end_of_day respawns the farmer rather
+    # than deleting it, and the farmer is one unit against a crew of up to
+    # 13, so it keeps its own scheduling. Pinned so widening the guard later
+    # is a deliberate act with a failing test behind it, not silent drift.
+    tiles = make_view().tiles
+    tiles[3][3] = plant(planted_day=0, watered_today=True, yield_units=3)
+    view = make_view(step=5 * 24 + 22, farmer=(0, 0), tiles=tiles)
+    assert dispatch(view, NW_TILES).farmer == ["EAST"]
