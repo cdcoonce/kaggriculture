@@ -427,7 +427,10 @@ def analyze(env, seat, turns_per_day, fertilize_ages):
 
 def report(res, args):
     ut = res["unit_turns"]
-    print(f"=== seed {args.seed} · strawberry_tile_target={args.tiles} · vs {args.opponent} ===")
+    print(
+        f"=== {args.candidate} · seed {args.seed} · strawberry_tile_target={args.tiles} "
+        f"· vs {args.opponent} ==="
+    )
     print(f"final money: ${res['money']:,.0f}" if res["money"] is not None else "final money: n/a")
     print()
     print(f"--- labor budget ({ut:,} unit-turns) ---")
@@ -471,19 +474,32 @@ def report(res, args):
         )
 
 
-def run_one(seed, tiles, opponent, seat, turns_per_day, fertilize_ages, extra=()):
+def run_one(seed, candidate, tiles, opponent, seat, turns_per_day, fertilize_ages, extra=()):
     """Play one instrumented game and return its record. Module-level and
     plain-argument so it is picklable for ProcessPoolExecutor, matching
     harness.episodes.play_game's reason for the same shape.
 
     ``extra`` is passed as tuple-of-pairs rather than a dict purely so the
-    whole argument set stays trivially picklable and hashable."""
+    whole argument set stays trivially picklable and hashable.
+
+    ``candidate`` is a full agent spec, not just the champion: the whole
+    attribution pass runs off ``env.steps`` -- observations and the verbs
+    actually submitted -- and never reaches into policy internals, so any
+    agent that plays legal moves buckets identically. That is what makes a
+    champion-vs-zoo walk comparison possible at all. Only champion specs
+    accept a PolicyConfig, so the tile target and ``extra`` are dropped for
+    anything else rather than handed to a resolve_agent call that would
+    raise."""
     from harness.episodes import resolve_agent
+    from harness.gate import TUNABLE_SPECS
     from kaggle_environments import make
 
-    config = {"strawberry_tile_target": tiles, **dict(extra)}
     agents = [None, None]
-    agents[seat] = resolve_agent("champion", config)
+    if candidate in TUNABLE_SPECS:
+        config = {"strawberry_tile_target": tiles, **dict(extra)}
+        agents[seat] = resolve_agent(candidate, config)
+    else:
+        agents[seat] = resolve_agent(candidate)
     agents[1 - seat] = resolve_agent(opponent)
 
     env = make("kaggriculture", configuration={"seed": seed})
@@ -502,7 +518,10 @@ def sweep_report(records, args):
     """Per-seed table plus aggregates. Mechanism metrics (occupancy, demand
     met, walking share) are far lower-variance than money, so they carry the
     read at seed counts where a money delta is still noise."""
-    print(f"=== {len(records)} seeds from {args.seed} · target={args.tiles} · vs {args.opponent} ===")
+    print(
+        f"=== {args.candidate} · {len(records)} seeds from {args.seed} "
+        f"· target={args.tiles} · vs {args.opponent} ==="
+    )
     print()
     print(f"{'seed':>8}  {'money':>9}  {'walk%':>6}  {'peak':>5}  {'mean_alive':>10}  {'fert':>9}")
     for r in records:
@@ -534,6 +553,12 @@ def main():
     ap.add_argument("--n-seeds", type=int, default=1, help="run seeds [seed, seed+n) and aggregate")
     ap.add_argument("--workers", type=int, default=6)
     ap.add_argument(
+        "--candidate",
+        default="champion",
+        help="agent spec to instrument, e.g. champion or zoo:kernel-sokolovsky-2883; "
+        "--tiles and --agent-config are ignored for any non-champion spec",
+    )
+    ap.add_argument(
         "--tiles", type=int, default=16, help="strawberry_tile_target for the candidate"
     )
     ap.add_argument("--opponent", default="zoo:tape-thunder-719")
@@ -555,15 +580,27 @@ def main():
     fertilize_ages = sorted(int(a) for a in args.fertilize_ages.split(",") if a.strip())
     seeds = list(range(args.seed, args.seed + max(1, args.n_seeds)))
     extra = tuple(sorted(json.loads(args.agent_config).items())) if args.agent_config else ()
+    from harness.gate import TUNABLE_SPECS
+
+    tunable = args.candidate in TUNABLE_SPECS
     identity = {
         "seed_base": args.seed,
         "n_seeds": len(seeds),
-        "strawberry_tile_target": args.tiles,
-        "agent_config_extra": dict(extra),
+        "candidate": args.candidate,
+        "strawberry_tile_target": args.tiles if tunable else None,
+        "agent_config_extra": dict(extra) if tunable else {},
         "opponent": args.opponent,
         "fertilize_ages": fertilize_ages,
     }
-    call = (args.tiles, args.opponent, args.seat, args.turns_per_day, fertilize_ages, extra)
+    call = (
+        args.candidate,
+        args.tiles,
+        args.opponent,
+        args.seat,
+        args.turns_per_day,
+        fertilize_ages,
+        extra,
+    )
 
     if len(seeds) == 1:
         records = [run_one(seeds[0], *call)]
