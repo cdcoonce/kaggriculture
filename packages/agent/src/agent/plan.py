@@ -150,32 +150,6 @@ def plan_day(
             animal_room -= n
             turn_cap_left -= n
 
-    # Strawberry sits AFTER the animal pipeline and ahead of wheat. It is the
-    # highest-value crop the board can grow (4 of the 8 shop types buy it,
-    # against melon's 0, and a fertilized tile yields 8 units a cycle), which
-    # argues for putting it earlier -- but the animal pipeline is measured and
-    # shipped, and replay evidence puts 40-69% of the strongest opponents'
-    # revenue in cow/sheep products. Funding an unproven crop by starving a
-    # proven one would confound the very gate that is supposed to price this
-    # change, so strawberry draws on what the animals leave and the knob sweep
-    # gets to argue for a promotion on its own evidence.
-    #
-    # There is room for it to do that: production ticks at planted_day +
-    # 10/12/14/16 against a last-refresh day of 28 mean a tile planted by day
-    # 12 still banks a full four ticks, so the seed line has a thirteen-day
-    # runway funded out of ongoing revenue rather than needing the whole
-    # commitment out of the opening bankroll.
-    if day <= STRAWBERRY_PLANT_CUTOFF_DAY:
-        # Two days of the dispatcher's own strawberry stagger, same reasoning
-        # as the melon and wheat seed lines above.
-        strawberry_seed_target = min(2 * strawberry_plant_daily_cap, empty_strawberry_tiles)
-        need = strawberry_seed_target - strawberry_seeds
-        affordable = int(budget // STRAWBERRY_SEED_PRICE)
-        n = min(need, affordable)
-        if n > 0:
-            buys.append(["BUY_SEED", "STRAWBERRY", n])
-            budget -= n * STRAWBERRY_SEED_PRICE
-
     if day <= PLANT_CUTOFF_DAY:
         # Hold at most two days of the dispatcher's plant quota: seeds beyond
         # that are dead cash that delays land purchases (day 0 exempt — the
@@ -188,6 +162,41 @@ def plan_day(
         if n > 0:
             buys.append(["BUY_SEED", "WHEAT", n])
             budget -= n * SEED_PRICE
+
+    # Strawberry sits AFTER the animal pipeline AND after wheat. It is the
+    # highest-value crop the board can grow (4 of the 8 shop types buy it,
+    # against melon's 0, and a fertilized tile yields 8 units a cycle), which
+    # argues for putting it earlier -- and it WAS ahead of wheat until the
+    # occupancy census priced that ordering.
+    #
+    # At a zone worth running (31 tiles, the largest the fixed NW+NE frame
+    # holds) this line asks for min(2*cap, empty_zone) = 12 seeds a day at
+    # $100 -- $1,200 of demand in front of wheat's $10 line. Measured at
+    # seed 661300: early cash went entirely to strawberry and NO WHEAT
+    # REACHED THE BOARD UNTIL DAY 14, against day 1 at the shipped
+    # zero-tile default. Mean standing was 42.5 against a 42.0 baseline --
+    # no occupancy gain at all -- and the zone still only filled 13 of 31.
+    # The strawberry zone was reserving ground the seed line could not pay
+    # to plant, while starving the crop that could.
+    #
+    # So wheat takes its bite first. That bite is small and capped (two
+    # days of plant_quota), so this is not a demotion to scraps: it is the
+    # cash engine and the cheapest ground-holder per dollar going first,
+    # and strawberry drawing on a remainder that is still ample. There is
+    # room for it: production ticks at planted_day + 10/12/14/16 against a
+    # last-refresh day of 28 mean a tile planted by day 12 still banks a
+    # full four ticks, so the seed line has a thirteen-day runway funded
+    # out of ongoing revenue rather than the opening bankroll.
+    if day <= STRAWBERRY_PLANT_CUTOFF_DAY:
+        # Two days of the dispatcher's own strawberry stagger, same reasoning
+        # as the melon and wheat seed lines above.
+        strawberry_seed_target = min(2 * strawberry_plant_daily_cap, empty_strawberry_tiles)
+        need = strawberry_seed_target - strawberry_seeds
+        affordable = int(budget // STRAWBERRY_SEED_PRICE)
+        n = min(need, affordable)
+        if n > 0:
+            buys.append(["BUY_SEED", "STRAWBERRY", n])
+            budget -= n * STRAWBERRY_SEED_PRICE
 
     # Feed reserve/top-up sizes to *placed* animals only — a bought-but-not-
     # yet-placed animal (still walking the shed->pasture pipeline) doesn't

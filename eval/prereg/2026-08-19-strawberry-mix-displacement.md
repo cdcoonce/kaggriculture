@@ -132,3 +132,80 @@ player supplies it. **Those two readings are not reconciled.** If the gate
 passes, that contradiction has to be resolved before the result is trusted at
 ladder scale, because a mix built on a crop that crashes under two-sided
 supply would fail exactly when both players adopt it.
+
+---
+
+# CORRECTION — appended 2026-08-19, after implementing the registered change
+
+**The diagnosis above is wrong, and the registered predictions failed.** Left
+in place rather than edited, per this file's own rule.
+
+## What was predicted, and what happened
+
+The seed-ordering change was implemented (`plan.py`, wheat block moved ahead
+of strawberry's), TDD'd, gate-green, and **proven a bit-exact no-op at the
+shipped default** — the occupancy census reproduces
+`eval/recon/2026-08-18-occupancy-661200/661201.json` exactly, both seats.
+
+At `strawberry_tile_target = 31`, seed 661300, the run is **byte-identical to
+the pre-change run**: mean standing 42.5, zone peak 13 of 31, wheat still
+absent until day 14, wheat seed pool still 0 across days 0–13.
+
+| registered prediction | result |
+| --- | --- |
+| WHEAT on the board by day 2 | **FAILED** — still day 14 |
+| zone fill above 13/31 | **FAILED** — still 13 |
+| mean standing above 45 | **FAILED at 31** (42.5); met at target 12, but by zone size, not by this change |
+
+## The real blocker: zone geometry, not budget order
+
+`policy.py:281-285` builds `wheat_tiles` as the live tile universe minus the
+melon, pasture and strawberry sets. Early game only NW+NE are unlocked, which
+is **49 tiles**, and:
+
+```
+ 8 melon + 10 pasture + 31 strawberry = 49
+```
+
+**Wheat gets zero tiles.** `plantable_target_tiles` is therefore 0, so
+`seed_target = min(0, 2*quota) = 0` and the wheat line buys nothing *at any
+position in the budget order*. Wheat only returns when SW unlocks and adds 25
+tiles — which lands around day 13, and is exactly the observed day-14 delay.
+
+Measured wheat-zone size by strawberry target, NW+NE unlocked: **31 / 19 / 11
+/ 0** at strawberry 0 / 12 / 20 / 31.
+
+The `$1,200/day of strawberry seed demand` story in the body above is real
+arithmetic about the seed line, but it is **not what produced the day-14
+delay**. The seed line never got the chance to matter because the wheat zone
+was empty. I inferred a budget cause from a budget-shaped symptom and did not
+check the geometry first.
+
+## Consequence for the registered gate
+
+**Arm 31 is unrunnable by construction** and must be dropped — it is not a
+mix, it is a wheat deletion for the first thirteen days. The arm list becomes
+**12 / 20**, and any arm must be checked against the wheat-zone table above
+before it is screened.
+
+The seed-ordering change measures at **+1.0 standing at target 12 and +0.4 at
+target 20, one seed** — noise, and not evidence for anything. It is not
+promoted. Following the `perf/day-boundary-guard` precedent (#77), the
+implementation stays on an unmerged branch with its tests rather than landing
+on a rationale that has been falsified.
+
+## What the geometry actually implies
+
+Thunder runs ~33 strawberry **and** ~12 wheat **and** ~13 melon
+simultaneously — 58 standing — which the fixed `("NW","NE")` strawberry frame
+cannot express at all, because that frame holds only 31 tiles total after
+melon and pasture take theirs. Reaching a thunder-shaped mix needs the
+strawberry zone to extend past NW+NE, and `STRAWBERRY_REFERENCE_QUADRANTS` is
+deliberately fixed **because a drifting zone orphans a live 17-day plant and
+weeds it two days later** (`constants.py`, and the pasture bug that motivated
+it).
+
+So the next question is not a knob and not a seed order. It is whether a
+strawberry zone can be **anchored to a growing frame without drifting** —
+pinning tiles as they are claimed rather than recomputing a slice. That is a
+real design problem and it is the actual blocker on this whole line.

@@ -758,8 +758,14 @@ def test_strawberry_seed_buy_nets_off_seed_already_held() -> None:
 def test_strawberry_seed_buy_is_bounded_by_the_remaining_budget() -> None:
     # Seed is $100 -- by far the most expensive on the board -- so the budget
     # bound is the real throttle on how fast the zone fills, not the daily cap.
+    #
+    # The count here fell from 3 to 1 when wheat moved ahead of strawberry in
+    # the budget order. This is day 0, where wheat's quota is deliberately the
+    # whole board, so its 24-seed opening rush takes $240 of the $350 first.
+    # The invariant under test is untouched -- budget, not the daily cap, is
+    # the throttle -- and 1 is still strictly below the cap of 6.
     plan = _sb_plan(money=350.0, empty_strawberry_tiles=30, strawberry_plant_daily_cap=6)
-    assert _sb_buy(plan) == ["BUY_SEED", "STRAWBERRY", 3]
+    assert _sb_buy(plan) == ["BUY_SEED", "STRAWBERRY", 1]
 
 
 def test_strawberry_seed_buy_stops_after_the_last_fully_productive_planting_day() -> None:
@@ -792,12 +798,60 @@ def test_strawberry_never_outbids_the_animal_pipeline() -> None:
 
     # It does still get the genuine remainder, so this is a priority rather
     # than a blockade.
+    #
+    # The budget needed to demonstrate that rose from $1,000 to $1,400 when
+    # wheat moved ahead of strawberry: two cows take $800 and wheat's day-0
+    # opening rush takes $240, so a remainder only exists above $1,140. The
+    # claim being tested is the same one -- strawberry is deprioritised, not
+    # blockaded -- and it now has to clear two lines instead of one.
     leftover = _sb_plan(
-        money=1000.0,
+        money=1400.0,
         empty_strawberry_tiles=30,
         empty_pastures=2,
         cows_owned=0,
         sheep_owned=0,
     )
     assert ["BUY_ANIMAL", "COW", 2] in leftover.buys  # type: ignore[attr-defined]
-    assert _sb_buy(leftover) == ["BUY_SEED", "STRAWBERRY", 2]
+    assert _wheat_buy(leftover) == ["BUY_SEED", "WHEAT", 24]
+    assert _sb_buy(leftover) == ["BUY_SEED", "STRAWBERRY", 3]
+
+
+def _wheat_buy(plan: object) -> list[object] | None:
+    return next((b for b in plan.buys if b[0] == "BUY_SEED" and b[1] == "WHEAT"), None)  # type: ignore[attr-defined]
+
+
+def test_wheat_seed_is_funded_before_strawberry_starves_it() -> None:
+    """A large strawberry zone must not consume the whole seed budget.
+
+    Measured on the shipped ordering at ``strawberry_tile_target = 31``: the
+    strawberry line asks for min(2*cap, empty_zone) = 12 seeds a day at $100,
+    which is $1,200 of demand placed ahead of wheat's $10 line. Early cash was
+    fully consumed and NO WHEAT REACHED THE BOARD UNTIL DAY 14, against day 1
+    at the shipped zero-tile default. Occupancy did not improve, the zone
+    filled 13 of 31, and the first half of the game was strictly worse.
+
+    Wheat is the early cash engine and the cheapest ground-holder per dollar,
+    so it takes its (small, capped) bite first and strawberry draws on the
+    remainder. $1,200 here affords wheat's whole 40-seed target ($400) and
+    still leaves $800 for 8 strawberry seeds -- the point is that both lines
+    get funded, not that strawberry gets squeezed out.
+    """
+    plan = _sb_plan(
+        day=1,
+        money=1200.0,
+        wheat_seeds=0,
+        plantable_target_tiles=50,
+        active_tiles=99,
+        unlocked_quadrants=("NW", "NE", "SW", "SE"),
+        empty_strawberry_tiles=31,
+        strawberry_plant_daily_cap=6,
+    )
+
+    wheat = _wheat_buy(plan)
+    assert wheat is not None, (
+        "the strawberry line consumed the entire budget and wheat -- the cash "
+        "engine -- bought nothing; this is the day-14 delay reproduced"
+    )
+    assert wheat == ["BUY_SEED", "WHEAT", 40]
+    # Strawberry still gets funded out of what is left, it just goes second.
+    assert _sb_buy(plan) == ["BUY_SEED", "STRAWBERRY", 8]
