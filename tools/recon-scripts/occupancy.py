@@ -31,12 +31,18 @@ import json
 from dataclasses import asdict
 
 
-def run(seed, candidate, opponent, seat):
+def run(seed, candidate, opponent, seat, agent_config=None):
     from harness.episodes import resolve_agent
+    from harness.gate import TUNABLE_SPECS
     from kaggle_environments import make
 
     agents = [None, None]
-    agents[seat] = resolve_agent(candidate)
+    # Only champion specs accept a PolicyConfig; handing one to a zoo member
+    # raises rather than being silently ignored.
+    if agent_config and candidate in TUNABLE_SPECS:
+        agents[seat] = resolve_agent(candidate, agent_config)
+    else:
+        agents[seat] = resolve_agent(candidate)
     agents[1 - seat] = resolve_agent(opponent)
     env = make("kaggriculture", configuration={"seed": seed})
     env.run(agents)
@@ -86,12 +92,19 @@ def main():
     ap.add_argument("--seat", type=int, default=0)
     ap.add_argument("--crop", default="WHEAT", help="which seed pool to show")
     ap.add_argument("--both-seats", action="store_true", help="also census the opponent")
+    ap.add_argument(
+        "--agent-config",
+        default=None,
+        help='PolicyConfig overrides as JSON, e.g. \'{"strawberry_tile_target": 31}\'',
+    )
     ap.add_argument("--json", action="store_true")
     args = ap.parse_args()
 
+    agent_config = json.loads(args.agent_config) if args.agent_config else None
+
     from harness.occupancy import census
 
-    env = run(args.seed, args.candidate, args.opponent, args.seat)
+    env = run(args.seed, args.candidate, args.opponent, args.seat, agent_config)
     mine = census(env, seat=args.seat)
 
     if args.json:
@@ -101,6 +114,7 @@ def main():
                 "candidate": args.candidate,
                 "opponent": args.opponent,
                 "seat": args.seat,
+                "agent_config": agent_config or {},
             },
             "candidate": {str(d): asdict(c) for d, c in mine.items()},
         }
