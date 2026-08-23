@@ -26,7 +26,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from agent.constants import COW_TARGET, LAND_ORDER, LAND_PRICES, SHEEP_TARGET
+from agent.constants import (
+    COW_TARGET,
+    LAND_ORDER,
+    LAND_PRICES,
+    MAX_OWNED_QUADRANTS,
+    SHEEP_TARGET,
+)
 from agent.dispatch import (
     MELON_PLANT_CUTOFF_DAY,
     MELON_PLANT_DAILY_CAP,
@@ -70,7 +76,20 @@ class DayPlan:
     buys: list[list[object]] = field(default_factory=list)
 
 
-def _next_quadrant(unlocked_quadrants: tuple[str, ...]) -> str | None:
+def _next_quadrant(
+    unlocked_quadrants: tuple[str, ...],
+    max_owned_quadrants: int = MAX_OWNED_QUADRANTS,
+) -> str | None:
+    """The next quadrant to buy, or None when we already hold enough.
+
+    The cap counts OWNED quadrants including the always-unlocked NW, so
+    ``max_owned_quadrants=3`` stops before SE. At the default of 4 the guard
+    can never fire on a four-quadrant board -- the ``next(...)`` below already
+    returns None once every quadrant is held -- so the shipped path is
+    bit-identical to the uncapped one.
+    """
+    if len(unlocked_quadrants) >= max_owned_quadrants:
+        return None
     return next((q for q in LAND_ORDER if q not in unlocked_quadrants), None)
 
 
@@ -90,6 +109,7 @@ def plan_day(
     hires_today: int,
     unlocked_quadrants: tuple[str, ...],
     active_tiles: int,
+    max_owned_quadrants: int = MAX_OWNED_QUADRANTS,
     cows_owned: int = 0,
     sheep_owned: int = 0,
     empty_pastures: int = 0,
@@ -105,7 +125,10 @@ def plan_day(
         buys.append(["BUY_ANIMAL", "GOOSE", 1])
         budget -= GOOSE_COST
 
-    if _next_quadrant(unlocked_quadrants) == "NE" and day <= LAND_LAST_BUY_DAY["NE"]:
+    if (
+        _next_quadrant(unlocked_quadrants, max_owned_quadrants) == "NE"
+        and day <= LAND_LAST_BUY_DAY["NE"]
+    ):
         price = LAND_PRICES["NE"]
         if budget >= price + LAND_RESERVE:
             buys.append(["BUY_LAND"])
@@ -207,7 +230,7 @@ def plan_day(
     animals_done = (cows_owned >= cow_target or day > COW_LAST_BUY_DAY) and (
         sheep_owned >= sheep_target or day > SHEEP_LAST_BUY_DAY
     )
-    sw_next = _next_quadrant(unlocked_quadrants) == "SW"
+    sw_next = _next_quadrant(unlocked_quadrants, max_owned_quadrants) == "SW"
     if animals_done and sw_next and day <= LAND_LAST_BUY_DAY["SW"]:
         price = LAND_PRICES["SW"]
         if budget >= price + LAND_RESERVE:
@@ -218,7 +241,7 @@ def plan_day(
     # bought it at all, so it needs both a later earliest-day and a much
     # bigger cash cushion than NE/SW's flat reserve before it's worth it.
     if (
-        _next_quadrant(unlocked_quadrants) == "SE"
+        _next_quadrant(unlocked_quadrants, max_owned_quadrants) == "SE"
         and day >= SE_LAND_MIN_DAY
         and day <= LAND_LAST_BUY_DAY["SE"]
     ):

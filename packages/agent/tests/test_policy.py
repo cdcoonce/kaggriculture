@@ -7,6 +7,7 @@ from typing import Any
 
 from agent import policy
 from agent.constants import (
+    LAND_ORDER,
     PASTURE_REFERENCE_QUADRANTS,
     STRAWBERRY_REFERENCE_QUADRANTS,
     melon_tiles,
@@ -487,3 +488,29 @@ def test_strawberry_tiles_are_carved_out_of_the_wheat_zone() -> None:
     assert wheat_qty(with_berry) < wheat_qty(baseline), (
         "wheat still claims every tile it did before the strawberry zone existed"
     )
+
+
+def test_max_owned_quadrants_threads_from_policy_config_to_the_land_order() -> None:
+    """The knob has to reach the emitted market orders, not just plan_day.
+
+    A PolicyConfig field that nothing downstream reads is the classic
+    silently-inert knob, so this asserts on the ACTION the engine would see:
+    the default still buys SE, and a cap of 3 refuses it while leaving every
+    other order alone.
+    """
+    obs = raw_obs(step=12 * 24, money=10000.0, unlocked_quadrants=("NW", "NE", "SW"))
+
+    default_action = make_policy()(obs, None)
+    assert ["BUY_LAND"] in default_action["market"]
+
+    capped_action = make_policy(policy_config=PolicyConfig(max_owned_quadrants=3))(obs, None)
+    assert ["BUY_LAND"] not in capped_action["market"]
+    assert capped_action["market"] == [o for o in default_action["market"] if o != ["BUY_LAND"]]
+
+
+def test_max_owned_quadrants_default_is_the_whole_board() -> None:
+    """The default must be a provable no-op: a cap equal to the quadrant
+    count can never bind, because _next_quadrant already returns None once
+    every quadrant is held."""
+    assert PolicyConfig().max_owned_quadrants == 4
+    assert PolicyConfig().max_owned_quadrants == len(("NW", *LAND_ORDER))

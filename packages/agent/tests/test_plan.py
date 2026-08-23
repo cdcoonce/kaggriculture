@@ -801,3 +801,107 @@ def test_strawberry_never_outbids_the_animal_pipeline() -> None:
     )
     assert ["BUY_ANIMAL", "COW", 2] in leftover.buys  # type: ignore[attr-defined]
     assert _sb_buy(leftover) == ["BUY_SEED", "STRAWBERRY", 2]
+
+
+def test_max_owned_quadrants_default_still_buys_every_quadrant() -> None:
+    """The default must reproduce today's behavior exactly: a cap of 4 can
+    never bind on a 4-quadrant board, so each of NE/SW/SE still fires."""
+    for unlocked, day in ((("NW",), 0), (("NW", "NE"), 12), (("NW", "NE", "SW"), 12)):
+        plan = plan_day(
+            day=day,
+            money=10000.0,
+            wheat_seeds=0,
+            plantable_target_tiles=24,
+            wheat_on_hand=0,
+            goose_owned=True,
+            hires_today=0,
+            unlocked_quadrants=unlocked,
+            active_tiles=24,
+        )
+        assert ["BUY_LAND"] in plan.buys, unlocked
+
+
+def test_max_owned_quadrants_three_refuses_the_se_purchase() -> None:
+    """M3's arm: SE costs $4,000 up front and re-rents three extra hands
+    every day (hands_target scales with active_tiles, and _end_of_day empties
+    farm["hands"]), so the cap has to bite at the third quadrant."""
+    plan = plan_day(
+        day=12,
+        money=10000.0,
+        wheat_seeds=0,
+        plantable_target_tiles=74,
+        wheat_on_hand=0,
+        goose_owned=True,
+        hires_today=0,
+        unlocked_quadrants=("NW", "NE", "SW"),
+        active_tiles=74,
+        max_owned_quadrants=3,
+    )
+    assert not any(b == ["BUY_LAND"] for b in plan.buys)
+
+
+def test_max_owned_quadrants_three_still_buys_ne_and_sw() -> None:
+    """The cap refuses only the quadrant that would exceed it — it is not a
+    blanket land freeze."""
+    for unlocked in (("NW",), ("NW", "NE")):
+        plan = plan_day(
+            day=12,
+            money=10000.0,
+            wheat_seeds=0,
+            plantable_target_tiles=24,
+            wheat_on_hand=0,
+            goose_owned=True,
+            hires_today=0,
+            unlocked_quadrants=unlocked,
+            active_tiles=24,
+            max_owned_quadrants=3,
+        )
+        assert ["BUY_LAND"] in plan.buys, unlocked
+
+
+def test_max_owned_quadrants_two_refuses_the_sw_purchase() -> None:
+    plan = plan_day(
+        day=12,
+        money=10000.0,
+        wheat_seeds=0,
+        plantable_target_tiles=49,
+        wheat_on_hand=0,
+        goose_owned=True,
+        hires_today=0,
+        unlocked_quadrants=("NW", "NE"),
+        active_tiles=49,
+        max_owned_quadrants=2,
+    )
+    assert not any(b == ["BUY_LAND"] for b in plan.buys)
+
+
+def test_max_owned_quadrants_does_not_divert_the_refused_budget() -> None:
+    """A refused land purchase must not silently reappear as extra seed or
+    livestock spend — the whole point of the arm is that the money is NOT
+    spent, and the crew that the land would have sized is never hired."""
+    capped = plan_day(
+        day=12,
+        money=10000.0,
+        wheat_seeds=0,
+        plantable_target_tiles=74,
+        wheat_on_hand=0,
+        goose_owned=True,
+        hires_today=0,
+        unlocked_quadrants=("NW", "NE", "SW"),
+        active_tiles=74,
+        max_owned_quadrants=3,
+    )
+    uncapped = plan_day(
+        day=12,
+        money=10000.0,
+        wheat_seeds=0,
+        plantable_target_tiles=74,
+        wheat_on_hand=0,
+        goose_owned=True,
+        hires_today=0,
+        unlocked_quadrants=("NW", "NE", "SW"),
+        active_tiles=74,
+    )
+    non_land = [b for b in uncapped.buys if b != ["BUY_LAND"]]
+    assert capped.buys == non_land
+    assert capped.hire_count == uncapped.hire_count

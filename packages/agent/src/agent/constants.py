@@ -36,6 +36,16 @@ SHED_ACCESS: dict[tuple[int, int], str] = {
 LAND_ORDER: tuple[str, ...] = ("NE", "SW", "SE")
 LAND_PRICES: dict[str, int] = {"NE": 1000, "SW": 2000, "SE": 4000}
 
+#: How many quadrants the agent is willing to OWN, counting the always-unlocked
+#: NW. Defaults to the whole board, which can never bind -- ``_next_quadrant``
+#: already returns None once all four are held, so the default path is
+#: unchanged. Exists as a knob because land is not a one-off cost: hands are
+#: DAILY rentals (``_end_of_day`` empties ``farm["hands"]``, so the fibonacci
+#: ladder is re-paid every day) and ``hands_target`` scales with
+#: ``active_tiles``, so each quadrant carries a standing crew charge on top of
+#: its purchase price.
+MAX_OWNED_QUADRANTS = 4
+
 
 @cache
 def target_tiles(unlocked: tuple[str, ...]) -> list[tuple[int, int]]:
