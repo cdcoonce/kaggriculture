@@ -138,3 +138,68 @@ squarely affected. This does not invalidate the gate — the comparison is still
 a valid randomized contrast — but the reported `sd_delta` is honest dispersion,
 **not** a variance-reduced pair sd, and the effective power is lower than a
 paired design would suggest. Applies to every prior gate in `eval/gates/` too.
+
+---
+
+# ADDENDUM — registered 2026-08-23, AFTER the n=20 screen, BEFORE the follow-up
+
+Appended, not edited in. This is a **post-hoc instrument change** and is
+labelled as one.
+
+## What happened
+
+The screen returned PASS on all four tapes with no vetoes:
+
+| tape | mean Δ | ci_lower | n_regressed | opponent_mean_delta |
+|---|---|---|---|---|
+| thunder | +7,920 | +5,962 | 1/20 | **−164** |
+| barnyard | +9,524 | +7,593 | 0/20 | **+6,438** |
+| metac95 | +7,752 | +5,560 | 2/20 | +949 |
+| mirror | +9,650 | +7,662 | 1/20 | +2,551 |
+
+Barnyard's `opponent_mean_delta` of +6,438 exceeds the ±3,000 abort this
+document registered in advance. Its bound is therefore **void and not
+readable**, and the intersection–union rule — which requires barnyard — cannot
+be completed. The screen is **not passed as written**.
+
+A0 was bit-exact (mean_delta 0.0, sd_delta 0.0, 0/20 regressed), so the knob
+itself is confirmed inert at default.
+
+## What is being added, and why it is not tape-shopping
+
+The prereg already forbids "adding tapes until one passes." This is **not**
+that: no tape is added or dropped. What changes is the **metric on the tape
+whose money metric is registered-void**.
+
+The justification is that absolute money is not the competition's objective.
+The season ladder is W/L Elo and the final ranking is a one-shot
+Bradley-Terry tournament — both are *relative*. A price artifact that enriches
+both players by different amounts may leave the win/loss outcome untouched, or
+may not; money cannot tell us which, and subtracting the tape's money to find
+out is invalid (`opponent_mean_delta` is a veto, not a subtrahend).
+
+Win rate answers the question money cannot: **at cap=3, do we beat barnyard
+more often than at cap=4?**
+
+## The follow-up, registered in advance
+
+- **Instrument.** `harness.gate.run_gate`, W/L/T over paired seeds, both seats.
+  Not `harness.strength_gate` (that is a crash-only CI smoke gate).
+- **Arms.** `max_owned_quadrants` ∈ {4, 3}, both against
+  `zoo:tape-barnyard-719`, identical seeds.
+- **Band.** n=20 paired seeds (40 games/arm) from **663200**. Bands through
+  663199 are burned.
+- **Prediction, registered before running.** Win rate at cap=3 is **strictly
+  greater** than at cap=4. If cap=3 wins *no more often* than cap=4 despite
+  banking +$9,524 more, the barnyard money gain was a shared-price artifact
+  in full and the arm does not survive on this tape.
+- **Kill criterion.** If win rate is flat or worse at cap=3, record the
+  negative and do not promote on the three clean tapes alone. A lever that
+  banks money without winning more games is not a ladder lever.
+
+## What this addendum cannot fix
+
+It does not un-void the barnyard money reading, and it does not convert the
+other three tapes' money bounds into win-rate evidence. If win rate improves,
+the honest claim is "three clean money tapes plus a win-rate confirmation on
+the fourth," not "four clean money tapes."
