@@ -316,3 +316,135 @@ n=64 on a disjoint band from **663400**, all four tapes. Barnyard is read as
 informative-but-confounded. Promotion still requires `ci_lower > $1,000` on
 thunder and `> $0` on metac95 and mirror with clean opponent deltas; barnyard
 may not be the tape that carries the decision.
+
+---
+
+# CORRECTION 3 — registered 2026-08-23, after the n=64 confirm and an adversarial review
+
+Appended, not edited in. **This correction withdraws CORRECTION 2's override.**
+
+## 1. The confirm satisfies the ORIGINAL decision rule, on all four tapes
+
+`eval/gates/2026-08-23T21-39-37Z`, `T21-42-40Z`, `T21-45-06Z`, `T21-47-40Z`,
+n=64, disjoint bands 663400/663500/663600/663700:
+
+| tape | ci_lower | n_regressed | opponent_mean_delta | mde_80 | vetoes |
+|---|---|---|---|---|---|
+| thunder | +7,233 | 5/64 | **+600** | 1,552 | [] |
+| barnyard | +5,991 | 7/64 | **−1,091** | 1,701 | [] |
+| metac95 | +7,558 | 2/64 | **−453** | 1,556 | [] |
+| mirror | +7,780 | 2/64 | **+1,834** | 1,412 | [] |
+
+**Prediction 4 — `|opponent_mean_delta| ≤ 3,000` on all four tapes — is
+satisfied.** No override is required to promote this arm.
+
+## 2. CORRECTION 2's override is WITHDRAWN, as both unnecessary and wrongly reasoned
+
+**Unnecessary:** barnyard's trip did not reproduce. +6,438 (SE 2,558) at n=20
+versus −1,091 (SE 1,034) at n=64 is a z of 2.73 between bands. The ±3,000 bound
+is fixed in dollars while the statistic's SE scales with n; under a *true zero*
+it fires on at least one of four tapes ~51% of the time at n=20, and ~5% at
+n=64. It was an underpowered measurement, not a signal.
+
+**Wrongly reasoned**, on three counts:
+
+- CORRECTION 2 said "an arm that sells *less* and banks more cannot be
+  [a supply-withdrawal artifact]." **False.** #75 was itself a cap — selling
+  less. Selling less into a shared market is the *signature* of the failure
+  mode, not a defence against it. That one sentence carried the override.
+- It called the shop draw a **confound orthogonal to the intervention**. Wrong
+  on both words: the roster shift is *caused by* our own occupancy (this
+  document says so), which makes it a **mediator**, not a confound — it cannot
+  be subtracted out. And the trip was not orthogonal: it contained a real
+  withdrawal channel (§3).
+- It used a seat-0 cost/revenue split to argue about a seat-1 statistic.
+  Establishing where *our* money came from says nothing about whether the
+  *opponent* was paid a price we lifted.
+
+**The principle, recorded so it is not relearned.** A pre-registered abort is a
+stopping rule. When it fires, exactly two responses preserve its meaning: stop
+and record the negative, or **re-measure the abort statistic** at higher n on a
+disjoint band and re-read the decision. Arguing it away with a post-hoc
+mechanism story turns a stopping rule into one that binds only when the author
+cannot think of a story — and the author can always think of a story. The
+confirm run *was* the legitimate response; it was executed under the override
+rather than instead of it, so the record credited an argument for what a
+measurement earned. The cheap correct move at the time was one gate leg at
+n=64 on a disjoint band. Everything else built between the screen and the
+confirm was avoidable.
+
+## 3. A supply-withdrawal wheat channel is REAL and is a known cost of this arm
+
+We sell 129–164 fewer WHEAT units/seed; `market_price` decreases monotonically
+in inventory. Opponent WHEAT revenue delta across eight recon seeds:
+**+1,331 / +1,152 / +2,650 / +365 / +2,171 / +3,528 / +811 / +1,322** —
+**8/8 positive, mean +1,666 gross, ~+1,276 net** of its own buy-back, with both
+seats' realized wheat $/unit rising 8/8.
+
+The honest sentence is: *we bank ~$12,000 of avoided spend and hand the tape
+~$1,300 of wheat price surplus.* That transfer is already inside the
+`opponent_mean_delta` that measures clean at n=64.
+
+**Also retracted:** `units +0` on opponent items is **not evidence**. A replay
+tape's grid is bit-identical between these arms (bare-tile count 0–2 on 28/29
+days), so `units +0` is forced by construction and has no discriminating power.
+
+## 4. Prediction 2 is now MEASURED, and it passes
+
+CORRECTION 2 claimed prediction 2 was "measured directly." It was not:
+`_do_hire` and `_do_buy_land` bypass `_commit_unit`, so the instrument saw them
+only inside an undifferentiated residual. Both are now captured by differencing
+`farm["money"]` across the call
+(`eval/recon/2026-08-23-land-attribution-hireland-663340.json`, n=4 vs barnyard):
+
+```
+hire spend/season   11,492-11,505 (317-318 hires)  ->  3,104-3,117 (263-264)
+land spend           7,000                          ->  3,000
+measured saving      hire +8,388 (every seed) + land +4,000 = +12,388
+unattributed         -218 to -380  (seat-0 market spend RISES: we buy wheat
+                                    back at the price we lifted)
+```
+
+Prediction 2 registered "hire spend/season falls below $4,000." **It does.**
+
+## 5. Margin — the objective-aligned metric — was never computed, and it passes
+
+`classify_outcome` scores `candidate_money > opponent_money`, so margin is the
+objective; money is a proxy. Recomputed from rows already inside the committed
+n=64 ledgers, one observation per seed (both seats averaged):
+
+| tape | margin mean | margin ci_lower | regressed | worst seed |
+|---|---|---|---|---|
+| thunder | +6,814 | **+4,712** | 11/64 | −22,009 |
+| barnyard | +8,152 | **+7,003** | 5/64 | −7,230 |
+| metac95 | +8,347 | **+6,565** | 11/64 | −10,555 |
+| mirror | +5,791 | **+3,552** | 13/64 | −29,242 |
+
+Positive lower bound on all four. **Margin dispersion is worse than money
+dispersion** — 5–13/64 regress against 2–7/64 — so this is a mean improvement
+with a real left tail, and that belongs in the record alongside the win.
+
+## 6. The ±3,000 rule is re-specified
+
+As written it is a fixed dollar threshold on a statistic whose SE depends on n,
+it is **not machine-enforced** (`stats.py`'s veto set excludes it; `passed =
+ci_lower > threshold and not vetoes`), and this screen was its **first and only
+live application** — 25 of 54 previously committed money gates breach it,
+several while passing, all predating the rule.
+
+Re-specified for future preregs:
+
+- Apply it **on the confirm gate only.** At screen n it is a coin flip.
+- State it as an **interval** rule: abort when the one-sided 95% lower bound on
+  `|opponent_mean_delta|` exceeds 3,000 — not when the point estimate does.
+- Either add it to `stats.py`'s veto set or stop writing it into preregs. A
+  rule enforced only by the author's memory is not a rule.
+
+## 7. Roster coverage, stated as a limit
+
+Confirmed against four replay tapes of **one lineage** and **zero** of the
+eight scripted `gate_zoo()` archetypes. A 6-episode probe against
+`land-rush-hoarder` found no collapse (cost-side +11,086 to +12,114, in family)
+but a probe is not a gate. `max_owned_quadrants=3` should be read as a measured
+chassis default, not a validated general principle, until it has seen a
+scripted zoo member at gate n.

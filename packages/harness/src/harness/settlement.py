@@ -15,6 +15,12 @@ Two engine facts make this exact rather than modelled:
 - ``_process_market`` clears both players unit-by-unit against one shared
   market, so a realized price is only knowable at commit time; recomputing it
   from a price law after the fact cannot see the interleaving.
+- ``_do_hire`` and ``_do_buy_land`` **bypass** ``_commit_unit`` and write
+  ``farm["money"]`` directly, and both return None whether or not they acted.
+  They are therefore captured by differencing ``farm["money"]`` across the
+  call, not by a return value. Before this was added, hire and land spend
+  showed up only inside an undifferentiated residual, and a "cost-side"
+  figure derived from that residual could not be attributed to either.
 
 Seat is resolved by OBJECT IDENTITY against the farms list ``_process_market``
 is working on, never by call order, and an unresolvable farm raises. A census
@@ -36,6 +42,10 @@ from typing import Any
 SELL_OPS = ("SELL",)
 BUY_OPS = ("BUY_PRODUCT", "BUY_SEED", "BUY_ANIMAL")
 
+#: Spend keys for the two money paths that never reach ``_commit_unit``.
+HIRE_KEY = "HIRE"
+LAND_KEY = "BUY_LAND"
+
 
 @dataclass
 class Settlement:
@@ -47,6 +57,7 @@ class Settlement:
     revenue: dict[int, dict[str, float]] = field(default_factory=dict)
     spend: dict[int, dict[str, float]] = field(default_factory=dict)
     shops: dict[str, int] = field(default_factory=dict)
+    hires: dict[int, int] = field(default_factory=dict)
     calls: int = 0
     filled: int = 0
     rejected: int = 0
@@ -63,8 +74,20 @@ class Settlement:
         ``final_money - starting - revenue`` would need the starting balance;
         this is the residual used pairwise between two arms, where the
         starting balance cancels: ``money_delta - revenue_delta``.
+
+        ``_commit_unit``'s SELL branch is the engine's ONLY money inflow, so
+        this residual is all outflow. That fact is pinned by
+        ``test_sell_is_the_only_money_inflow_in_the_engine``, not merely
+        asserted here -- an engine bump that added a subsidy or interest would
+        silently turn this into a mixed residual with a green suite.
         """
         return self.final_money[seat] - self.revenue_total(seat)
+
+    def hire_spend(self, seat: int) -> float:
+        return self.spend.get(seat, {}).get(HIRE_KEY, 0.0)
+
+    def land_spend(self, seat: int) -> float:
+        return self.spend.get(seat, {}).get(LAND_KEY, 0.0)
 
 
 class _Recorder:
@@ -74,6 +97,7 @@ class _Recorder:
         self.units: dict[int, Counter[str]] = {0: Counter(), 1: Counter()}
         self.revenue: dict[int, Counter[str]] = {0: Counter(), 1: Counter()}
         self.spend: dict[int, Counter[str]] = {0: Counter(), 1: Counter()}
+        self.hires: dict[int, int] = {0: 0, 1: 0}
         self.farms: list[Any] | None = None
         self.calls = 0
         self.filled = 0
@@ -106,6 +130,20 @@ class _Recorder:
         elif op in BUY_OPS:
             self.spend[seat][f"{op}:{item}"] += float(price)
 
+    def record_direct(self, key: str, farm: Any, spent: float) -> None:
+        """Record a money path that never reaches ``_commit_unit``.
+
+        ``spent`` is a measured ``farm["money"]`` decrease, so a call that
+        no-opped (insufficient funds, all quadrants owned) records nothing --
+        neither engine function reports success in its return value.
+        """
+        if spent <= 0:
+            return
+        seat = self.seat_of(farm)
+        self.spend[seat][key] += float(spent)
+        if key == HIRE_KEY:
+            self.hires[seat] += 1
+
 
 def measure(env: Any, recorder: _Recorder, seed: int) -> Settlement:
     """Build a Settlement from a finished episode and its recorder."""
@@ -119,6 +157,7 @@ def measure(env: Any, recorder: _Recorder, seed: int) -> Settlement:
         revenue={s: dict(recorder.revenue[s]) for s in (0, 1)},
         spend={s: dict(recorder.spend[s]) for s in (0, 1)},
         shops=dict(Counter(town.get("unlocked_shops", []))),
+        hires=dict(recorder.hires),
         calls=recorder.calls,
         filled=recorder.filled,
         rejected=recorder.rejected,
@@ -141,6 +180,8 @@ def play_with_settlement(
     recorder = _Recorder()
     original_pm = engine._process_market
     original_cu = engine._commit_unit
+    original_hire = engine._do_hire
+    original_land = engine._do_buy_land
 
     def pm_spy(state: Any, env_arg: Any) -> Any:
         recorder.farms = state[0].observation.farms
@@ -159,8 +200,22 @@ def play_with_settlement(
         recorder.record(ok, op, item, price, farm)
         return ok
 
+    def hire_spy(farm: Any, private: Any, board_size: int, *args: Any, **kwargs: Any) -> Any:
+        before = farm["money"]
+        result = original_hire(farm, private, board_size, *args, **kwargs)
+        recorder.record_direct(HIRE_KEY, farm, before - farm["money"])
+        return result
+
+    def land_spy(farm: Any, board_size: int, *args: Any, **kwargs: Any) -> Any:
+        before = farm["money"]
+        result = original_land(farm, board_size, *args, **kwargs)
+        recorder.record_direct(LAND_KEY, farm, before - farm["money"])
+        return result
+
     engine._process_market = pm_spy
     engine._commit_unit = cu_spy
+    engine._do_hire = hire_spy
+    engine._do_buy_land = land_spy
     try:
         agents: list[Any] = [None, None]
         agents[seat] = (
@@ -172,5 +227,7 @@ def play_with_settlement(
     finally:
         engine._process_market = original_pm
         engine._commit_unit = original_cu
+        engine._do_hire = original_hire
+        engine._do_buy_land = original_land
 
     return measure(env, recorder, seed)

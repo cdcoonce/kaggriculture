@@ -74,13 +74,23 @@ def main():
                 f"  cap={cap} money={r.final_money} "
                 f"settle calls={r.calls} filled={r.filled} rejected={r.rejected}"
             )
+            print(
+                f"    hire_spend={r.hire_spend(0):.0f} ({r.hires.get(0, 0)} hires)  "
+                f"land_spend={r.land_spend(0):.0f}"
+            )
             print(f"    shops={r.shops}")
         rev_delta = _delta_table(a, b, 0, f"seat0 ({args.candidate}) revenue delta:")
         opp_delta = _delta_table(a, b, 1, f"seat1 ({args.opponent}) revenue delta:")
         cost_delta = money_delta - rev_delta
+        hire_delta = b.hire_spend(0) - a.hire_spend(0)
+        land_delta = b.land_spend(0) - a.land_spend(0)
         print(
             f"  SPLIT: money {money_delta:+.0f} = revenue {rev_delta:+.0f} "
             f"+ cost-side {cost_delta:+.0f}"
+        )
+        print(
+            f"    of which MEASURED: hire {-hire_delta:+.0f}  land {-land_delta:+.0f}  "
+            f"unattributed {cost_delta + hire_delta + land_delta:+.0f}"
         )
         ledger.append(
             {
@@ -92,6 +102,11 @@ def main():
                 "revenue_delta_seat0": rev_delta,
                 "cost_side_delta_seat0": cost_delta,
                 "revenue_delta_seat1": opp_delta,
+                "hire_spend_delta_seat0": hire_delta,
+                "land_spend_delta_seat0": land_delta,
+                "hire_spend_by_arm": {
+                    str(cap): runs[cap].hire_spend(0) for cap in (base_cap, treat_cap)
+                },
                 "arms": {str(cap): asdict(runs[cap]) for cap in (base_cap, treat_cap)},
             }
         )

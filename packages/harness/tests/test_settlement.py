@@ -7,7 +7,7 @@ fictional numbers rather than failing loudly.
 from __future__ import annotations
 
 import pytest
-from harness.settlement import Settlement, _Recorder
+from harness.settlement import HIRE_KEY, LAND_KEY, Settlement, _Recorder
 
 
 def _recorder_with_farms() -> tuple[_Recorder, dict, dict]:
@@ -103,3 +103,65 @@ def test_settlement_totals_sum_the_per_item_maps() -> None:
     assert s.spend_total(0) == 20.0
     # cost_side is the residual used pairwise between arms
     assert s.cost_side(0) == 100.0 - 75.0
+
+
+def test_direct_paths_record_a_measured_money_decrease() -> None:
+    """_do_hire and _do_buy_land bypass _commit_unit and write farm["money"]
+    directly, so they are captured by differencing money across the call."""
+    rec, farm0, farm1 = _recorder_with_farms()
+    rec.record_direct(HIRE_KEY, farm0, 8.0)
+    rec.record_direct(HIRE_KEY, farm0, 13.0)
+    rec.record_direct(LAND_KEY, farm0, 4000.0)
+    rec.record_direct(HIRE_KEY, farm1, 5.0)
+
+    assert rec.spend[0][HIRE_KEY] == 21.0
+    assert rec.spend[0][LAND_KEY] == 4000.0
+    assert rec.hires[0] == 2
+    assert rec.spend[1][HIRE_KEY] == 5.0
+    assert rec.hires[1] == 1
+    assert rec.revenue[0] == {}
+
+
+def test_a_no_op_direct_call_records_nothing() -> None:
+    """Neither engine function reports success in its return value: both
+    return None whether or not they acted. A hire the farm could not afford,
+    or a land buy with every quadrant owned, must not be booked."""
+    rec, farm0, _ = _recorder_with_farms()
+    rec.record_direct(HIRE_KEY, farm0, 0.0)
+    rec.record_direct(LAND_KEY, farm0, 0.0)
+
+    assert rec.spend[0] == {}
+    assert rec.hires[0] == 0
+
+
+def test_sell_is_the_only_money_inflow_in_the_engine() -> None:
+    """cost_side treats its residual as pure outflow. That is only true while
+    _commit_unit's SELL branch is the engine's ONLY money inflow.
+
+    Pinned against the engine source rather than asserted in a docstring: an
+    engine bump adding a subsidy, prize or interest would otherwise turn
+    cost_side from a cost measure into a mixed residual with a green suite.
+    """
+    import inspect
+    import re
+
+    from kaggle_environments.envs.kaggriculture import kaggriculture as engine
+
+    source = inspect.getsource(engine)
+    # Every statement that increases a farm's money.
+    increases = re.findall(r'\["money"\]\s*\+=\s*(\S+)', source)
+    assert increases == ["price"], (
+        f"engine gained a money inflow this instrument does not model: {increases}. "
+        "Settlement.cost_side assumes SELL is the only inflow."
+    )
+
+
+def test_settlement_exposes_hire_and_land_spend() -> None:
+    s = Settlement(
+        seed=1,
+        final_money=[100.0, 200.0],
+        spend={0: {HIRE_KEY: 11501.0, LAND_KEY: 7000.0, "BUY_SEED:WHEAT": 20.0}, 1: {}},
+    )
+    assert s.hire_spend(0) == 11501.0
+    assert s.land_spend(0) == 7000.0
+    assert s.hire_spend(1) == 0.0
