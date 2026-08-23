@@ -203,3 +203,116 @@ It does not un-void the barnyard money reading, and it does not convert the
 other three tapes' money bounds into win-rate evidence. If win rate improves,
 the honest claim is "three clean money tapes plus a win-rate confirmation on
 the fourth," not "four clean money tapes."
+
+---
+
+# CORRECTION 2 — registered 2026-08-23, after direct settlement attribution
+
+Appended, not edited in. **This correction overrides a veto this document
+registered in advance, so it carries the evidence rather than the argument.**
+
+## The addendum's follow-up failed to resolve, and the criterion was badly designed
+
+Win rate against `zoo:tape-barnyard-719` at n=20 paired seeds, both seats:
+
+```
+cap=4:  0W-40L-0T   win_rate 0.000
+cap=3:  0W-40L-0T   win_rate 0.000
+```
+
+The champion loses every game to barnyard in **both** arms. The metric is
+pinned at the floor and has no resolution at this operating point, which is
+consistent with the standing project fact that win rate has no gradient
+against any current tape.
+
+The addendum's kill criterion said "if win rate is flat or worse, record the
+negative." Read literally that fires. It should not: **flat at 0.000 vs 0.000
+is not "no improvement", it is "this instrument cannot see anything here"** —
+an empty bucket, not a measured zero. The criterion was written assuming the
+metric had resolution and is inapplicable as written. Recorded as a defect in
+this prereg, not as a result.
+
+## What `opponent_mean_delta` was actually detecting
+
+Rather than argue about the threshold, the mechanism it proxies for was
+measured directly, by wrapping the engine's own `_commit_unit` and recording
+**only on a True return** (it returns False and mutates nothing on an
+unfillable order; recording on call books rejects as fictional sales). Seat
+resolved by object identity against the farms list `_process_market` holds,
+raising rather than guessing.
+
+Seed 663300, tape revenue delta (cap3 − cap4), by item:
+
+```
+STRAWBERRY   +17,197   units +0
+WHEAT         +1,331   units +0
+TOTAL        +18,854
+```
+
+**Every item carries `units +0`.** The tape sells identical quantities and is
+paid differently. And the dominant term is STRAWBERRY — a market the champion
+has never traded in (`strawberry_tile_target` is 0). Capping our land cannot
+vacate a book we were never in.
+
+The cause is the RNG-stream defect this prereg already recorded before any of
+this ran: `_spawn_weeds` calls `rng.random()` only for bare tiles, and the
+day's shop is drawn `rng.choice(sorted(SHOPS))` from the same stream, so the
+shop roster is downstream of our own occupancy. Measured:
+
+```
+663302  cap=4: YARN_STORE x3, BAKERY x1, no FARMERS_MARKET
+        cap=3: YARN_STORE x2, BAKERY x2, FARMERS_MARKET x1
+663303  cap=4: YARN_STORE x2, BAKERY x2, no PET_CAFE
+        cap=3: YARN_STORE x1, FARMERS_MARKET x2, PET_CAFE x1, SMOOTHIE_SHOP x2
+```
+
+Different shops, different drain, different prices — for both seats, on
+identical volumes.
+
+## Why the veto does not apply to THIS arm
+
+The ±3,000 abort exists to catch a **supply-withdrawal price artifact**: the
+#75 pattern, where capping our output lifts the shared price and pays the
+blind tape for our restraint. That is a real failure mode and the rule has
+caught it before. It is not what is happening here.
+
+Splitting the champion's money into its two halves:
+
+| seed | money Δ | revenue Δ | **cost Δ (implied)** |
+|---|---|---|---|
+| 663300 | +7,931 | −3,978 | **+11,909** |
+| 663302 | +9,485 | −2,374 | **+11,859** |
+| 663303 | +12,893 | +1,041 | **+11,852** |
+
+**The gain is cost-side.** We sell *less* (WHEAT units −129/−140/−164) and
+bank more. The revenue half is noise that swings with the shop draw; the cost
+half is +$11,909 / +$11,859 / +$11,852 — a **$57 spread across three seeds** —
+and it decomposes as $4,000 of land plus ~$7,850 of re-rented crew, which is
+prediction 2 of this prereg measured directly.
+
+An arm that withdraws supply and profits from the resulting price is the thing
+the veto guards against. An arm that sells less and banks the money it did not
+spend cannot be that thing. **The veto fired on a confound orthogonal to the
+intervention.**
+
+## What is claimed, and what is not
+
+- **Claimed:** barnyard's `opponent_mean_delta` is not diagnostic for this
+  arm, and its money bound is readable as informative-but-confounded rather
+  than void.
+- **Not claimed:** that the confound is harmless in general. It moves both
+  seats' revenue, its per-seed direction is essentially random, and it should
+  behave as variance rather than bias at n=20/64 — but it is *correlated with
+  the treatment* (via bare-tile count), so the paired design is not pairing
+  and effective power is below what the reported sd implies.
+- **Not claimed:** that this is a barnyard-specific problem. **Every gate in
+  `eval/gates/` is affected.** Any arm that moves bare-tile count has been
+  shifting the shop draw all along. That deserves its own issue and is not
+  fixed here.
+
+## Confirm, as amended
+
+n=64 on a disjoint band from **663400**, all four tapes. Barnyard is read as
+informative-but-confounded. Promotion still requires `ci_lower > $1,000` on
+thunder and `> $0` on metac95 and mirror with clean opponent deltas; barnyard
+may not be the tape that carries the decision.
