@@ -37,14 +37,22 @@ LAND_ORDER: tuple[str, ...] = ("NE", "SW", "SE")
 LAND_PRICES: dict[str, int] = {"NE": 1000, "SW": 2000, "SE": 4000}
 
 #: How many quadrants the agent is willing to OWN, counting the always-unlocked
-#: NW. Defaults to the whole board, which can never bind -- ``_next_quadrant``
-#: already returns None once all four are held, so the default path is
-#: unchanged. Exists as a knob because land is not a one-off cost: hands are
-#: DAILY rentals (``_end_of_day`` empties ``farm["hands"]``, so the fibonacci
-#: ladder is re-paid every day) and ``hands_target`` scales with
-#: ``active_tiles``, so each quadrant carries a standing crew charge on top of
-#: its purchase price.
-MAX_OWNED_QUADRANTS = 4
+#: NW. Three means NE and SW are bought and **SE is refused**.
+#:
+#: Land is not a one-off cost, which is why this is a knob and why 3 beats 4.
+#: Hands are DAILY rentals -- ``_end_of_day`` empties ``farm["hands"]``, so the
+#: whole fibonacci ladder is re-paid every morning -- and ``hands_target``
+#: scales with ``active_tiles``. Owning SE therefore costs its $4,000 price
+#: PLUS a standing crew charge, measured at $8,388/season (hire spend
+#: 11,492-11,505 -> 3,104-3,117; 317 hires -> 263).
+#:
+#: GATED, do not edit without re-gating (eval/prereg/2026-08-23-max-owned-quadrants.md,
+#: eval/gates/2026-08-23T21-*): n=64 on four tapes, money ci_lower +7,233 /
+#: +5,991 / +7,558 / +7,780, margin ci_lower +4,712 / +7,003 / +6,565 / +3,552,
+#: every opponent_mean_delta inside +/-3,000, vetoes empty. Known cost: we sell
+#: 129-164 fewer WHEAT units/seed, which hands the opponent ~$1,276/seed of
+#: price surplus, and margin regresses on 5-13/64 seeds against money's 2-7/64.
+MAX_OWNED_QUADRANTS = 3
 
 
 @cache

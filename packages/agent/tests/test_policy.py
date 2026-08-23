@@ -494,23 +494,31 @@ def test_max_owned_quadrants_threads_from_policy_config_to_the_land_order() -> N
     """The knob has to reach the emitted market orders, not just plan_day.
 
     A PolicyConfig field that nothing downstream reads is the classic
-    silently-inert knob, so this asserts on the ACTION the engine would see:
-    the default still buys SE, and a cap of 3 refuses it while leaving every
-    other order alone.
+    silently-inert knob, so this asserts on the ACTION the engine would see.
+    The shipped default (3) refuses SE; lifting the cap to 4 buys it, and
+    changes nothing else about the turn.
     """
     obs = raw_obs(step=12 * 24, money=10000.0, unlocked_quadrants=("NW", "NE", "SW"))
 
     default_action = make_policy()(obs, None)
-    assert ["BUY_LAND"] in default_action["market"]
+    assert ["BUY_LAND"] not in default_action["market"]
 
-    capped_action = make_policy(policy_config=PolicyConfig(max_owned_quadrants=3))(obs, None)
-    assert ["BUY_LAND"] not in capped_action["market"]
-    assert capped_action["market"] == [o for o in default_action["market"] if o != ["BUY_LAND"]]
+    uncapped_action = make_policy(policy_config=PolicyConfig(max_owned_quadrants=4))(obs, None)
+    assert ["BUY_LAND"] in uncapped_action["market"]
+    assert default_action["market"] == [o for o in uncapped_action["market"] if o != ["BUY_LAND"]]
 
 
-def test_max_owned_quadrants_default_is_the_whole_board() -> None:
-    """The default must be a provable no-op: a cap equal to the quadrant
-    count can never bind, because _next_quadrant already returns None once
-    every quadrant is held."""
-    assert PolicyConfig().max_owned_quadrants == 4
-    assert PolicyConfig().max_owned_quadrants == len(("NW", *LAND_ORDER))
+def test_shipped_max_owned_quadrants_is_the_gated_value() -> None:
+    """3 is a gated result, not a guess.
+
+    Confirmed at n=64 against all four tapes: money ci_lower +7,233 / +5,991 /
+    +7,558 / +7,780, margin ci_lower +4,712 / +7,003 / +6,565 / +3,552, every
+    opponent_mean_delta inside +/-3,000, vetoes empty
+    (eval/gates/2026-08-23T21-*). Editing this constant without re-gating must
+    fail here rather than on the ladder.
+
+    It is strictly less than the board's quadrant count -- the cap really
+    binds, and is not a no-op standing in for "buy everything".
+    """
+    assert PolicyConfig().max_owned_quadrants == 3
+    assert PolicyConfig().max_owned_quadrants < len(("NW", *LAND_ORDER))

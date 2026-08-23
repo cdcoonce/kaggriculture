@@ -166,6 +166,14 @@ def test_no_land_buy_when_all_quadrants_owned() -> None:
 
 
 def test_se_land_cutoff_day_boundary() -> None:
+    """SE's own gates, exercised with the quadrant cap lifted.
+
+    The shipped default is max_owned_quadrants=3 (gated, PR #81), so the
+    SE branch is unreachable in normal play. These gates still exist and
+    still have to work, so the tests opt in explicitly rather than being
+    deleted -- otherwise raising the cap later would silently ship
+    untested land logic.
+    """
     on_cutoff = plan_day(
         day=20,
         money=10000.0,
@@ -176,6 +184,7 @@ def test_se_land_cutoff_day_boundary() -> None:
         hires_today=0,
         unlocked_quadrants=("NW", "NE", "SW"),
         active_tiles=74,
+        max_owned_quadrants=4,
     )
     assert ["BUY_LAND"] in on_cutoff.buys
 
@@ -189,6 +198,7 @@ def test_se_land_cutoff_day_boundary() -> None:
         hires_today=0,
         unlocked_quadrants=("NW", "NE", "SW"),
         active_tiles=74,
+        max_owned_quadrants=4,
     )
     assert not any(b == ["BUY_LAND"] for b in past_cutoff.buys)
 
@@ -603,6 +613,14 @@ def test_sw_land_proceeds_once_animal_targets_are_met_even_within_windows() -> N
 
 
 def test_se_land_not_bought_before_day_twelve_even_with_ample_budget() -> None:
+    """SE's own gates, exercised with the quadrant cap lifted.
+
+    The shipped default is max_owned_quadrants=3 (gated, PR #81), so the
+    SE branch is unreachable in normal play. These gates still exist and
+    still have to work, so the tests opt in explicitly rather than being
+    deleted -- otherwise raising the cap later would silently ship
+    untested land logic.
+    """
     kwargs = dict(
         money=10000.0,
         wheat_seeds=0,
@@ -615,6 +633,7 @@ def test_se_land_not_bought_before_day_twelve_even_with_ample_budget() -> None:
         cows_owned=6,
         sheep_owned=9,  # targets met so the animals-done gate isn't the blocker here
         empty_pastures=0,
+        max_owned_quadrants=4,
     )
     too_early = plan_day(day=11, **kwargs)  # type: ignore[arg-type]
     assert ["BUY_LAND"] not in too_early.buys
@@ -624,6 +643,14 @@ def test_se_land_not_bought_before_day_twelve_even_with_ample_budget() -> None:
 
 
 def test_se_land_requires_larger_reserve_than_other_quadrants() -> None:
+    """SE's own gates, exercised with the quadrant cap lifted.
+
+    The shipped default is max_owned_quadrants=3 (gated, PR #81), so the
+    SE branch is unreachable in normal play. These gates still exist and
+    still have to work, so the tests opt in explicitly rather than being
+    deleted -- otherwise raising the cap later would silently ship
+    untested land logic.
+    """
     # price(4000) + 2000 = 6000 is the affordability line, not the usual
     # price + LAND_RESERVE(500) -- SE is demoted relative to NE/SW.
     kwargs = dict(
@@ -638,6 +665,7 @@ def test_se_land_requires_larger_reserve_than_other_quadrants() -> None:
         cows_owned=6,
         sheep_owned=9,
         empty_pastures=0,
+        max_owned_quadrants=4,
     )
     too_poor = plan_day(money=5999.0, **kwargs)  # type: ignore[arg-type]
     assert ["BUY_LAND"] not in too_poor.buys
@@ -803,12 +831,22 @@ def test_strawberry_never_outbids_the_animal_pipeline() -> None:
     assert _sb_buy(leftover) == ["BUY_SEED", "STRAWBERRY", 2]
 
 
-def test_max_owned_quadrants_default_still_buys_every_quadrant() -> None:
-    """The default must reproduce today's behavior exactly: a cap of 4 can
-    never bind on a 4-quadrant board, so each of NE/SW/SE still fires."""
-    for unlocked, day in ((("NW",), 0), (("NW", "NE"), 12), (("NW", "NE", "SW"), 12)):
+def test_shipped_default_buys_ne_and_sw_but_refuses_se() -> None:
+    """The promoted default (3) is the gated value, not a placeholder.
+
+    max_owned_quadrants=3 confirmed at n=64 on all four tapes (money ci_lower
+    +5,991 to +7,780, margin ci_lower +3,552 to +7,003, opponent_mean_delta
+    inside +/-3,000 everywhere) -- see eval/prereg/2026-08-23-max-owned-quadrants.md
+    and the eval/gates/2026-08-23T21-* ledgers. SE costs $4,000 up front plus a
+    measured $8,388/season of re-rented crew, because hands are daily rentals
+    and hands_target scales with active_tiles.
+
+    If someone edits MAX_OWNED_QUADRANTS without re-gating, this test must
+    fail, not a live match.
+    """
+    for unlocked in (("NW",), ("NW", "NE")):
         plan = plan_day(
-            day=day,
+            day=12,
             money=10000.0,
             wheat_seeds=0,
             plantable_target_tiles=24,
@@ -819,6 +857,19 @@ def test_max_owned_quadrants_default_still_buys_every_quadrant() -> None:
             active_tiles=24,
         )
         assert ["BUY_LAND"] in plan.buys, unlocked
+
+    at_the_cap = plan_day(
+        day=12,
+        money=10000.0,
+        wheat_seeds=0,
+        plantable_target_tiles=74,
+        wheat_on_hand=0,
+        goose_owned=True,
+        hires_today=0,
+        unlocked_quadrants=("NW", "NE", "SW"),
+        active_tiles=74,
+    )
+    assert not any(b == ["BUY_LAND"] for b in at_the_cap.buys)
 
 
 def test_max_owned_quadrants_three_refuses_the_se_purchase() -> None:
