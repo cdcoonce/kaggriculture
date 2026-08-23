@@ -1,0 +1,105 @@
+"""Teeth for the settlement recorder.
+
+Each test targets a way this instrument could return clean, plausible,
+fictional numbers rather than failing loudly.
+"""
+
+from __future__ import annotations
+
+import pytest
+from harness.settlement import Settlement, _Recorder
+
+
+def _recorder_with_farms() -> tuple[_Recorder, dict, dict]:
+    farm0: dict = {"money": 0.0}
+    farm1: dict = {"money": 0.0}
+    rec = _Recorder()
+    rec.farms = [farm0, farm1]
+    return rec, farm0, farm1
+
+
+def test_a_rejected_commit_is_not_booked_as_a_sale() -> None:
+    """The engine returns False and mutates nothing on an unfillable order.
+    Recording on the CALL instead of the RETURN books rejects as revenue --
+    measured at 26 of 80 EGG SELL calls worth a fictional $1,201 on one seed.
+    """
+    rec, farm0, _ = _recorder_with_farms()
+    rec.record(True, "SELL", "WHEAT", 25.0, farm0)
+    rec.record(False, "SELL", "EGG", 50.0, farm0)
+
+    assert rec.revenue[0]["WHEAT"] == 25.0
+    assert "EGG" not in rec.revenue[0]
+    assert rec.units[0]["WHEAT"] == 1
+    assert rec.calls == 2
+    assert rec.filled == 1
+    assert rec.rejected == 1
+
+
+def test_rejects_would_change_the_total_if_they_were_counted() -> None:
+    """Teeth on the test above: prove the reject actually carries value, so
+    excluding it is a real decision and not a no-op that would pass either
+    way."""
+    rec, farm0, _ = _recorder_with_farms()
+    rec.record(False, "SELL", "EGG", 50.0, farm0)
+    assert sum(rec.revenue[0].values()) == 0.0
+
+    counted = _Recorder()
+    counted.farms = rec.farms
+    counted.record(True, "SELL", "EGG", 50.0, farm0)
+    assert sum(counted.revenue[0].values()) == 50.0
+
+
+def test_seat_comes_from_object_identity_not_equality() -> None:
+    """Two farms with identical contents must not collapse to one seat.
+    Equality would silently attribute both players' sales to seat 0."""
+    rec, farm0, farm1 = _recorder_with_farms()
+    assert farm0 == farm1  # identical contents
+    assert farm0 is not farm1
+
+    rec.record(True, "SELL", "WHEAT", 25.0, farm0)
+    rec.record(True, "SELL", "WHEAT", 30.0, farm1)
+
+    assert rec.revenue[0]["WHEAT"] == 25.0
+    assert rec.revenue[1]["WHEAT"] == 30.0
+
+
+def test_an_unknown_farm_raises_rather_than_guessing() -> None:
+    rec, _, _ = _recorder_with_farms()
+    with pytest.raises(AssertionError, match="refusing to attribute"):
+        rec.record(True, "SELL", "WHEAT", 25.0, {"money": 0.0})
+
+
+def test_a_commit_before_the_market_sets_farms_raises() -> None:
+    """Ordering teeth: if the _process_market wrap ever stops firing, the
+    recorder must fail loudly instead of attributing to a stale list."""
+    rec = _Recorder()
+    assert rec.farms is None
+    with pytest.raises(AssertionError, match="before _process_market"):
+        rec.record(True, "SELL", "WHEAT", 25.0, {"money": 0.0})
+
+
+def test_buys_land_in_spend_not_revenue() -> None:
+    rec, farm0, _ = _recorder_with_farms()
+    rec.record(True, "BUY_SEED", "WHEAT", 10.0, farm0)
+    rec.record(True, "BUY_ANIMAL", "COW", 400.0, farm0)
+    rec.record(True, "BUY_PRODUCT", "WHEAT", 26.0, farm0)
+
+    assert rec.revenue[0] == {}
+    assert rec.spend[0]["BUY_SEED:WHEAT"] == 10.0
+    assert rec.spend[0]["BUY_ANIMAL:COW"] == 400.0
+    assert rec.spend[0]["BUY_PRODUCT:WHEAT"] == 26.0
+
+
+def test_settlement_totals_sum_the_per_item_maps() -> None:
+    s = Settlement(
+        seed=1,
+        final_money=[100.0, 200.0],
+        units={0: {"WHEAT": 2}, 1: {}},
+        revenue={0: {"WHEAT": 50.0, "EGG": 25.0}, 1: {"MILK": 10.0}},
+        spend={0: {"BUY_SEED:WHEAT": 20.0}, 1: {}},
+    )
+    assert s.revenue_total(0) == 75.0
+    assert s.revenue_total(1) == 10.0
+    assert s.spend_total(0) == 20.0
+    # cost_side is the residual used pairwise between arms
+    assert s.cost_side(0) == 100.0 - 75.0
