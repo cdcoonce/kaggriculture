@@ -835,7 +835,8 @@ def test_shipped_default_buys_ne_and_sw_but_refuses_se() -> None:
     """The promoted default (3) is the gated value, not a placeholder.
 
     max_owned_quadrants=3 confirmed at n=64 on all four tapes (money ci_lower
-    +5,991 to +7,780, margin ci_lower +3,552 to +7,003, opponent_mean_delta
+    +5,991 to +7,780, margin ci_lower +5,044 (mirror) to +7,687 (metac95),
+    opponent_mean_delta
     inside +/-3,000 everywhere) -- see eval/prereg/2026-08-23-max-owned-quadrants.md
     and the eval/gates/2026-08-23T21-* ledgers. SE costs $4,000 up front plus a
     measured $8,388/season of re-rented crew, because hands are daily rentals
@@ -952,7 +953,12 @@ def test_max_owned_quadrants_does_not_divert_the_refused_budget() -> None:
         hires_today=0,
         unlocked_quadrants=("NW", "NE", "SW"),
         active_tiles=74,
+        # Must be explicit. Omitting it falls back to MAX_OWNED_QUADRANTS,
+        # which is the capped value -- the two arms would then be byte-identical
+        # and both assertions below would reduce to `x == x`.
+        max_owned_quadrants=4,
     )
+    assert ["BUY_LAND"] in uncapped.buys, "uncapped arm must actually buy SE"
     non_land = [b for b in uncapped.buys if b != ["BUY_LAND"]]
     assert capped.buys == non_land
     assert capped.hire_count == uncapped.hire_count

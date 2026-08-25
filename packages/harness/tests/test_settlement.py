@@ -165,3 +165,50 @@ def test_settlement_exposes_hire_and_land_spend() -> None:
     assert s.hire_spend(0) == 11501.0
     assert s.land_spend(0) == 7000.0
     assert s.hire_spend(1) == 0.0
+
+
+def test_a_real_episode_books_hire_and_land_spend_to_the_right_seat() -> None:
+    """The engine wiring itself, not a hand-built recorder.
+
+    Everything above drives ``_Recorder`` directly with fabricated farms, so
+    ``play_with_settlement`` -- the spies, the seat capture and the restore --
+    had no coverage at all. That is the half that produced the $8,388/season
+    land attribution, and its money-differencing path is the fragile one:
+    ``_do_hire`` and ``_do_buy_land`` bypass ``_commit_unit``, so spend is
+    recovered as ``before - farm["money"]``. Flip that subtraction and every
+    ``spent`` goes negative, ``record_direct``'s ``if spent <= 0: return``
+    swallows all of them, and ``hire_spend`` reads a clean, plausible 0.0 with
+    the rest of this file still green.
+
+    Seat resolution is pinned by the opponent choice: ``zoo:pass`` never hires
+    and never buys land, so seat 1 MUST be empty. If the recorder resolved
+    seats by index instead of by farm object identity, the two seats would
+    swap and the seat-1 assertions would fail.
+    """
+    from harness.settlement import play_with_settlement
+
+    s = play_with_settlement(
+        seed=663300,
+        candidate="champion",
+        opponent="zoo:pass",
+    )
+
+    # The candidate hires daily (hands are re-rented every morning) and buys
+    # NE + SW. Both paths must book POSITIVE spend, not a swallowed negative.
+    assert s.hire_spend(0) > 0.0, "hire spend swallowed -- check the sign of `before - money`"
+    assert s.land_spend(0) > 0.0, "land spend swallowed -- check the sign of `before - money`"
+    assert s.hires.get(0, 0) > 0
+
+    # max_owned_quadrants=3 ships, so NE ($1,000) + SW ($2,000) and never SE.
+    assert s.land_spend(0) == 3000.0
+
+    # A passing opponent spends nothing on either path.
+    assert s.hire_spend(1) == 0.0
+    assert s.land_spend(1) == 0.0
+
+    # The engine's functions must be put back, or every later test in the
+    # process inherits the spies.
+    from kaggle_environments.envs.kaggriculture import kaggriculture as engine
+
+    assert engine._do_hire.__name__ != "hire_spy"
+    assert engine._commit_unit.__name__ != "cu_spy"
