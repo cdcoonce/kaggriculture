@@ -7,7 +7,8 @@ re-running every turn never double-buys (market orders fill within the turn
 they are issued; the next observation already reflects them). Budget is spent
 sequentially in priority order: goose, then NE land, then melon seeds, then
 animals (cows before sheep), then wheat seeds, then feed, then SW land, then
-SE land.
+SE land -- though the SE rung is unreachable at the shipped default, see
+``MAX_OWNED_QUADRANTS``.
 
 Melon goes ahead of wheat because it's the higher-value crop (seed $80 vs
 $10, and a mature melon sells for far more than a mature wheat harvest) and
@@ -20,6 +21,13 @@ after the melon satellite. SW is deliberately moved *after* animals (and
 SE after SW, further demoted behind an extra cash-reserve gate) so land
 expansion never crowds out the higher-return animal purchases while their
 windows are still open.
+
+The SE rung is dead code at the shipped default. ``MAX_OWNED_QUADRANTS`` is 3,
+so ``_next_quadrant`` returns None once NW/NE/SW are held and the SE branch
+never fires. It is kept reachable only through an explicit
+``PolicyConfig(max_owned_quadrants=4)``, which is what the eval arms use to
+recover pre-cap behavior. A replay or settlement ledger showing $3,000 of land
+spend (NE+SW) rather than $7,000 is the cap working, not a planner bug.
 """
 
 from __future__ import annotations
@@ -82,11 +90,16 @@ def _next_quadrant(
 ) -> str | None:
     """The next quadrant to buy, or None when we already hold enough.
 
-    The cap counts OWNED quadrants including the always-unlocked NW, so
-    ``max_owned_quadrants=3`` stops before SE. At the default of 4 the guard
-    can never fire on a four-quadrant board -- the ``next(...)`` below already
-    returns None once every quadrant is held -- so the shipped path is
-    bit-identical to the uncapped one.
+    The cap counts OWNED quadrants including the always-unlocked NW. The
+    shipped default is ``MAX_OWNED_QUADRANTS = 3``, so this guard DOES fire on
+    the shipped path: once NW/NE/SW are held it returns None and the $4,000 SE
+    quadrant is never bought. The guard is load-bearing, not scaffolding --
+    deleting it re-enables SE and silently reverts a result gated at n=64
+    across four tapes (see ``constants.MAX_OWNED_QUADRANTS``).
+
+    Pass ``max_owned_quadrants=4`` to recover the uncapped, pre-cap behavior;
+    at 4 the guard cannot bind on a four-quadrant board because the
+    ``next(...)`` below already returns None once every quadrant is held.
     """
     if len(unlocked_quadrants) >= max_owned_quadrants:
         return None

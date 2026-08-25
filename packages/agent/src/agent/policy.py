@@ -88,10 +88,13 @@ class PolicyConfig:
     wheat_rush_tiles: int = _WHEAT_RUSH_TILES_DEFAULT
 
     # How many quadrants to OWN, counting the always-unlocked NW. The
-    # default is the whole board and can never bind, so it is a bit-exact
-    # no-op. Land is not a one-off cost: hands are daily rentals and
-    # hands_target scales with active_tiles, so every quadrant carries a
-    # standing crew charge on top of its price. See constants.MAX_OWNED_QUADRANTS.
+    # shipped default is 3 of the board's 4 -- this knob is LIVE, not dormant.
+    # It binds on every game that reaches three quadrants, refusing the $4,000
+    # SE purchase. Set it to 4 to recover pre-cap behavior; that is what the
+    # eval arms do, and it is the value a frozen pre-cap baseline needs.
+    # Land is not a one-off cost: hands are daily rentals and hands_target
+    # scales with active_tiles, so every quadrant carries a standing crew
+    # charge on top of its price. See constants.MAX_OWNED_QUADRANTS.
     max_owned_quadrants: int = MAX_OWNED_QUADRANTS
 
     # Feed logistics. Both default to today's behavior. Raising

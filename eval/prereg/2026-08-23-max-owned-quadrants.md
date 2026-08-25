@@ -410,19 +410,42 @@ Prediction 2 registered "hire spend/season falls below $4,000." **It does.**
 ## 5. Margin — the objective-aligned metric — was never computed, and it passes
 
 `classify_outcome` scores `candidate_money > opponent_money`, so margin is the
-objective; money is a proxy. Recomputed from rows already inside the committed
-n=64 ledgers, one observation per seed (both seats averaged):
+objective; money is a proxy.
+
+> **WITHDRAWN 2026-08-24 — see CORRECTION 4 below. The table as originally
+> written is preserved here because a prereg is a record, not a draft.**
+>
+> | tape | margin mean | margin ci_lower | regressed | worst seed |
+> |---|---|---|---|---|
+> | thunder | +6,814 | **+4,712** | 11/64 | −22,009 |
+> | barnyard | +8,152 | **+7,003** | 5/64 | −7,230 |
+> | metac95 | +8,347 | **+6,565** | 11/64 | −10,555 |
+> | mirror | +5,791 | **+3,552** | 13/64 | −29,242 |
+>
+> Original claim: "Positive lower bound on all four. **Margin dispersion is
+> worse than money dispersion** — 5–13/64 regress against 2–7/64."
+
+Corrected table. Margin per game is `candidate_money - opponent_money`; one
+observation per seed with both seats averaged; `t_crit` as recorded in each
+ledger (df=63):
 
 | tape | margin mean | margin ci_lower | regressed | worst seed |
 |---|---|---|---|---|
-| thunder | +6,814 | **+4,712** | 11/64 | −22,009 |
-| barnyard | +8,152 | **+7,003** | 5/64 | −7,230 |
-| metac95 | +8,347 | **+6,565** | 11/64 | −10,555 |
-| mirror | +5,791 | **+3,552** | 13/64 | −29,242 |
+| thunder | +7,662 | **+5,898** | 10/64 | −12,726 |
+| barnyard | +8,209 | **+7,140** | 4/64 | −6,660 |
+| metac95 | +9,043 | **+7,687** | 4/64 | −5,860 |
+| mirror | +6,882 | **+5,044** | 9/64 | −21,085 |
 
-Positive lower bound on all four. **Margin dispersion is worse than money
-dispersion** — 5–13/64 regress against 2–7/64 — so this is a mean improvement
-with a real left tail, and that belongs in the record alongside the win.
+**The headline conclusion survives, and is stronger than originally recorded:**
+positive lower bound on all four tapes, every corrected `ci_lower` higher than
+the withdrawn one, every worst seed shallower.
+
+The dispersion claim needs qualifying rather than withdrawing. Margin regresses
+on 10 / 4 / 4 / 9 seeds against money's 5 / 7 / 2 / 2, so margin's left tail is
+worse on thunder, metac95 and mirror — but **better on barnyard**, which the
+original "5–13 against 2–7" phrasing hid by presenting the two as disjoint
+ranges. This is still a mean improvement with a real left tail; it is just not
+uniformly the riskier metric.
 
 ## 6. The ±3,000 rule is re-specified
 
@@ -448,3 +471,44 @@ eight scripted `gate_zoo()` archetypes. A 6-episode probe against
 but a probe is not a gate. `max_owned_quadrants=3` should be read as a measured
 chassis default, not a validated general principle, until it has seen a
 scripted zoo member at gate n.
+
+---
+
+## CORRECTION 4 (2026-08-24) — the §5 margin table was not derivable from any committed ledger
+
+Found by an adversarial pre-merge review of PR #81 and confirmed by independent
+recomputation.
+
+§5 claimed its table was "Recomputed from rows already inside the committed n=64
+ledgers, one observation per seed (both seats averaged)." **That provenance
+claim is false.** Every cell disagrees with that recomputation, and the true
+source is not in the repo.
+
+What was checked before concluding this: margin was recomputed from *every*
+committed `eval/gates/2026-08-23*money.json` file — both n=20 screens and both
+n=64 confirms, under both per-seed-averaged and per-game grouping. No file under
+any grouping reproduces the withdrawn means (+6,814 / +8,152 / +8,347 / +5,791).
+The n=20 screens give +8,083 / +3,086 / +6,803 / +7,098; the n=64 confirms give
++7,662 / +8,209 / +9,043 / +6,882. Because the **means** differ — and a mean is
+invariant to grouping and to `df` — this cannot be a grouping, `t_crit` or
+sample-size error. It is different data, computed in-session and never
+committed.
+
+Under the repo's own law that unledgered numbers are uncitable, the table had to
+be replaced with values that *are* derivable from committed artifacts. It has
+been.
+
+Two things worth keeping from this:
+
+1. **The error was self-pessimising, not self-serving.** Every withdrawn number
+   understated the result — lower `ci_lower`, more regressed seeds, deeper worst
+   seed. The direction rules out motivated reasoning but not carelessness, and
+   the citation law exists to catch both.
+2. **A derived metric needs a committed derivation, not just committed inputs.**
+   Money survived review untouched because `money_verdict.ci_lower` is written
+   into the ledger by `harness.ledger`. Margin was recomputed by hand from
+   `rows`, so "the inputs are committed" was doing all the work — and the
+   recomputation itself, the part that could be wrong, was never recorded.
+   Either `harness.gate` should emit a margin verdict alongside the money
+   verdict, or a prereg quoting margin should commit the script that produced
+   it.
