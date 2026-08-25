@@ -36,6 +36,35 @@ SHED_ACCESS: dict[tuple[int, int], str] = {
 LAND_ORDER: tuple[str, ...] = ("NE", "SW", "SE")
 LAND_PRICES: dict[str, int] = {"NE": 1000, "SW": 2000, "SE": 4000}
 
+#: How many quadrants the agent is willing to OWN, counting the always-unlocked
+#: NW. Three means NE and SW are bought and **SE is refused**.
+#:
+#: Land is not a one-off cost, which is why this is a knob and why 3 beats 4.
+#: Hands are DAILY rentals -- ``_end_of_day`` empties ``farm["hands"]``, so the
+#: whole fibonacci ladder is re-paid every morning -- and ``hands_target``
+#: scales with ``active_tiles``. Owning SE therefore costs its $4,000 price
+#: PLUS a standing crew charge, measured at $8,388/season on every one of the
+#: four hireland seeds (hire spend 11,492-11,505 -> 3,104-3,117; seat-0 hires
+#: 317-318 -> 263-264). See eval/recon/2026-08-23-land-attribution-*.json.
+#:
+#: GATED, do not edit without re-gating (eval/prereg/2026-08-23-max-owned-quadrants.md,
+#: eval/gates/2026-08-23T21-*): n=64 on four tapes, ordered thunder / barnyard /
+#: metac95 / mirror. money ci_lower +7,233 / +5,991 / +7,558 / +7,780 (read
+#: straight off money_verdict.ci_lower). margin ci_lower +5,898 / +7,140 /
+#: +7,687 / +5,044 -- margin is not in the ledger's verdict block, so it is
+#: recomputed from the committed per-game rows as candidate_money minus
+#: opponent_money, one observation per seed with both seats averaged, using the
+#: same t_crit the ledger records. vetoes empty, and every opponent_mean_delta
+#: landed inside +/-3,000 (a diagnostic, NOT a machine-enforced veto -- see
+#: CORRECTION 3 in the prereg).
+#:
+#: Known costs, both real: we sell 116-164 fewer WHEAT units/seed across the
+#: twelve recon seeds, which hands the opponent ~$1,276/seed of price surplus;
+#: and margin regresses on 10 / 4 / 4 / 9 of 64 seeds against money's
+#: 5 / 7 / 2 / 2. Margin's left tail is worse on thunder, metac95 and mirror
+#: but BETTER on barnyard -- it is not uniformly the riskier metric.
+MAX_OWNED_QUADRANTS = 3
+
 
 @cache
 def target_tiles(unlocked: tuple[str, ...]) -> list[tuple[int, int]]:

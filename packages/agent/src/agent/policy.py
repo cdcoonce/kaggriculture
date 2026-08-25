@@ -17,6 +17,7 @@ from typing import Any
 from agent.constants import (
     BOARD_SIZE,
     COW_TARGET,
+    MAX_OWNED_QUADRANTS,
     MELON_TILE_TARGET,
     PASTURE_REFERENCE_QUADRANTS,
     SHEEP_TARGET,
@@ -85,6 +86,16 @@ class PolicyConfig:
     cow_target: int = COW_TARGET
     sheep_target: int = SHEEP_TARGET
     wheat_rush_tiles: int = _WHEAT_RUSH_TILES_DEFAULT
+
+    # How many quadrants to OWN, counting the always-unlocked NW. The
+    # shipped default is 3 of the board's 4 -- this knob is LIVE, not dormant.
+    # It binds on every game that reaches three quadrants, refusing the $4,000
+    # SE purchase. Set it to 4 to recover pre-cap behavior; that is what the
+    # eval arms do, and it is the value a frozen pre-cap baseline needs.
+    # Land is not a one-off cost: hands are daily rentals and hands_target
+    # scales with active_tiles, so every quadrant carries a standing crew
+    # charge on top of its price. See constants.MAX_OWNED_QUADRANTS.
+    max_owned_quadrants: int = MAX_OWNED_QUADRANTS
 
     # Feed logistics. Both default to today's behavior. Raising
     # feed_batch_cap measures WORSE (PICKUP +56% for flat FEED); the cause is
@@ -302,6 +313,7 @@ def make_policy(
             hires_today=view.hires_today,
             unlocked_quadrants=view.unlocked_quadrants,
             active_tiles=len(tiles),
+            max_owned_quadrants=resolved_config.max_owned_quadrants,
             cows_owned=cows_owned,
             sheep_owned=sheep_owned,
             empty_pastures=_empty_built_pastures(view, pastures),

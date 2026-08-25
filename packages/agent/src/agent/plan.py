@@ -7,7 +7,8 @@ re-running every turn never double-buys (market orders fill within the turn
 they are issued; the next observation already reflects them). Budget is spent
 sequentially in priority order: goose, then NE land, then melon seeds, then
 animals (cows before sheep), then wheat seeds, then feed, then SW land, then
-SE land.
+SE land -- though the SE rung is unreachable at the shipped default, see
+``MAX_OWNED_QUADRANTS``.
 
 Melon goes ahead of wheat because it's the higher-value crop (seed $80 vs
 $10, and a mature melon sells for far more than a mature wheat harvest) and
@@ -20,13 +21,26 @@ after the melon satellite. SW is deliberately moved *after* animals (and
 SE after SW, further demoted behind an extra cash-reserve gate) so land
 expansion never crowds out the higher-return animal purchases while their
 windows are still open.
+
+The SE rung is dead code at the shipped default. ``MAX_OWNED_QUADRANTS`` is 3,
+so ``_next_quadrant`` returns None once NW/NE/SW are held and the SE branch
+never fires. It is kept reachable only through an explicit
+``PolicyConfig(max_owned_quadrants=4)``, which is what the eval arms use to
+recover pre-cap behavior. A replay or settlement ledger showing $3,000 of land
+spend (NE+SW) rather than $7,000 is the cap working, not a planner bug.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from agent.constants import COW_TARGET, LAND_ORDER, LAND_PRICES, SHEEP_TARGET
+from agent.constants import (
+    COW_TARGET,
+    LAND_ORDER,
+    LAND_PRICES,
+    MAX_OWNED_QUADRANTS,
+    SHEEP_TARGET,
+)
 from agent.dispatch import (
     MELON_PLANT_CUTOFF_DAY,
     MELON_PLANT_DAILY_CAP,
@@ -70,7 +84,25 @@ class DayPlan:
     buys: list[list[object]] = field(default_factory=list)
 
 
-def _next_quadrant(unlocked_quadrants: tuple[str, ...]) -> str | None:
+def _next_quadrant(
+    unlocked_quadrants: tuple[str, ...],
+    max_owned_quadrants: int = MAX_OWNED_QUADRANTS,
+) -> str | None:
+    """The next quadrant to buy, or None when we already hold enough.
+
+    The cap counts OWNED quadrants including the always-unlocked NW. The
+    shipped default is ``MAX_OWNED_QUADRANTS = 3``, so this guard DOES fire on
+    the shipped path: once NW/NE/SW are held it returns None and the $4,000 SE
+    quadrant is never bought. The guard is load-bearing, not scaffolding --
+    deleting it re-enables SE and silently reverts a result gated at n=64
+    across four tapes (see ``constants.MAX_OWNED_QUADRANTS``).
+
+    Pass ``max_owned_quadrants=4`` to recover the uncapped, pre-cap behavior;
+    at 4 the guard cannot bind on a four-quadrant board because the
+    ``next(...)`` below already returns None once every quadrant is held.
+    """
+    if len(unlocked_quadrants) >= max_owned_quadrants:
+        return None
     return next((q for q in LAND_ORDER if q not in unlocked_quadrants), None)
 
 
@@ -90,6 +122,7 @@ def plan_day(
     hires_today: int,
     unlocked_quadrants: tuple[str, ...],
     active_tiles: int,
+    max_owned_quadrants: int = MAX_OWNED_QUADRANTS,
     cows_owned: int = 0,
     sheep_owned: int = 0,
     empty_pastures: int = 0,
@@ -105,7 +138,10 @@ def plan_day(
         buys.append(["BUY_ANIMAL", "GOOSE", 1])
         budget -= GOOSE_COST
 
-    if _next_quadrant(unlocked_quadrants) == "NE" and day <= LAND_LAST_BUY_DAY["NE"]:
+    if (
+        _next_quadrant(unlocked_quadrants, max_owned_quadrants) == "NE"
+        and day <= LAND_LAST_BUY_DAY["NE"]
+    ):
         price = LAND_PRICES["NE"]
         if budget >= price + LAND_RESERVE:
             buys.append(["BUY_LAND"])
@@ -207,7 +243,7 @@ def plan_day(
     animals_done = (cows_owned >= cow_target or day > COW_LAST_BUY_DAY) and (
         sheep_owned >= sheep_target or day > SHEEP_LAST_BUY_DAY
     )
-    sw_next = _next_quadrant(unlocked_quadrants) == "SW"
+    sw_next = _next_quadrant(unlocked_quadrants, max_owned_quadrants) == "SW"
     if animals_done and sw_next and day <= LAND_LAST_BUY_DAY["SW"]:
         price = LAND_PRICES["SW"]
         if budget >= price + LAND_RESERVE:
@@ -218,7 +254,7 @@ def plan_day(
     # bought it at all, so it needs both a later earliest-day and a much
     # bigger cash cushion than NE/SW's flat reserve before it's worth it.
     if (
-        _next_quadrant(unlocked_quadrants) == "SE"
+        _next_quadrant(unlocked_quadrants, max_owned_quadrants) == "SE"
         and day >= SE_LAND_MIN_DAY
         and day <= LAND_LAST_BUY_DAY["SE"]
     ):
