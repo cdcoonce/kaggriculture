@@ -172,3 +172,105 @@ standing proof that the two can move in opposite directions: fixing its cash
 blocker raised wheat's seed pool from 0 to 23 and moved mean standing *down*,
 34.4 → 34.1. Clearing the intermediate here buys the right to run the money
 gate. It does not predict the gate's result, and the gate is what decides.
+
+---
+
+## RESULT — the bound clears everywhere and the artifact criterion fires everywhere (2026-08-28, `f52d064`)
+
+**A kill criterion fired on all four registered opponents. The promotion is
+NOT authorized under this registration.** The confirm band **661600 is
+unburned**; only the 661400 screen and the 661800 diagnostic were spent.
+
+### Intermediate: 5 of 6 predictions hit, and the standing bar cleared
+
+| arm | mean standing (d10–28) | bare | zone peak | first WHEAT |
+| --- | --- | --- | --- | --- |
+| baseline (target 0) | 31.4 | 29.2 | — | day 1 |
+| pre-fix t31 (34.4 bar) | 34.4 | 21.3 | 15–17/31 | day 14 |
+| incumbent `0d366b9` t31 | 34.1 | 23.1 | 15–16/31 | day 14 |
+| **new t31** | **35.4** | 22.2 | — | **day 1** |
+| new t20 | 33.7 | 22.8 | — | day 1 |
+| new t12 (control) | 32.7 | 24.2 | — | day 1 |
+
+- wheat `plantable_target_tiles` at target 31, day 0: **0 → 3**. HIT.
+- WHEAT on the board by day 2 at target 31: **day 1** (was day 14). HIT.
+- days 0–13 wheat seed pool > 23: **33–57**. HIT.
+- mean standing > 34.4 at the best arm: **35.4**. HIT.
+- control at target 12 within ±1.0: moved **0.0** — 32.7 both sides. HIT, and
+  it is the strongest evidence the arms measure the claimed mechanism: a zone
+  under strawberry's own two-day horizon hands wheat nothing, exactly as the
+  disjointness argument predicts.
+- mean bare at target 31 below 21.3: **22.2**. **MISS.**
+
+The bare-ground miss is recorded as a miss. It is not a kill criterion, so the
+gate proceeded. On inspection it was a **badly-formed prediction**: bare is an
+absolute tile count over boards whose size differs between arms — the pre-fix
+comparator was broke and never bought SW, so it had fewer tiles to leave bare.
+That reasoning is post-hoc and is recorded as explanation, not as a defence;
+the prediction missed.
+
+### Money gate, screen n=20, band 661400, arm 31
+
+| opponent | mean_delta | `ci_lower` | n_regressed | **`opponent_mean_delta`** |
+| --- | --- | --- | --- | --- |
+| tape-thunder-719 | +15,308 | +10,288 | 3/20 | **−5,587** |
+| tape-barnyard-719 | +15,392 | +11,574 | 1/20 | **−12,537** |
+| tape-metac95-720 | +14,550 | +9,642 | 2/20 | **−6,854** |
+| tape-mirror-719 | +15,377 | +10,280 | 3/20 | **−4,640** |
+
+The intersection–union rule on the bound is satisfied on every opponent, with
+no vetoes and no blockers. **And the registered ±3,000 band on
+`opponent_mean_delta` is breached on every opponent**, by 1.5× to 4.2×. On
+barnyard the opponent loses $12,537 against a candidate gain of $15,392 —
+**81% of the measured gain is matched by the opponent's loss**. Thunder 36%,
+metac95 47%, mirror 30%.
+
+All four are **replay tapes**, which cannot adapt. Margin taken out of a tape
+measures the tape's cliffs, not our strength.
+
+### Registered diagnostic — the gain largely survives a reactive co-supplier
+
+`zoo:kernel-sokolovsky-2883`, band 661800, n=32, registered in advance as
+diagnostic-only:
+
+```
+mean_delta=+12,821  ci_lower=+9,057  n_regressed=6/32  opponent_mean_delta=-5,346
+```
+
+The kernel delta is **84% of the thunder delta**. Against an opponent that
+reacts to us and is itself a heavy strawberry supplier (300 units, d16–d29),
+the gain does not collapse. The two-sided-supply worry the predecessor
+registered and never reached is **not** confirmed: this does not look like a
+crop that dies when both players adopt it.
+
+Read as registered, that is a real signal — and it is **not** authority to
+promote. It was registered as diagnostic precisely so it could not become one.
+Note also what it does not say: our mean there is 60,372 against a kernel
+minimum of 73,456. We still lose that matchup.
+
+### Disposition
+
+**Negative by fired kill criterion.** The change is not promoted and no
+submission is made.
+
+There is an obvious post-hoc reading — that the ±3,000 band was inherited from
+a predecessor testing a *different* intervention, and that an intervention
+whose whole mechanism is **planting substantially more wheat** cannot leave a
+wheat-selling opponent's revenue unmoved, so the criterion may be
+mis-specified for this change rather than the change being an artifact. That
+reading is recorded **as a hypothesis and nothing more**. It arrived after the
+criterion fired, which is exactly when such reasoning is least trustworthy,
+and adopting it now would be laundering a veto.
+
+**What would actually settle it, to be registered BEFORE it is run:** measure
+the same arm against a **non-competing** opponent — `builtin:pass` plants
+nothing and sells nothing, so there is no market for us to take revenue from.
+If the gain holds there, it is production; if it collapses, it was price. That
+measurement is deliberately **not run here**, because adding an instrument
+after a veto fires in order to clear it is the move this file exists to
+prevent. It belongs in a successor registration, with its band and threshold
+fixed in advance.
+
+`f52d064` and `7e64ded` are kept: the first is a bit-exact no-op at the
+shipped default, the second is harness infrastructure the registered gate
+could not run without. Neither is a win.
