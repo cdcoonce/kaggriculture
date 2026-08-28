@@ -242,3 +242,95 @@ heavy strawberry supplier. Registered in advance:
 
 Screen **661400**, confirm **661600** (both unchanged and disjoint from the
 recon band). Kernel diagnostic band **661800**. Arms 12 / 20 / 31, unchanged.
+
+---
+
+## RESULT — killed on the registered intermediate (2026-08-28, `0d366b9`)
+
+**Two kill criteria fired. No gate seed was burned. The bands registered
+above (661400 screen, 661600 confirm, 661800 kernel diagnostic) are UNBURNED
+and remain available to a successor.**
+
+### The registered code change works
+
+`0d366b9` lands both registered changes: wheat funded before strawberry, and
+the strawberry seed line bounded by a share of uncommitted cash. Verified live
+rather than assumed — days 0–13 WHEAT seed pool, seeds 661200–661203 vs
+`zoo:tape-thunder-719`:
+
+| arm | WHEAT seed pool, d0–13 |
+| --- | --- |
+| pre-fix, target 31 | **0** |
+| fixed, target 31 | 23 |
+| fixed, target 20 | 49–80 |
+| fixed, target 12 | 111 |
+
+Both guards are mutation-verified: re-injecting the zone-only sizing turns two
+tests red (including the feed-cash test, which had **no teeth** as first
+written and is recorded here because it passed before the fix); re-injecting
+the old ordering turns the ordering test red.
+
+### The registered thesis fails its own bar
+
+| arm | mean standing (d10–28) | bare | zone peak | first WHEAT |
+| --- | --- | --- | --- | --- |
+| baseline (target 0) | 31.4 | 29.2 | — | day 1 |
+| **pre-fix target 31 (the comparator)** | **34.4** | 21.3 | 15–17/31 | day 14 |
+| fixed target 12 | 32.7 | 24.2 | 11/12 | day 1 |
+| fixed target 20 | **34.1** | 22.4 | 9–16/20 | day 1 |
+| fixed target 31 | 34.1 | 23.1 | 15–16/31 | day 14 |
+
+- *"Mean standing rises above 34.4 at the best arm"* → best arm is **34.1**. **MISS.**
+- *"Strawberry zone fill rises above 17/31"* → peak **16**. **MISS.**
+- *"WHEAT appears by day 2 at every arm"* → holds at 12 and 20, **day 14 at 31**. **MISS.**
+
+Both restated kill criteria fire. The result is recorded as a negative and the
+promotion path stops here.
+
+**AMENDMENT 1 is what makes this a clean kill.** Against the body's original
+comparator — the dormant baseline at 31.4 — every fixed arm would have
+"cleared" and this would have gone to a gate. Raising the bar to the
+blocker-probe arm *before* measuring is the only reason the honest reading is
+available: fixing the cash starvation makes standing crop go slightly **down**
+(34.4 → 34.1), because the broken arm bought its standing by starving wheat
+and leaving strawberry more ground to hold.
+
+### What the kill actually found: a second blocker, of a different kind
+
+The day-14 wheat delay survives the cash fix at target 31, so cash was never
+the only thing holding wheat back. Day-by-day census at target 31 (seed
+661200):
+
+```
+d07  standing 18  bare 21  {STRAWBERRY: 10, MELON: 8}  seeds {}
+d12  standing 22  bare 16  {STRAWBERRY: 14, MELON: 8}  seeds {STRAWBERRY: 2}
+d13  standing 24  bare 39  {STRAWBERRY: 16, MELON: 8}  seeds {WHEAT: 23, ...}
+```
+
+Wheat holds **zero seed through day 12 while 21 tiles sit bare**. It is not
+outbid — it does not ask. `plantable_target_tiles` is computed over the
+non-zone tiles only (`policy.py`, `_plantable_targets` against
+`wheat_tiles = tiles - strawberry_set`), so ground reserved for strawberry is
+invisible to the wheat seed target. The zone reserves 31 tiles; the strawberry
+line can only plant ~10 of them that early against its own daily cap; the
+remaining ~21 are reserved, bare, and unaskable.
+
+The body noted that `dispatch.py:497-513` already falls an unclaimable
+strawberry tile through to a WHEAT plant, and that the fall-through fires
+correctly. It does — but it cannot fire without wheat seed in the shed, and
+the seed never gets bought.
+
+**This is a different intervention with a different mechanism (tile
+reservation, not budget order) and it does not belong to this registration.**
+Widening this prereg to cover it is exactly the search-widening its kill
+criteria exist to prevent. It needs its own prereg, its own bands, and its own
+prediction — written before the next measurement, not after this one.
+
+### Disposition of `0d366b9`
+
+Kept, dormant. `strawberry_tile_target` is still 0, so the change is a
+bit-exact no-op on the shipped agent — verified by a day-by-day occupancy
+census byte-identical to `frozen:m3b_straw_base_9916ce5` on all four seeds. It
+fixes a real ordering defect that any future strawberry attempt would hit
+first. **It is not a win and must not be recorded as one:** it moved no money,
+cleared no gate, and its thesis was killed on the same day it landed.
