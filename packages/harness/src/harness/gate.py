@@ -26,6 +26,19 @@ from harness.stats import (
 TUNABLE_SPECS = frozenset({"champion", "champion-unshelled"})
 
 
+def is_tunable(spec: str) -> bool:
+    """Whether ``spec`` accepts a PolicyConfig override.
+
+    A predicate rather than ``spec in TUNABLE_SPECS`` because frozen spec names
+    are dynamic (``frozen:<name>``) and cannot be enumerated in a frozenset.
+    Frozen specs are tunable so a code change can be A/B'd at the same knob
+    setting on both arms; see ``harness.episodes.resolve_agent``. Builtin and
+    zoo specs are still refused, because they have no PolicyConfig at all and
+    an override would be silently dropped.
+    """
+    return spec in TUNABLE_SPECS or spec.startswith("frozen:")
+
+
 @dataclass(frozen=True)
 class GateResult:
     """Aggregate outcome of a full gate run."""
@@ -406,15 +419,15 @@ def run_money_gate(
     """
     if n_seeds < 1:
         raise ValueError(f"run_money_gate needs n_seeds >= 1, got {n_seeds}")
-    if agent_config is not None and candidate not in TUNABLE_SPECS:
+    if agent_config is not None and not is_tunable(candidate):
         raise ValueError(
-            f"agent_config is only supported for {sorted(TUNABLE_SPECS)}, "
-            f"got candidate {candidate!r}"
+            f"agent_config is only supported for {sorted(TUNABLE_SPECS)} and "
+            f"'frozen:' specs, got candidate {candidate!r}"
         )
-    if baseline_agent_config is not None and baseline not in TUNABLE_SPECS:
+    if baseline_agent_config is not None and not is_tunable(baseline):
         raise ValueError(
-            f"baseline_agent_config is only supported for {sorted(TUNABLE_SPECS)}, "
-            f"got baseline {baseline!r}"
+            f"baseline_agent_config is only supported for {sorted(TUNABLE_SPECS)} "
+            f"and 'frozen:' specs, got baseline {baseline!r}"
         )
 
     # The `champion` shell catches BaseException and returns pass_action(), so
@@ -425,6 +438,12 @@ def run_money_gate(
     candidate_canary_crashed = False
     baseline_canary_ran = False
     baseline_canary_crashed = False
+    #
+    # NOTE the predicate here is TUNABLE_SPECS, not is_tunable: the canary
+    # substitutes `champion-unshelled`, i.e. the LIVE agent. That is a valid
+    # proxy only for a champion arm. A frozen arm is different code, so the
+    # canary would smoke-test something the gate is not running -- it stays
+    # skipped for frozen specs even though they now accept a config.
     if run_canary:
         if candidate in TUNABLE_SPECS:
             candidate_canary_ran = True

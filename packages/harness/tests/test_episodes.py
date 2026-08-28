@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
+import shutil
+from pathlib import Path
+
 import pytest
 from harness.episodes import classify_outcome, play_game, resolve_agent
+from harness.frozen import freeze_incumbent, frozen_package_name
 
 TINY_CONFIG = {"episodeSteps": 48}
 
@@ -126,9 +130,48 @@ class TestResolveAgent:
         with pytest.raises(ValueError, match="champion"):
             resolve_agent("zoo:starter", {"soft_budget_seconds": 0.0})
 
-    def test_agent_config_raises_for_frozen_spec(self) -> None:
-        with pytest.raises(ValueError, match="champion"):
-            resolve_agent("frozen:m1", {"soft_budget_seconds": 0.0})
+    def test_frozen_spec_accepts_an_agent_config(self) -> None:
+        """A frozen incumbent is tunable, because an A/B on a CODE change has
+        to be run at the same knob setting on both arms.
+
+        ``agent_config`` used to raise for every non-champion spec, which made
+        a whole class of gate unrunnable: a code change measured at a
+        non-default knob could only be compared against a baseline pinned at
+        the DEFAULT, which prices the knob and the code change together and
+        then attributes the sum to the code. The rule the original guard
+        protected -- an override that cannot take effect must be loud, never
+        silently dropped -- is what the next test pins.
+
+        That the override actually reaches the frozen policy's decisions is
+        proved behaviourally, not here: the gate protocol in
+        eval/prereg/2026-08-28-strawberry-zone-fallthrough-seed.md requires the
+        frozen incumbent to reproduce its build's occupancy signature at the
+        arm being gated before any seed is burned.
+        """
+        root = Path(__file__).resolve().parents[3]
+        dest = root / "eval" / "frozen"
+        name = "cfgprobe"
+        freeze_incumbent("HEAD", name, root, dest)
+        try:
+            agent = resolve_agent(f"frozen:{name}", {"strawberry_tile_target": 31})
+            assert callable(agent)
+        finally:
+            shutil.rmtree(dest / frozen_package_name(name), ignore_errors=True)
+
+    def test_frozen_spec_raises_on_a_knob_its_own_build_never_had(self) -> None:
+        """The guard that matters, kept. A frozen package that predates the
+        knob it is handed must reject it LOUDLY, naming the frozen package --
+        never run the baseline at defaults and report a delta that is really
+        the knob."""
+        root = Path(__file__).resolve().parents[3]
+        dest = root / "eval" / "frozen"
+        name = "cfgprobe2"
+        freeze_incumbent("HEAD", name, root, dest)
+        try:
+            with pytest.raises(TypeError, match="cfgprobe2"):
+                resolve_agent(f"frozen:{name}", {"knob_that_never_existed": 1})
+        finally:
+            shutil.rmtree(dest / frozen_package_name(name), ignore_errors=True)
 
 
 class TestClassifyOutcome:

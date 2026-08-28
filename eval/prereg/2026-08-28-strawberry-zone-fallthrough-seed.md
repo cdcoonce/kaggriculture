@@ -30,8 +30,9 @@ instead of being held for a crop that can no longer profitably go in it.
 `_plantable_targets(view, wheat_tiles)`, where
 
 ```python
-wheat_tiles = [t for t in tiles
-               if t not in melon_set and t not in pasture_set and t not in strawberry_set]
+wheat_tiles = [
+    t for t in tiles if t not in melon_set and t not in pasture_set and t not in strawberry_set
+]
 ```
 
 **The zone is subtracted outright.** So the dispatcher is willing to plant
