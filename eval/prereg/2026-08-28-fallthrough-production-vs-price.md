@@ -109,3 +109,66 @@ right to run the predecessor's confirm on 661600 under its own rule. It does
 not retire the standing gap that every gate in this project is fought against
 replay tapes of one lineage, and it does not touch the fact that we still lose
 the kernel matchup outright.
+
+---
+
+## RESULT — PRODUCTION, and the transfer hypothesis is refuted by its own sign (2026-08-28, `f52d064`)
+
+### Registered guards, read before the bound as required
+
+- **Instrument valid.** `opponent_mean_delta = 0.0`, `min_opponent_money =
+  3000` — `builtin:pass` finished every one of the 64 episodes holding its
+  untouched opening stake. There was no revenue to take.
+- **Powered.** `mde_80 = 3,452`, under the registered 4,897 separation. This
+  run can distinguish the two hypotheses.
+- **Not ceiling-compressed.** Baseline mean **70,394**, under the registered
+  90,000 limit.
+
+### The verdict
+
+```
+mean_delta = +25,838   ci_lower = +23,542   n_regressed = 0/32   min_delta = +3,009
+candidate_mean = 96,232   baseline_mean = 70,394
+```
+
+`ci_lower` +23,542 > 1,000 and `mean_delta` +25,838 ≥ 7,752. **PRODUCTION**,
+by a factor of 3.3 over the decision point. **Every one of the 32 paired seeds
+improved**, worst case +3,009.
+
+Secondary read, `builtin:starter`, registered as directional only:
+`mean_delta` **+23,019**, `ci_lower` +20,952, `n_regressed` 0/32,
+`opponent_mean_delta` **+1.39**.
+
+### The transfer hypothesis is not merely unsupported — it has the sign backwards
+
+| opponent | competition | our gain |
+| --- | --- | --- |
+| `builtin:pass` | none — ends on its untouched $3,000 | **+25,838** |
+| `builtin:starter` | marginal — banks ~$3.5k | +23,019 |
+| four replay tapes | real | +15,157 |
+
+Reading (2) predicted the gain would **collapse toward 2,855** once there was
+no opponent to take revenue from. It **rose to 25,838** — the gain is largest
+with no opponent at all and shrinks monotonically as competition rises.
+
+The mechanism the data supports: the change produces roughly **$25.8k** more.
+In contested play the extra supply depresses shared prices, so only about
+**$15.2k** of it is realised — and that same price depression is what costs
+the opponent $4,640–$12,537. **The opponent's loss is a consequence of our
+production, not a transfer into our account.**
+
+### Consequence, as registered
+
+The predecessor's `opponent_mean_delta` band is **mis-specified for this
+mechanism** — an intervention that plants substantially more wheat cannot
+leave a wheat-selling opponent's revenue unmoved, and a band that forbids it
+forbids the mechanism rather than the artifact. That was recorded in the
+predecessor as a post-hoc hypothesis with no weight. It is now the outcome of
+a test whose decision points were fixed before the measurement, so it is
+reportable.
+
+Per the rule registered above, the change is eligible for the predecessor's
+confirm run on the unburned band **661600**. That is the only thing this
+verdict licenses. It does not retire the standing gap that every gate here is
+fought against replay tapes of one lineage, and it does not change that we
+still lose the kernel matchup outright.
