@@ -172,3 +172,61 @@ confirm run on the unburned band **661600**. That is the only thing this
 verdict licenses. It does not retire the standing gap that every gate here is
 fought against replay tapes of one lineage, and it does not change that we
 still lose the kernel matchup outright.
+
+---
+
+## ADDENDUM — the whole line is dead, and this chain of gates could never have seen it (2026-08-28)
+
+**Before recommending a ship, the arm was run against the agent actually on
+the ladder** (`frozen:m3b_live_b6ce655`, the M3b build at `b6ce655`,
+submission 55784368). Promotion gate, band 663000:
+
+| arm | record vs live M3b | win rate | `ci_lower` |
+| --- | --- | --- | --- |
+| `strawberry_tile_target = 12` | **0–200** | 0.000 | 0.000 |
+| `strawberry_tile_target = 20` | **3–197** | 0.015 | 0.005 |
+| `strawberry_tile_target = 31` | **44–456** (n=500) | 0.088 | 0.066 |
+
+**Every strawberry arm is catastrophically worse than the shipped agent.**
+Target 31 is the best of the three, which is consistent with the fall-through
+fix helping most where the idle zone is largest — and it is nowhere near
+viable. The strawberry line is closed.
+
+### Why none of the preceding gates could detect this
+
+Every money gate in this chain — the 2026-08-19 prereg, the fall-through
+prereg, and this one — compared **`champion@31` against `frozen@31`**. Both
+arms carried the same strawberry configuration. That comparison prices the
+*fix* while holding the zone fixed. **It cannot ask whether the zone should be
+open at all**, and no gate in the chain ever did.
+
+So every result above stands and every one of them is beside the point:
+
+- +$25,838 vs a passive opponent, 0/32 seeds regressed — a **real** production
+  gain, correctly measured, **inside a configuration that should not be used**.
+- `ci_lower` +10,941 to +13,953 on the n=64 confirm — real, and measured
+  against a baseline that was itself far worse than the shipped agent.
+- The PRODUCTION verdict — correct as an answer to the question asked, and the
+  question was the wrong one.
+
+The fix recovers ground that turning strawberry on had lost. It does not
+recover enough to get back to where the agent already was.
+
+**The gate that was missing is the cheapest one in the project: candidate
+against the SHIPPED default.** It was never run until the ship decision forced
+it, and it took eleven minutes to answer what four registered gates and a
+day's work could not. A frozen baseline pinned at the candidate's own
+configuration is a mirror: it makes a bad configuration invisible by
+construction, because both arms are standing in it.
+
+### Disposition
+
+The strawberry mechanic stays dormant at `STRAWBERRY_TILE_TARGET = 0`, which
+is what already ships. `f52d064` (fall-through) and `0d366b9` (seed order) are
+kept as verified no-ops at that default: both fix genuine defects that any
+future attempt would hit first, and neither is a win. `7e64ded` (frozen-arm
+tunability, and the `occupancy.py` silent config drop) is kept on its own
+merits as harness correctness.
+
+**Nothing is promoted and no submission is made.** 662000 and 661600 are
+burned; 663000 is burned for the promotion reads.
