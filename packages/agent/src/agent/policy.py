@@ -31,6 +31,7 @@ from agent.constants import (
 from agent.dispatch import (
     FEED_BATCH_CAP,
     HAND_MULE_LOAD,
+    STRAWBERRY_PLANT_CUTOFF_DAY,
     STRAWBERRY_PLANT_DAILY_CAP,
     dispatch,
 )
@@ -191,6 +192,46 @@ def _plantable_targets(view: FarmView, tiles: list[tuple[int, int]]) -> int:
     return count
 
 
+def _zone_fallthrough_tiles(
+    view: FarmView, config: PolicyConfig, strawberry_set: frozenset[tuple[int, int]]
+) -> int:
+    """Empty strawberry-zone ground that the DISPATCHER will plant with wheat.
+
+    ``dispatch.py``'s strawberry branch already falls an empty zone tile
+    through to a WHEAT plant once the daily strawberry cap is spent or the
+    planting window has shut -- see its "reservation trap, fixed rather than
+    inherited" comment. The planner did not know that: ``wheat_tiles``
+    subtracts ``strawberry_set`` outright, so the seed line never bought for
+    that ground and the fall-through could not fire against an empty shed.
+    Measured at ``strawberry_tile_target = 31`` (prereg 2026-08-28), wheat's
+    plantable target sat at exactly 0 for thirteen days while 21 zone tiles
+    were empty and the farm ran on $0-165 because nothing was producing.
+
+    The horizon here is strawberry's own, not the dispatcher's single-turn
+    budget: ``plan.py`` sizes the strawberry seed line to TWO days of the
+    planting stagger, so anything past ``2 * cap`` is ground strawberry's own
+    seed line is not asking for either. Counting from that boundary makes the
+    two lines disjoint by construction -- no tile is ever counted by both --
+    which is what keeps this from double-buying seed for the same square. It
+    is deliberately the conservative side of the dispatcher's real behaviour:
+    the dispatcher would hand wheat more than this on any turn where the daily
+    cap is already partly spent.
+
+    Reservation itself is untouched. ``strawberry_tiles`` keeps its fixed
+    reference frame and its size, and nothing is planted here that the
+    dispatcher would not already have planted -- so the seventeen-day-plant
+    invariant ``STRAWBERRY_REFERENCE_QUADRANTS`` exists to protect is not in
+    play.
+    """
+    empty_zone = _plantable_targets(view, sorted(strawberry_set))
+    if view.day > STRAWBERRY_PLANT_CUTOFF_DAY:
+        # Window shut: the dispatcher hands wheat the whole empty zone, and
+        # plan.py's own strawberry seed line has stopped buying, so there is
+        # nothing left to stay disjoint from.
+        return empty_zone
+    return max(0, empty_zone - 2 * config.strawberry_plant_daily_cap)
+
+
 def _shed_capacity(config: dict[str, Any] | None) -> int:
     """The engine's real per-episode shed capacity, defaulting to 100 (the
     engine's own default) when no config is supplied -- every existing unit
@@ -308,7 +349,10 @@ def make_policy(
             day=view.day,
             money=view.money,
             wheat_seeds=view.seeds.get("WHEAT", 0),
-            plantable_target_tiles=_plantable_targets(view, wheat_tiles),
+            plantable_target_tiles=(
+                _plantable_targets(view, wheat_tiles)
+                + _zone_fallthrough_tiles(view, resolved_config, strawberry_set)
+            ),
             melon_seeds=view.seeds.get("MELON", 0),
             empty_melon_tiles=_plantable_targets(view, melons),
             strawberry_seeds=view.seeds.get("STRAWBERRY", 0),
