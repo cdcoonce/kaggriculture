@@ -8,7 +8,7 @@ is in the shared farm dict), so re-running it never double-buys.
 
 from __future__ import annotations
 
-from agent.plan import plan_day
+from agent.plan import MELON_SEED_PRICE, SEED_PRICE, STRAWBERRY_SEED_PRICE, plan_day
 
 
 def test_day_zero_opening_buys_seeds_goose_feed_and_hires() -> None:
@@ -763,7 +763,10 @@ def test_strawberry_seed_buy_holds_two_days_of_the_planting_stagger() -> None:
     # Same "two days of headroom" sizing as the melon and wheat seed lines:
     # enough to keep the dispatcher's stagger fed without parking cash in
     # seed that could be buying land or animals.
-    plan = _sb_plan(empty_strawberry_tiles=30, strawberry_plant_daily_cap=6)
+    # Funded well past the budget share, which since the 2026-08-19 prereg is
+    # the bound that binds first at the opening bankroll -- this test is about
+    # the stagger, so the cash bound is deliberately taken out of the way.
+    plan = _sb_plan(money=100_000.0, empty_strawberry_tiles=30, strawberry_plant_daily_cap=6)
     assert _sb_buy(plan) == ["BUY_SEED", "STRAWBERRY", 12]
 
 
@@ -786,7 +789,18 @@ def test_strawberry_seed_buy_nets_off_seed_already_held() -> None:
 def test_strawberry_seed_buy_is_bounded_by_the_remaining_budget() -> None:
     # Seed is $100 -- by far the most expensive on the board -- so the budget
     # bound is the real throttle on how fast the zone fills, not the daily cap.
-    plan = _sb_plan(money=350.0, empty_strawberry_tiles=30, strawberry_plant_daily_cap=6)
+    #
+    # Two isolations keep this about the raw budget: the wheat seed line now
+    # runs first and would take $240 of the $350, and the share would then
+    # halve what is left. Wheat's target is pre-met and the share is opened to
+    # 1.0, so the only bound left standing is the one under test.
+    plan = _sb_plan(
+        money=350.0,
+        empty_strawberry_tiles=30,
+        strawberry_plant_daily_cap=6,
+        strawberry_seed_budget_share=1.0,
+        wheat_seeds=24,
+    )
     assert _sb_buy(plan) == ["BUY_SEED", "STRAWBERRY", 3]
 
 
@@ -814,18 +828,25 @@ def test_strawberry_never_outbids_the_animal_pipeline() -> None:
         empty_pastures=2,
         cows_owned=0,
         sheep_owned=0,
+        wheat_seeds=24,
+        strawberry_seed_budget_share=1.0,
     )
     assert ["BUY_ANIMAL", "COW", 2] in contested.buys  # type: ignore[attr-defined]
     assert _sb_buy(contested) is None
 
     # It does still get the genuine remainder, so this is a priority rather
     # than a blockade.
+    # wheat_seeds pre-met throughout: the wheat line also outranks strawberry
+    # since the 2026-08-19 prereg, and letting it draw here would make this
+    # test pass for the wrong reason.
     leftover = _sb_plan(
         money=1000.0,
         empty_strawberry_tiles=30,
         empty_pastures=2,
         cows_owned=0,
         sheep_owned=0,
+        wheat_seeds=24,
+        strawberry_seed_budget_share=1.0,
     )
     assert ["BUY_ANIMAL", "COW", 2] in leftover.buys  # type: ignore[attr-defined]
     assert _sb_buy(leftover) == ["BUY_SEED", "STRAWBERRY", 2]
@@ -962,3 +983,122 @@ def test_max_owned_quadrants_does_not_divert_the_refused_budget() -> None:
     non_land = [b for b in uncapped.buys if b != ["BUY_LAND"]]
     assert capped.buys == non_land
     assert capped.hire_count == uncapped.hire_count
+
+
+# --- strawberry seed line: ordering and cash sizing (prereg 2026-08-19) -------
+
+
+def _wheat_buy(plan: object) -> list[object] | None:
+    return next((b for b in plan.buys if b[0] == "BUY_SEED" and b[1] == "WHEAT"), None)  # type: ignore[attr-defined]
+
+
+def test_wheat_seed_is_funded_before_strawberry_seed() -> None:
+    # The measured blocker (prereg 2026-08-19 + AMENDMENT 1): with strawberry
+    # ahead of wheat, a $100 seed line placed before a $10 one consumed the
+    # whole early budget and WHEAT did not appear on the board until day 14,
+    # with the days 0-13 wheat seed pool sitting at exactly 0. Wheat is the
+    # early cash engine and the cheapest ground-holder per dollar; strawberry
+    # is a mid-game asset that has to draw on what wheat leaves.
+    #
+    # $260 funds 24 wheat seeds ($240) and nothing else meaningful. Wheat must
+    # take it; with the ordering reversed two $100 strawberry seeds would eat
+    # $200 of the same budget and leave wheat six seeds.
+    contested = _sb_plan(
+        money=260.0,
+        empty_strawberry_tiles=30,
+        plantable_target_tiles=24,
+        wheat_seeds=0,
+        active_tiles=24,
+    )
+    assert _wheat_buy(contested) == ["BUY_SEED", "WHEAT", 24]
+    assert _sb_buy(contested) is None
+
+
+def test_strawberry_seed_buy_is_capped_by_a_share_of_the_remaining_budget() -> None:
+    # Ordering alone does not protect the lines that come AFTER strawberry --
+    # the animal feed top-up and the SW land buy. An uncapped strawberry line
+    # sized to the zone still places 12 x $100 = $1,200/day of demand ahead of
+    # feed, and an unfed animal is dead capital. The share caps what the line
+    # may take of whatever is left when it runs, so it self-scales with the
+    # game phase instead of needing a schedule.
+    plan = _sb_plan(
+        money=1000.0,
+        empty_strawberry_tiles=30,
+        strawberry_plant_daily_cap=6,
+        strawberry_seed_budget_share=0.5,
+        wheat_seeds=24,
+    )
+    assert _sb_buy(plan) == ["BUY_SEED", "STRAWBERRY", 5]
+
+    # A share of 1.0 is the uncapped behavior, so the knob can be swept back
+    # to the pre-change sizing without editing code.
+    uncapped = _sb_plan(
+        money=1000.0,
+        empty_strawberry_tiles=30,
+        strawberry_plant_daily_cap=6,
+        strawberry_seed_budget_share=1.0,
+        wheat_seeds=24,
+    )
+    assert _sb_buy(uncapped) == ["BUY_SEED", "STRAWBERRY", 10]
+
+
+def test_strawberry_seed_share_never_overrides_the_stagger_or_zone_bounds() -> None:
+    # The share is a third bound, not a replacement: a generous share must not
+    # let the line buy past two days of the dispatcher's stagger, nor past the
+    # tiles that actually exist to plant into.
+    stagger_bound = _sb_plan(
+        money=100_000.0,
+        empty_strawberry_tiles=30,
+        strawberry_plant_daily_cap=6,
+        strawberry_seed_budget_share=1.0,
+    )
+    assert _sb_buy(stagger_bound) == ["BUY_SEED", "STRAWBERRY", 12]
+
+    zone_bound = _sb_plan(
+        money=100_000.0,
+        empty_strawberry_tiles=3,
+        strawberry_plant_daily_cap=6,
+        strawberry_seed_budget_share=1.0,
+    )
+    assert _sb_buy(zone_bound) == ["BUY_SEED", "STRAWBERRY", 3]
+
+
+def test_strawberry_leaves_cash_on_the_table_for_the_feed_order_behind_it() -> None:
+    # The regression the share exists to prevent, asserted end to end.
+    #
+    # Asserting merely that the feed order is EMITTED has no teeth: the feed
+    # line appends unconditionally, with no budget check of its own, so it
+    # survives any amount of upstream spending and the assertion can never
+    # fail. What can fail -- and what actually costs money in an episode -- is
+    # the feed order being emitted against cash that is already gone, because
+    # an unfeedable animal is dead capital that can never be sold. So this
+    # prices the plan: the spend committed AHEAD of feed must leave enough
+    # behind to pay for it.
+    plan = _sb_plan(
+        money=1200.0,
+        empty_strawberry_tiles=30,
+        strawberry_plant_daily_cap=6,
+        cows_owned=4,
+        animals_placed=4,
+        wheat_on_hand=0,
+    )
+    feed = next((b for b in plan.buys if b[0] == "BUY_PRODUCT"), None)  # type: ignore[attr-defined]
+    assert feed is not None, "strawberry starved the feed line"
+
+    # Wheat's base market price. This is a TEST threshold taken from
+    # docs/recon/economy.md:49, which prices feed at $25/unit as an
+    # opportunity-cost baseline -- the engine's own price is dynamic and there
+    # is no constant to import. It is the right order of magnitude for
+    # "did the seed lines leave enough to feed the herd", which is the whole
+    # question here.
+    wheat_product_price = 25.0
+    prices = {"WHEAT": SEED_PRICE, "MELON": MELON_SEED_PRICE, "STRAWBERRY": STRAWBERRY_SEED_PRICE}
+    committed = sum(
+        prices[str(b[1])] * int(b[2])  # type: ignore[index]
+        for b in plan.buys  # type: ignore[attr-defined]
+        if b[0] == "BUY_SEED"
+    )
+    feed_cost = wheat_product_price * int(feed[2])  # type: ignore[index]
+    assert committed + feed_cost <= 1200.0, (
+        f"seed lines committed ${committed} of $1200 and left nothing for a ${feed_cost} feed order"
+    )

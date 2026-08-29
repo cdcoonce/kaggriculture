@@ -6,8 +6,8 @@ Pure and per-turn idempotent: quantities derive only from observable state, so
 re-running every turn never double-buys (market orders fill within the turn
 they are issued; the next observation already reflects them). Budget is spent
 sequentially in priority order: goose, then NE land, then melon seeds, then
-animals (cows before sheep), then wheat seeds, then feed, then SW land, then
-SE land -- though the SE rung is unreachable at the shipped default, see
+animals (cows before sheep), then wheat seeds, then strawberry seeds, then
+feed, then SW land, then SE land -- though the SE rung is unreachable at the shipped default, see
 ``MAX_OWNED_QUADRANTS``.
 
 Melon goes ahead of wheat because it's the higher-value crop (seed $80 vs
@@ -53,6 +53,9 @@ FEED_RESERVE = 3
 SEED_PRICE = 10
 MELON_SEED_PRICE = 80
 STRAWBERRY_SEED_PRICE = 100
+# Share of the cash still uncommitted when the strawberry seed line runs
+# that the line may take. 1.0 is the pre-2026-08-19-prereg sizing.
+STRAWBERRY_SEED_BUDGET_SHARE = 0.5
 GOOSE_COST = 300
 GOOSE_LAST_BUY_DAY = 14  # $300 payback needs ~12 egg days; later purchase never breaks even
 PLANT_CUTOFF_DAY = 25  # last profitable wheat planting day (4 growth days + sale)
@@ -117,6 +120,7 @@ def plan_day(
     strawberry_seeds: int = 0,
     empty_strawberry_tiles: int = 0,
     strawberry_plant_daily_cap: int = STRAWBERRY_PLANT_DAILY_CAP,
+    strawberry_seed_budget_share: float = STRAWBERRY_SEED_BUDGET_SHARE,
     wheat_on_hand: int,
     goose_owned: bool,
     hires_today: int,
@@ -186,32 +190,6 @@ def plan_day(
             animal_room -= n
             turn_cap_left -= n
 
-    # Strawberry sits AFTER the animal pipeline and ahead of wheat. It is the
-    # highest-value crop the board can grow (4 of the 8 shop types buy it,
-    # against melon's 0, and a fertilized tile yields 8 units a cycle), which
-    # argues for putting it earlier -- but the animal pipeline is measured and
-    # shipped, and replay evidence puts 40-69% of the strongest opponents'
-    # revenue in cow/sheep products. Funding an unproven crop by starving a
-    # proven one would confound the very gate that is supposed to price this
-    # change, so strawberry draws on what the animals leave and the knob sweep
-    # gets to argue for a promotion on its own evidence.
-    #
-    # There is room for it to do that: production ticks at planted_day +
-    # 10/12/14/16 against a last-refresh day of 28 mean a tile planted by day
-    # 12 still banks a full four ticks, so the seed line has a thirteen-day
-    # runway funded out of ongoing revenue rather than needing the whole
-    # commitment out of the opening bankroll.
-    if day <= STRAWBERRY_PLANT_CUTOFF_DAY:
-        # Two days of the dispatcher's own strawberry stagger, same reasoning
-        # as the melon and wheat seed lines above.
-        strawberry_seed_target = min(2 * strawberry_plant_daily_cap, empty_strawberry_tiles)
-        need = strawberry_seed_target - strawberry_seeds
-        affordable = int(budget // STRAWBERRY_SEED_PRICE)
-        n = min(need, affordable)
-        if n > 0:
-            buys.append(["BUY_SEED", "STRAWBERRY", n])
-            budget -= n * STRAWBERRY_SEED_PRICE
-
     if day <= PLANT_CUTOFF_DAY:
         # Hold at most two days of the dispatcher's plant quota: seeds beyond
         # that are dead cash that delays land purchases (day 0 exempt — the
@@ -224,6 +202,46 @@ def plan_day(
         if n > 0:
             buys.append(["BUY_SEED", "WHEAT", n])
             budget -= n * SEED_PRICE
+
+    # Strawberry sits AFTER the animal pipeline AND after wheat. It is the
+    # highest-value crop the board can grow (4 of the 8 shop types buy it,
+    # against melon's 0, and a fertilized tile yields 8 units a cycle), which
+    # argues for putting it earlier -- and it was in fact placed ahead of
+    # wheat until the 2026-08-19 prereg measured what that cost. A $100 seed
+    # line running before a $10 one consumed the whole early budget: the days
+    # 0-13 wheat seed pool sat at exactly 0 and WHEAT did not reach the board
+    # until day 14, while the zone reserved 31 tiles and filled 15-17 and the
+    # rest sat bare because the wheat rush could not start. Wheat is the early
+    # cash engine and the cheapest ground-holder per dollar, so it is funded
+    # first and strawberry draws on what it leaves -- the same relationship
+    # strawberry already has with the animal pipeline one rung up.
+    #
+    # There is room for it to do that: production ticks at planted_day +
+    # 10/12/14/16 against a last-refresh day of 28 mean a tile planted by day
+    # 12 still banks a full four ticks, so the seed line has a thirteen-day
+    # runway funded out of ongoing revenue rather than needing the whole
+    # commitment out of the opening bankroll.
+    if day <= STRAWBERRY_PLANT_CUTOFF_DAY:
+        # Three bounds, all of which must hold: two days of the dispatcher's
+        # own strawberry stagger (same reasoning as the melon and wheat seed
+        # lines above), the tiles that actually exist to plant into, and a
+        # share of the cash still uncommitted when this line runs.
+        #
+        # The share is what re-ordering alone cannot buy. Two lines still run
+        # after this one -- the animal feed top-up and the SW land buy -- and
+        # a zone sized at 31 tiles asks for 12 x $100 = $1,200 every day
+        # regardless of what those need. Sizing the ask to cash rather than to
+        # the zone is what lets a large zone be swept at all, since otherwise
+        # the zone size itself decides how much of the farm's budget the crop
+        # commandeers. A share of 1.0 recovers the pre-prereg sizing exactly,
+        # so the sweep can argue the cap back off on its own evidence.
+        strawberry_seed_target = min(2 * strawberry_plant_daily_cap, empty_strawberry_tiles)
+        need = strawberry_seed_target - strawberry_seeds
+        affordable = int((budget * strawberry_seed_budget_share) // STRAWBERRY_SEED_PRICE)
+        n = min(need, affordable)
+        if n > 0:
+            buys.append(["BUY_SEED", "STRAWBERRY", n])
+            budget -= n * STRAWBERRY_SEED_PRICE
 
     # Feed reserve/top-up sizes to *placed* animals only — a bought-but-not-
     # yet-placed animal (still walking the shed->pasture pipeline) doesn't

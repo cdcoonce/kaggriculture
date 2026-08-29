@@ -43,7 +43,7 @@ from agent.market import (
     WOOL_MIN_PRICE,
     build_orders,
 )
-from agent.plan import FEED_RESERVE, plan_day
+from agent.plan import FEED_RESERVE, STRAWBERRY_SEED_BUDGET_SHARE, plan_day
 from agent.shell import Action, Observation, pass_action
 from agent.state import MelonMarketMemory, ProductCrashLatch, StateTracker
 from agent.view import FarmView, parse_obs
@@ -112,6 +112,12 @@ class PolicyConfig:
     # unchanged until a gate says otherwise.
     strawberry_tile_target: int = STRAWBERRY_TILE_TARGET
     strawberry_plant_daily_cap: int = STRAWBERRY_PLANT_DAILY_CAP
+    # Share of the cash still uncommitted when the strawberry seed line runs
+    # that the line may take (plan.STRAWBERRY_SEED_BUDGET_SHARE). Swept, not
+    # assumed: 1.0 recovers the sizing that shipped before the 2026-08-19
+    # prereg, when the line was sized to the zone and could ask for $1,200 a
+    # day regardless of what the feed and land lines behind it needed.
+    strawberry_seed_budget_share: float = STRAWBERRY_SEED_BUDGET_SHARE
     strawberry_floor: float = STRAWBERRY_MIN_PRICE
 
     # M2c (kaggriculture#59): two-tier shed valve + WOOL/MILK crash latches.
@@ -308,6 +314,7 @@ def make_policy(
             strawberry_seeds=view.seeds.get("STRAWBERRY", 0),
             empty_strawberry_tiles=_plantable_targets(view, sorted(strawberry_set)),
             strawberry_plant_daily_cap=resolved_config.strawberry_plant_daily_cap,
+            strawberry_seed_budget_share=resolved_config.strawberry_seed_budget_share,
             wheat_on_hand=_wheat_on_hand(view),
             goose_owned=goose,
             hires_today=view.hires_today,

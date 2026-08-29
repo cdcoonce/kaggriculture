@@ -132,3 +132,205 @@ player supplies it. **Those two readings are not reconciled.** If the gate
 passes, that contradiction has to be resolved before the result is trusted at
 ladder scale, because a mix built on a crop that crashes under two-sided
 supply would fail exactly when both players adopt it.
+
+---
+
+## AMENDMENT 1 — re-baselined at `9916ce5` (2026-08-28)
+
+Written **before any gate seed was burned** under this amendment. The body
+above was registered at `acd7244`. `b6ce655` ("stop buying the SE quadrant")
+landed in between and changed how much ground the agent owns, so **every
+absolute threshold in the body derives from a board that no longer exists**
+and is void. They are restated here rather than reinterpreted later.
+
+### Re-measurement at HEAD
+
+Seeds 661200–661203 vs `zoo:tape-thunder-719`, seat 0, days 10–28 —
+the same recon band and window the body used, re-run at `9916ce5`:
+
+| | baseline (target 0) | target 31 (blocker probe) |
+| --- | --- | --- |
+| mean standing | **31.4** (body: 42.0) | **34.4** (body: 42.5) |
+| mean bare ground | **29.2** (body: 39.4) | **21.3** |
+| first day WHEAT appears | day 1 | **day 14** |
+| WHEAT seed pool, days 0–13 | funded | **0** |
+| strawberry zone peak | — | **15–17 of 31** (body: 13) |
+| crop mix (tile-days) | WHEAT 83% · MELON 17% | WHEAT 50% · STRAWBERRY 32% · MELON 18% |
+
+**The blocker is confirmed at HEAD and unchanged in kind.** `plan.py:204`
+still funds the strawberry seed line ahead of wheat's at `plan.py:215`, and
+`strawberry_seed_target` is still sized to the zone
+(`min(2 * strawberry_plant_daily_cap, empty_strawberry_tiles)`), not to cash.
+Wheat is starved for fourteen days exactly as recorded.
+
+**One finding reverses.** The body recorded *no occupancy gain* from target 31
+(42.0 → 42.5). On the smaller board the gain is real even with the blocker in
+place: standing +9.6% and bare ground −27%. That makes the body's original
+bar too easy, not too hard, so it is raised below.
+
+### Restated predictions (these supersede the body's)
+
+- WHEAT appears on the board by **day 2** at every arm. *(unchanged)*
+- Strawberry zone fill rises **above 17/31** — above what the *unfixed* arm
+  already reaches, not above the body's stale 13.
+- Mean standing, days 10–28, rises **above 34.4** at the best arm. The
+  comparator is the **blocker-probe arm**, not the dormant baseline: the fix
+  has to beat the broken version of itself, or it has bought nothing.
+- `opponent_mean_delta` stays within **±3,000**. *(unchanged)*
+
+### Restated kill criteria (these supersede the body's)
+
+- Zone fill stays at or below 17/31 after the seed-order change.
+- Mean standing does not clear 34.4 at any arm.
+- `opponent_mean_delta` exceeds ±3,000.
+
+### Evidence admitted since the body was written
+
+The body's stated weakness was that its only strong-build exemplar,
+`tape-thunder-719`, is a replay tape — "its board shows what a strong build
+looks like, not that we can execute one." A second exemplar now exists that
+does not have that weakness. `zoo:kernel-sokolovsky-2883` is a ported public
+competitor solution with observation-reactive repair, and it beats the
+champion **0–200** (`ci_lower` 0.0000, ledger
+`eval/gates/2026-08-25T15-22-30Z-…`) while banking a mean **$114,862**
+against our **$64,041**.
+
+Instrumented decomposition, 7 episodes on band 811000 (scratch probe, both
+seats) — mean money gap, champion minus kernel:
+
+```
+d16 +9,497   d20 +1,503   d24 −19,682   d28 −33,543
+late-game earn rate, d21–29:  champion +1,830/day   kernel +5,923/day  (3.2x)
+```
+
+**We are ahead through day 20 in all seven episodes and lose the last third
+of every one.** The kernel's back half is standing-asset yield bought early:
+37 strawberry seeds, all purchased days 3–10, sell **300 units** at 20–37/day
+continuously from d16 to d29; 8 cows, all purchased by d8, sell 320 milk. Our
+champion buys **zero** strawberry seed (`STRAWBERRY_TILE_TARGET = 0`,
+dormant) and sells 563 wheat — a crop that destroys its tile on harvest and
+consumes the replant labor that would otherwise run the back half.
+
+This is independent corroboration of the body's thesis from a contested,
+reactive opponent rather than a tape.
+
+### New registered arm — two-sided supply (DIAGNOSTIC, not part of the decision rule)
+
+The body flagged an unresolved contradiction: `docs/recon/economy.md:63` says
+strawberry crashes to its floor within ~62 units, while a prior session
+measured its price *rising* 120→250 because town shops drain it and neither
+player supplies it. The kernel moves 300 units and still banks $114,862 —
+but as the **only** supplier. A mix built on a crop that crashes under
+two-sided supply would fail exactly when both players adopt it.
+
+`zoo:kernel-sokolovsky-2883` makes that testable, because it is itself a
+heavy strawberry supplier. Registered in advance:
+
+- **Run** the winning arm and `frozen:m3b_straw_base_9916ce5` against
+  `zoo:kernel-sokolovsky-2883`, paired seeds, band **661800**, n=32 seeds.
+- **This is diagnostic and does NOT gate promotion.** The champion loses that
+  matchup 0–200; requiring a pass would be an unreachable bar, and moving it
+  after seeing the result is exactly the sin this file exists to prevent.
+- **Registered reading:** the arm's paired money delta against the frozen
+  incumbent *in the kernel matchup*, compared with the same delta in the
+  thunder matchup. If the strawberry gain measured against thunder does not
+  survive against a co-supplier, the result must be reported as
+  contested-fragile and the ladder claim withdrawn — regardless of whether
+  the promotion gate passed.
+
+### Bands
+
+Screen **661400**, confirm **661600** (both unchanged and disjoint from the
+recon band). Kernel diagnostic band **661800**. Arms 12 / 20 / 31, unchanged.
+
+---
+
+## RESULT — killed on the registered intermediate (2026-08-28, `0d366b9`)
+
+**Two kill criteria fired. No gate seed was burned. The bands registered
+above (661400 screen, 661600 confirm, 661800 kernel diagnostic) are UNBURNED
+and remain available to a successor.**
+
+### The registered code change works
+
+`0d366b9` lands both registered changes: wheat funded before strawberry, and
+the strawberry seed line bounded by a share of uncommitted cash. Verified live
+rather than assumed — days 0–13 WHEAT seed pool, seeds 661200–661203 vs
+`zoo:tape-thunder-719`:
+
+| arm | WHEAT seed pool, d0–13 |
+| --- | --- |
+| pre-fix, target 31 | **0** |
+| fixed, target 31 | 23 |
+| fixed, target 20 | 49–80 |
+| fixed, target 12 | 111 |
+
+Both guards are mutation-verified: re-injecting the zone-only sizing turns two
+tests red (including the feed-cash test, which had **no teeth** as first
+written and is recorded here because it passed before the fix); re-injecting
+the old ordering turns the ordering test red.
+
+### The registered thesis fails its own bar
+
+| arm | mean standing (d10–28) | bare | zone peak | first WHEAT |
+| --- | --- | --- | --- | --- |
+| baseline (target 0) | 31.4 | 29.2 | — | day 1 |
+| **pre-fix target 31 (the comparator)** | **34.4** | 21.3 | 15–17/31 | day 14 |
+| fixed target 12 | 32.7 | 24.2 | 11/12 | day 1 |
+| fixed target 20 | **34.1** | 22.4 | 9–16/20 | day 1 |
+| fixed target 31 | 34.1 | 23.1 | 15–16/31 | day 14 |
+
+- *"Mean standing rises above 34.4 at the best arm"* → best arm is **34.1**. **MISS.**
+- *"Strawberry zone fill rises above 17/31"* → peak **16**. **MISS.**
+- *"WHEAT appears by day 2 at every arm"* → holds at 12 and 20, **day 14 at 31**. **MISS.**
+
+Both restated kill criteria fire. The result is recorded as a negative and the
+promotion path stops here.
+
+**AMENDMENT 1 is what makes this a clean kill.** Against the body's original
+comparator — the dormant baseline at 31.4 — every fixed arm would have
+"cleared" and this would have gone to a gate. Raising the bar to the
+blocker-probe arm *before* measuring is the only reason the honest reading is
+available: fixing the cash starvation makes standing crop go slightly **down**
+(34.4 → 34.1), because the broken arm bought its standing by starving wheat
+and leaving strawberry more ground to hold.
+
+### What the kill actually found: a second blocker, of a different kind
+
+The day-14 wheat delay survives the cash fix at target 31, so cash was never
+the only thing holding wheat back. Day-by-day census at target 31 (seed
+661200):
+
+```
+d07  standing 18  bare 21  {STRAWBERRY: 10, MELON: 8}  seeds {}
+d12  standing 22  bare 16  {STRAWBERRY: 14, MELON: 8}  seeds {STRAWBERRY: 2}
+d13  standing 24  bare 39  {STRAWBERRY: 16, MELON: 8}  seeds {WHEAT: 23, ...}
+```
+
+Wheat holds **zero seed through day 12 while 21 tiles sit bare**. It is not
+outbid — it does not ask. `plantable_target_tiles` is computed over the
+non-zone tiles only (`policy.py`, `_plantable_targets` against
+`wheat_tiles = tiles - strawberry_set`), so ground reserved for strawberry is
+invisible to the wheat seed target. The zone reserves 31 tiles; the strawberry
+line can only plant ~10 of them that early against its own daily cap; the
+remaining ~21 are reserved, bare, and unaskable.
+
+The body noted that `dispatch.py:497-513` already falls an unclaimable
+strawberry tile through to a WHEAT plant, and that the fall-through fires
+correctly. It does — but it cannot fire without wheat seed in the shed, and
+the seed never gets bought.
+
+**This is a different intervention with a different mechanism (tile
+reservation, not budget order) and it does not belong to this registration.**
+Widening this prereg to cover it is exactly the search-widening its kill
+criteria exist to prevent. It needs its own prereg, its own bands, and its own
+prediction — written before the next measurement, not after this one.
+
+### Disposition of `0d366b9`
+
+Kept, dormant. `strawberry_tile_target` is still 0, so the change is a
+bit-exact no-op on the shipped agent — verified by a day-by-day occupancy
+census byte-identical to `frozen:m3b_straw_base_9916ce5` on all four seeds. It
+fixes a real ordering defect that any future strawberry attempt would hit
+first. **It is not a win and must not be recorded as one:** it moved no money,
+cleared no gate, and its thesis was killed on the same day it landed.
