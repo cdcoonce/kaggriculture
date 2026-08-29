@@ -534,13 +534,16 @@ class TestRunMoneyGateValidation:
                 baseline="champion",
                 agent_config={"feed_reserve": 20},
             )
-        with pytest.raises(ValueError, match="frozen:m2a"):
+        # A frozen BASELINE is deliberately no longer refused -- see
+        # TestFrozenArmTunability. A zoo baseline still is: it has no
+        # PolicyConfig at all, so the override could only ever be dropped.
+        with pytest.raises(ValueError, match="zoo:tape-thunder-719"):
             run_money_gate(
                 "champion",
                 "builtin:pass",
                 10,
                 0,
-                baseline="frozen:m2a",
+                baseline="zoo:tape-thunder-719",
                 baseline_agent_config={"feed_reserve": 20},
             )
 
@@ -567,3 +570,56 @@ class TestExistingGateSurfaceIsUntouched:
         assert result.seeds == [0]
         assert result.extra_config == TINY_CONFIG
         assert len(result.rows) == 2
+
+
+class TestFrozenArmTunability:
+    """A frozen arm accepts a PolicyConfig (so a code change can be A/B'd at
+    the same knob on both arms) without becoming a canary candidate."""
+
+    def test_a_frozen_candidate_with_a_config_still_skips_the_canary(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # The canary substitutes `champion-unshelled` -- the LIVE agent -- to
+        # surface crashes the champion shell swallows. That proxy is only valid
+        # for a champion arm. Widening the tunability predicate must NOT widen
+        # this: smoke-testing live code says nothing about whether the frozen
+        # build crashes, and recording candidate_canary_ran=True for it would
+        # claim a check that never looked at the arm under test.
+        import harness.gate as gate_module
+
+        calls: list[dict[str, Any]] = []
+
+        def fake_run_gate(**kwargs: Any) -> GateResult:
+            calls.append(kwargs)
+            return _arm({seed: 0.0 for seed in range(10)})
+
+        monkeypatch.setattr(gate_module, "run_gate", fake_run_gate)
+        result = run_money_gate(
+            "frozen:m2a",
+            "zoo:tape-thunder-719",
+            10,
+            0,
+            baseline="frozen:m2b",
+            agent_config={"strawberry_tile_target": 31},
+            baseline_agent_config={"strawberry_tile_target": 31},
+        )
+        assert result.candidate_canary_ran is False
+        assert result.baseline_canary_ran is False
+        assert [call["gate_type"] for call in calls] == ["money", "money"]
+        assert [call["agent_config"] for call in calls] == [
+            {"strawberry_tile_target": 31},
+            {"strawberry_tile_target": 31},
+        ], "the override did not reach both arms"
+
+    def test_a_zoo_arm_still_refuses_a_config(self) -> None:
+        # The rule the original guard protected is intact: a spec with no
+        # PolicyConfig to override must refuse, never silently drop.
+        with pytest.raises(ValueError, match="zoo:tape-thunder-719"):
+            run_money_gate(
+                "zoo:tape-thunder-719",
+                "builtin:pass",
+                10,
+                0,
+                baseline="champion",
+                agent_config={"strawberry_tile_target": 31},
+            )

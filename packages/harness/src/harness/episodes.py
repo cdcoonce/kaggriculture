@@ -38,20 +38,32 @@ def resolve_agent(spec: str, agent_config: dict[str, Any] | None = None) -> Any:
     scope) so a fresh, stateless policy is built per call — required for
     correctness across worker processes and across games within one process.
 
-    ``agent_config`` overrides the champion policy's tuning knobs
-    (``agent.policy.PolicyConfig``) and is only meaningful for the
-    ``"champion"`` and ``"champion-unshelled"`` specs; passing it for any
-    other spec raises, since a silently-dropped override would be
+    ``agent_config`` overrides a policy's tuning knobs
+    (``agent.policy.PolicyConfig``). It is accepted for ``"champion"``,
+    ``"champion-unshelled"`` and any ``"frozen:"`` spec; passing it for a
+    builtin or zoo spec raises, since a silently-dropped override would be
     indistinguishable from one that took effect.
+
+    A frozen spec resolves the override against **its own** frozen
+    ``PolicyConfig``, not the live one. That is the whole point: an A/B on a
+    code change has to run both arms at the same knob setting, and pinning the
+    baseline at its defaults instead would price the knob and the code change
+    together and then attribute the sum to the code. A frozen build that
+    predates the knob rejects it loudly, naming the package, rather than
+    quietly running at defaults.
 
     ``"champion-unshelled"`` returns the raw ``make_policy(...)`` callable
     without ``agent.shell.wrap``'s never-raise boundary — for crash-only
     smoke checks that need a policy exception to actually surface.
     """
-    if spec not in {"champion", "champion-unshelled"} and agent_config is not None:
+    if (
+        spec not in {"champion", "champion-unshelled"}
+        and not spec.startswith("frozen:")
+        and agent_config is not None
+    ):
         raise ValueError(
-            f"agent_config is only supported for the 'champion' and "
-            f"'champion-unshelled' specs, got {spec!r}"
+            f"agent_config is only supported for the 'champion', "
+            f"'champion-unshelled' and 'frozen:' specs, got {spec!r}"
         )
     if spec.startswith("builtin:"):
         return spec.removeprefix("builtin:")
@@ -99,7 +111,20 @@ def resolve_agent(spec: str, agent_config: dict[str, Any] | None = None) -> Any:
         shell = importlib.import_module(f"{pkg}.shell")
         assert_disjoint(name)
 
-        return shell.wrap(policy.make_policy())
+        if agent_config is None:
+            return shell.wrap(policy.make_policy())
+        try:
+            policy_config = policy.PolicyConfig(**agent_config)
+        except TypeError as exc:
+            # Re-raised with the package name because the bare dataclass error
+            # says only "PolicyConfig", which is indistinguishable from the
+            # live one -- and the whole failure mode worth catching here is a
+            # knob that exists today but did not exist at the frozen SHA.
+            raise TypeError(
+                f"frozen package {pkg!r} does not accept this agent_config: {exc}. "
+                f"That build predates the knob; it cannot be gated at this arm."
+            ) from exc
+        return shell.wrap(policy.make_policy(policy_config=policy_config))
     raise ValueError(f"unknown agent spec: {spec!r}")
 
 

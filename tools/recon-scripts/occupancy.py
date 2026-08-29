@@ -33,13 +33,22 @@ from dataclasses import asdict
 
 def run(seed, candidate, opponent, seat, agent_config=None):
     from harness.episodes import resolve_agent
-    from harness.gate import TUNABLE_SPECS
+    from harness.gate import is_tunable
     from kaggle_environments import make
 
     agents = [None, None]
-    # Only champion specs accept a PolicyConfig; handing one to a zoo member
-    # raises rather than being silently ignored.
-    if agent_config and candidate in TUNABLE_SPECS:
+    # Champion and frozen specs accept a PolicyConfig; handing one to a zoo or
+    # builtin member raises rather than being silently ignored. The `else`
+    # branch used to swallow the override for every non-tunable spec, which is
+    # the opposite of what the comment above it claimed: a `--agent-config` on
+    # a frozen arm silently produced DEFAULT-config results, so a configured
+    # candidate could be compared against a baseline that never saw the knob.
+    if agent_config:
+        if not is_tunable(candidate):
+            raise ValueError(
+                f"--agent-config is only supported for champion and 'frozen:' "
+                f"specs, got candidate {candidate!r}"
+            )
         agents[seat] = resolve_agent(candidate, agent_config)
     else:
         agents[seat] = resolve_agent(candidate)
@@ -56,10 +65,7 @@ def report(days, label, crop):
         d = days[day]
         crops = " ".join(f"{k}:{v}" for k, v in sorted(d.by_crop.items()))
         ages = " ".join(f"{a}:{c}" for a, c in sorted(d.ages.items()))
-        print(
-            f"{day:>4} {d.standing:>6} {d.bare:>5} {d.seeds.get(crop, 0):>5}  "
-            f"{crops:<28} {ages}"
-        )
+        print(f"{day:>4} {d.standing:>6} {d.bare:>5} {d.seeds.get(crop, 0):>5}  {crops:<28} {ages}")
 
     vals = [days[d].standing for d in sorted(days) if 10 <= d <= 28]
     if vals:
@@ -95,7 +101,7 @@ def main():
     ap.add_argument(
         "--agent-config",
         default=None,
-        help='PolicyConfig overrides as JSON, e.g. \'{"strawberry_tile_target": 31}\'',
+        help="PolicyConfig overrides as JSON, e.g. '{\"strawberry_tile_target\": 31}'",
     )
     ap.add_argument("--json", action="store_true")
     args = ap.parse_args()
@@ -124,7 +130,9 @@ def main():
         print(json.dumps(out, indent=2, default=str))
         return
 
-    report(mine, f"{args.candidate} (seat {args.seat}) vs {args.opponent}, seed {args.seed}", args.crop)
+    report(
+        mine, f"{args.candidate} (seat {args.seat}) vs {args.opponent}, seed {args.seed}", args.crop
+    )
     if args.both_seats:
         other = census(env, seat=1 - args.seat)
         report(other, f"{args.opponent} (seat {1 - args.seat})", args.crop)

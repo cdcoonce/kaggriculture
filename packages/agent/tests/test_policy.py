@@ -522,3 +522,39 @@ def test_shipped_max_owned_quadrants_is_the_gated_value() -> None:
     """
     assert PolicyConfig().max_owned_quadrants == 3
     assert PolicyConfig().max_owned_quadrants < len(("NW", *LAND_ORDER))
+
+
+def _wheat_seed_qty(market: list[Any]) -> int:
+    return next((int(o[2]) for o in market if o[:2] == ["BUY_SEED", "WHEAT"]), 0)
+
+
+def test_wheat_seed_line_sees_the_zone_ground_the_dispatcher_falls_through() -> None:
+    # The planner and the dispatcher disagreed about which tiles wheat may use
+    # (prereg 2026-08-28). dispatch.py:497-513 already plants WHEAT on an empty
+    # strawberry-zone tile once the daily strawberry cap is spent or the
+    # planting window has shut -- its own comment calls that "the reservation
+    # trap, fixed rather than inherited". But policy.py subtracted the whole
+    # zone from wheat's tile set, so the seed line never bought for that ground
+    # and the fall-through could not fire against an empty shed.
+    #
+    # Measured at strawberry_tile_target=31, seed 661200: wheat's
+    # plantable_target_tiles sat at exactly 0 for thirteen days while 21 zone
+    # tiles were empty, and the farm ran on $0-165 through day 12 because
+    # nothing was producing.
+    big_zone = make_policy(policy_config=PolicyConfig(strawberry_tile_target=31))(raw_obs(), None)
+    assert _wheat_seed_qty(big_zone["market"]) > 0, (
+        "a zone large enough to swallow the early board still leaves wheat a seed target of zero"
+    )
+
+
+def test_a_small_zone_leaves_the_wheat_seed_line_alone() -> None:
+    # The registered control. The fall-through ground is only what strawberry's
+    # own two-day planting horizon cannot reach, so a zone at or under that
+    # horizon hands wheat nothing and the two lines stay disjoint by
+    # construction -- no tile is counted by both. A small zone must therefore
+    # still shrink wheat's claim, exactly as it did before this change.
+    baseline = _wheat_seed_qty(make_policy()(raw_obs(), None)["market"])
+    small = _wheat_seed_qty(
+        make_policy(policy_config=PolicyConfig(strawberry_tile_target=6))(raw_obs(), None)["market"]
+    )
+    assert small < baseline
