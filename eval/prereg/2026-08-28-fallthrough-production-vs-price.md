@@ -192,6 +192,37 @@ Target 31 is the best of the three, which is consistent with the fall-through
 fix helping most where the idle zone is largest — and it is nowhere near
 viable. The strawberry line is closed.
 
+#### Ledgers (emitted 2026-08-29, after the fact)
+
+These three runs were originally read off stdout and written into the table
+above without the ledger ever being written, so the most load-bearing number
+in this prereg — and the turning point of `docs/writeup.md` — sat uncitable
+under the repo's own citation law while every lesser number in the same chain
+had a JSON behind it. Re-run at `f79f357` against the same frozen opponent on
+the same band, and **all three reproduce exactly**:
+
+| arm | recorded above | re-run | `ci_lower` (re-run) |
+| --- | --- | --- | --- |
+| `strawberry_tile_target = 12` | 0–200 | **0–200** | 0.0 |
+| `strawberry_tile_target = 20` | 3–197 | **3–197** | 0.005114237753504754 |
+| `strawberry_tile_target = 31` | 44–456 | **44–456** | 0.06620598432582232 |
+
+- `eval/gates/2026-08-29T18-15-26Z-champion-vs-frozen_m3b_live_b6ce655-promotion.json` (12)
+- `eval/gates/2026-08-29T18-16-44Z-champion-vs-frozen_m3b_live_b6ce655-promotion.json` (20)
+- `eval/gates/2026-08-29T18-14-08Z-champion-vs-frozen_m3b_live_b6ce655-promotion.json` (31, n=500)
+
+`any_candidate_crash=false` on all three. The reproduction being exact rather
+than merely close settles two things beyond the citation: the numbers in the
+table were recorded honestly, and #83 and #84 are behaviour-preserving at zone
+sizes 12/20/31 — not only at the shipped `STRAWBERRY_TILE_TARGET = 0`, where
+the branches collapse and a no-op is cheap to prove.
+
+The failure is narrower than it looks and worth naming precisely: no number
+was wrong and nothing was hidden. The gate ran, printed a correct verdict, and
+exited. What was missing was the one step that turns a printed verdict into a
+citable record, on the single run whose result changed the project's
+direction.
+
 ### Why none of the preceding gates could detect this
 
 Every money gate in this chain — the 2026-08-19 prereg, the fall-through
