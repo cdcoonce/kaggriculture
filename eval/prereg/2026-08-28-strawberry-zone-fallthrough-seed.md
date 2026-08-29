@@ -274,3 +274,57 @@ fixed in advance.
 `f52d064` and `7e64ded` are kept: the first is a bit-exact no-op at the
 shipped default, the second is harness infrastructure the registered gate
 could not run without. Neither is a win.
+
+---
+
+## CORRECTION — this blocker was already on the record in closed PR #80 (2026-08-29)
+
+**The "second blocker" this file registers as newly found was already
+diagnosed, correctly and in these exact terms, in
+[PR #80](https://github.com/cdcoonce/kaggriculture/pull/80) — closed as a
+ledgered negative before any of this work began.** It was not discovered here.
+
+PR #80 made the same seed-order change (wheat funded before strawberry),
+proved it a bit-exact no-op at the shipped default, recorded its registered
+predictions as FAILED, and stated the cause:
+
+> The day-14 wheat delay is **zone geometry, not budget order.** Early game
+> only NW+NE are unlocked — 49 tiles — and `8 melon + 10 pasture + 31
+> strawberry = 49`. Wheat gets zero tiles.
+
+Re-verified at HEAD, that arithmetic is exactly right and still holds:
+
+| `strawberry_tile_target` | wheat tiles under NW+NE |
+| --- | --- |
+| 0 | 31 |
+| 12 | 19 |
+| 20 | 11 |
+| **31** | **0** |
+
+The vault's own project note listed `feat/wheat-seed-ordering` (PR #80) as a
+parked, ledgered negative. **It was not read before the predecessor's
+AMENDMENT 1 or before this file was written.** That is a process failure, not
+a measurement one, and it is recorded here rather than quietly absorbed.
+
+### What was actually new, once #80 is credited
+
+- The **cash share** (`strawberry_seed_budget_share`) is the reason the
+  predecessor's arm was not inert where #80's was. #80 reordered only; with
+  wheat's tile target at 0 it asks for nothing at any position in the budget
+  order, so strawberry still took everything and the run came out
+  byte-identical. Capping strawberry's spend left cash alive to day 13, when
+  SW unlocks and wheat finally has ground.
+- Consequently the predecessor's headline that the days 0–13 wheat seed pool
+  moved **0 → 23** is **misleading as written**: all 23 seeds land on day 13,
+  when SW unlocks — an event that happens with or without the change. The
+  honest statement is that the change preserved cash so wheat could buy the
+  moment tiles appeared, not that it gave wheat thirteen days of seed.
+- The **fall-through** change in this file is a genuinely distinct
+  intervention from #80's: it lets wheat see the strawberry zone's idle
+  tiles, which is why it moved the board where #80 could not.
+- The **promotion gate against the live ladder agent** is what actually closed
+  the line, and #80 never ran it.
+
+None of this changes the outcome — every strawberry arm loses to the shipped
+agent — but the record should show the blocker was known, and that a day of
+work re-derived it.
