@@ -334,3 +334,109 @@ census byte-identical to `frozen:m3b_straw_base_9916ce5` on all four seeds. It
 fixes a real ordering defect that any future strawberry attempt would hit
 first. **It is not a win and must not be recorded as one:** it moved no money,
 cleared no gate, and its thesis was killed on the same day it landed.
+
+---
+
+## ADDENDUM — the Amendment-1 scratch probe's mid-game series is superseded by a committed instrument (2026-09-02)
+
+Amendment 1's "Evidence admitted since the body was written" section reports
+an "Instrumented decomposition, 7 episodes on band 811000 (scratch probe,
+both seats)" — a mid-game money-gap series (`d16 +9,497 / d20 +1,503 /
+d24 -19,682 / d28 -33,543`, earn rates d21-29 `champion +1,830/day / kernel
++5,923/day`), and the claim that the champion is "ahead through day 20 in
+all seven episodes and lose[s] the last third of every one." That probe's
+script and raw data were never committed. **Amendment 1's original text is
+unchanged by this addendum** — this section supersedes its mid-game series
+rather than editing it.
+
+### What was built
+
+`tools/recon-scripts/kernel_decomposition.py`, a committed, ledgered
+instrument for the same comparison (champion at shipped default vs
+`zoo:kernel-sokolovsky-2883`, seeds 811000-811006, champion seat 0), with
+its output ledgered at
+`eval/recon/2026-09-02-kernel-decomposition-811000.json`.
+
+### The mid-game money-gap series does not reproduce
+
+Under the committed instrument's convention (cash-only end-of-day money,
+sampled at the engine's own `observation["day"]` boundary), the series reads:
+
+```
+d16 +9,644   d20 -142   d24 -26,909   d28 -43,071
+earn rate d21-29: champion +2,474/day   kernel +7,607/day  (3.1x)
+ahead at d20: 4/7   behind at d29: 7/7
+```
+
+This does not reproduce the scratch probe's published series (side by side):
+
+| figure | scratch probe (Amendment 1) | committed instrument |
+| --- | --- | --- |
+| mean gap d16 | +9,497 | +9,644 |
+| mean gap d20 | +1,503 | -142 |
+| mean gap d24 | -19,682 | -26,909 |
+| mean gap d28 | -33,543 | -43,071 |
+| earn rate, champion | +1,830/day | +2,474/day |
+| earn rate, kernel | +5,923/day | +7,607/day |
+| ahead at d20, all seven | claimed | **4/7** — three seeds already behind |
+| behind at d29, all seven | claimed | 7/7 — holds |
+
+Roughly 19 conventions were tried across four families before settling on
+the above as canonical: day-boundary sampling (start-of-day, end-of-day,
+last-turn-of-day, and a sweep of non-standard turns-per-day values),
+seat assignment (champion at seat 0, at seat 1, and seat-averaged pairing per
+`harness.gate.seat_mean_money`), a seed-window sweep (811000 ± 100), and an
+inventory-valuation family (cash plus held shed/hand stock at current price,
+base price, or the champion's own floor price, with and without livestock at
+purchase price — 7 variants). None reproduced the scratch probe's series
+exactly. The inventory-valuation family moved every figure further from the
+published numbers, not closer: the kernel's shed consistently outvalues the
+champion's from mid-game on, so crediting held stock widens the gap and
+drops ahead-at-d20 from 4/7 to 1/7. Full detail and the per-variant numbers
+are in the script's own REPRODUCTION NOTE docstring.
+
+### What is not in question
+
+The engine, agent pairing, and seed handling are correct: the instrument's
+seed-811000 final money (candidate $42,554 / opponent $97,131) matches
+`eval/gates/2026-08-25T15-22-30Z-champion-vs-zoo_kernel-sokolovsky-2883-
+promotion.json`'s seat-0 row cell for cell, on every one of the seven seeds.
+This is not champion drift either — the only two commits between the
+prereg's cited baseline (`9916ce5`) and the instrument's HEAD that touch
+`packages/agent` are `aad11ae`/`0d366b9` (a provable no-op at
+`strawberry_tile_target=0`) and a pure-addition harness module. The
+mid-game series most likely came from a different, never-committed sampling
+convention in the original scratch probe, or a transcription slip, rather
+than a reproducible methodological choice.
+
+### The six structural fingerprints stand verified exactly
+
+Kernel: 37 strawberry seeds, all bought days 3-10; sells 300 strawberry
+units, days 16-29 (submitted-order-quantity count — see below); 8 cows, all
+bought by day 8; 320 milk sold. Champion: 0 strawberry seeds bought; 563
+wheat sold. All six reproduce exactly, from seed 811000 alone (the kernel's
+plan is seed-invariant on this fingerprint; the champion's wheat-sold total
+varies by seed and only 811000 hits 563 exactly).
+
+One caveat on the 300/320 figures: they count SUBMITTED market-order
+quantity, not settled sales. Gating the same counts on the engine's
+`_commit_unit` return value (i.e. what actually cleared the shed) gives a
+lower, seed-varying figure — roughly 277-286 strawberry units and 197-215
+milk actually settle, against 300 and 320 requested. The kernel's scripted
+plan asks for a fixed schedule regardless of seed; not every ask fills. So
+"sells 300 units" / "sells 320 milk" are what the kernel asked to sell, not
+what it collected.
+
+### Disposition
+
+The scratch probe's mid-game money-gap series and its "ahead through day 20
+in all seven" claim are superseded by the committed instrument above and
+should not be cited going forward. The structural characterization of the
+kernel's strategy (heavy strawberry and animal supplier, standing-asset
+yield bought early and cashed out from mid-game, against a champion that
+sells only wheat) stands, and the corrected series still shows the same
+qualitative shape — ahead early, run down late — just with different
+numbers and a less unanimous day-20 crossover than originally claimed. This
+does not change the prereg's own RESULT (killed on the registered
+intermediate) or the disposition of `0d366b9` above; it corrects only the
+diagnostic evidence cited in Amendment 1's "Evidence admitted" section.
