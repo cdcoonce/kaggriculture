@@ -33,28 +33,30 @@ three repair passes so it reacts to the live board instead of replaying blind.
 It beat my agent 200 games to nil, banking $114,862 against my $64,041.
 
 To find out why, I wrapped both agents in a recorder and replayed seven
-matches. The shape was identical every time:
+matches. The same shape shows up in every one:
 
 ```
 mean money gap (mine minus theirs)
-  d16  +9,497    d20  +1,503    d24  -19,682    d28  -33,543
+  d16  +9,644    d20  -142    d24  -26,909    d28  -43,071
 
 late-game earning rate, days 21-29
-  mine  +1,830/day      theirs  +5,923/day      (3.2x)
+  mine  +2,474/day      theirs  +7,607/day      (3.1x)
 ```
 
-I win the first two thirds of every game and lose the last third of every
-game. That was not what I expected, and it is not a tuning problem.
+I lead all seven games at day 16 and trail all seven at the end. Day 20 is
+the crossover — still ahead in four of the seven, dead even on average —
+and from there the last third is a rout. That was not what I expected, and
+it is not a tuning problem.
 
 Their action plan explains it. They buy 37 strawberry seeds between day 3 and
 day 10, and those tiles then produce 20 to 37 units a day, every day, from day
 16 through day 29. Three hundred units of output from one early purchase.
-They buy eight cows by day 8 and sell 320 milk. My agent sells 563 wheat, a
-crop that destroys its own tile at harvest and consumes the labor that would
-otherwise be working the back half of the game.
+They buy eight cows by day 8 and put 320 milk on the market. My agent sells
+about 550 wheat, a crop that destroys its own tile at harvest and consumes
+the labor that would otherwise be working the back half of the game.
 
 Their economy is standing assets bought early. Mine is throughput. Throughput
-wins the opening and runs out of hands by day 21.
+wins the opening and runs out of hands by day 20.
 
 ## The part where careful work measured nothing
 
