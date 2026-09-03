@@ -8,10 +8,10 @@ ledgers for every gate run, frozen copies of past agents to gate against, and
 pre-registered experiments with kill criteria fixed before any seed was burned.
 
 The harness worked. Every gate I ran was correctly specified and correctly
-read. On 2026-08-28 it told me, across four opponents and a pre-registered
-control, that a change was worth about fifteen thousand coins a match. Then I
-ran the agent against the version already on the leaderboard and it lost
-44 games to 456.
+read. On 2026-08-28 it told me, across four opponents at sixty-four paired
+seeds each, that a change was worth about fifteen thousand coins a match, and
+a pre-registered control came back stronger still. Then I ran the agent
+against the version already on the leaderboard and it lost 44 games to 456.
 
 This is a writeup about that gap, because it turned out to be the most useful
 thing the season produced.
@@ -22,7 +22,10 @@ The shipped agent runs a wheat rush. It plants the cheap fast crop across most
 of the board, keeps a small melon satellite, runs six cows and four sheep, and
 sells with a price-aware floor so it doesn't dump into a crashed market.
 Against the scripted opponents in my test pool it banks somewhere between
-eighty-five and a hundred thousand coins and wins essentially every game.
+eighty-five and a hundred thousand coins and wins every game, with one
+exception short of the ported competitor below: a clone of the observed
+ladder meta holds it to seventy-two thousand and takes a quarter of the
+games off it.
 
 The interesting opponent was different. I had ported a published competitor
 solution into the test pool as a replay of its 720-turn action plan, with
@@ -75,7 +78,7 @@ wheat tiles for thirteen days while twenty-one tiles sat empty, and the farm
 ran on under two hundred coins because nothing was producing.
 
 I fixed it, and the gates came back strong. Against four replay tapes the
-change was worth about fifteen thousand coins with lower bounds between nine
+change was worth about fifteen thousand coins with lower bounds between ten
 and fourteen thousand. One kill criterion did fire: the opponent was losing
 more money than my registered band allowed, which is the signature of taking
 revenue rather than producing it. So I registered a follow-up test with its
