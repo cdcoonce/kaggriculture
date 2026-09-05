@@ -1,7 +1,7 @@
 # Pre-registration: hand_mule_load 9 → 20, successor — mechanism-aware redirection criterion
 
 Date: 2026-09-05
-Candidate commit: ad3cb75 (landed via PR #<num>) (agent source byte-identical to d7efe73/ad3cb75 —
+Candidate commit: ad3cb75 (landed via PR #95) (agent source byte-identical to d7efe73/ad3cb75 —
 this registration lands only harness/tools instrument code)
 Status: REGISTERED — the registered runs launch only after this document AND
 the harness.opponent_split instrument merge, and after the pre-launch
