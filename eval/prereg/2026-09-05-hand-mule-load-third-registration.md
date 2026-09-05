@@ -120,3 +120,43 @@ above already satisfies submit.py's promotion precondition at d7efe73).
 Uploading is a separate HITL decision — T-2 freeze 2026-09-28, and a new
 submission evicts one of the Bradley-Terry pair [M3b 55784368, M3a 55471731].
 Nothing in this document authorizes an upload.
+
+## ADDENDUM (2026-09-05, post-run): NOT PROMOTED — criterion 3 veto
+
+Runs executed 2026-09-05T21:53-22:43Z at 75377a9 (agent source byte-identical
+to d7efe73; only eval/ changed between the shas), serially, binding constraint
+first, no source edits while any run was in flight.
+
+| tape | n | mean_delta | ci_lower | bar | bar met | opp_mean_delta | skew |
+|---|---|---|---|---|---|---|---|
+| metac95 | 384 | +2,281.4 | +1,181.2 | >$0 | yes | -1,850.6 | +0.13 |
+| thunder | 512 | +3,553.2 | +2,628.3 | >$1,000 | yes | **-3,997.2** | -0.12 |
+| barnyard | 256 | +3,354.6 | +1,831.3 | >$0 | yes | -2,787.4 | -0.20 |
+| mirror | 256 | +2,381.6 | +1,022.7 | >$0 | yes | **-3,927.9** | -0.13 |
+
+Ledgers:
+- eval/gates/2026-09-05T22-12-27Z-champion-vs-zoo_tape-metac95-720-money.json
+- eval/gates/2026-09-05T22-27-21Z-champion-vs-zoo_tape-thunder-719-money.json
+- eval/gates/2026-09-05T22-35-15Z-champion-vs-zoo_tape-barnyard-719-money.json
+- eval/gates/2026-09-05T22-42-58Z-champion-vs-zoo_tape-mirror-719-money.json
+
+vetoes == [] and blockers == [] on all four tapes.
+
+Decision-rule application: criteria 1, 2 and 4 HOLD — the intersection-union
+money bars clear on every tape, for the first time in this knob's three
+registrations. Criterion 3 FAILS: |opponent_mean_delta| > $3,000 on thunder
+(-3,997) and mirror (-3,928). Per the registered rule, the run is invalid for
+promotion. **NOT PROMOTED.**
+
+Recorded as hypothesis only — it arrived after the criterion fired and is not
+acted on here: a replay tape cannot change its behavior in response to the
+candidate, so its revenue can move only through prices and the shop roster,
+and this arm carries 7/8 roster coupling (see Pairing caveat above). The
+±$3,000 band was inherited from the strawberry-closure convention without
+pricing that mechanism; the same arm measured thunder -2,536 / mirror -1,180
+(inside the band) at n=64 on band 822000, and lands just outside at final n on
+band 824000. Whether the band is too tight for a heavily-coupled arm — e.g.
+whether the criterion should instead bound opponent revenue split by items the
+champion actually trades — is a question for a successor registration, which
+must fix its criterion before any further runs and may reuse none of this
+band's data. Deciding it inside this document would be laundering a veto.

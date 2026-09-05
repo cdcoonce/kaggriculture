@@ -103,3 +103,37 @@ as the verdict; hypotheses about it are recorded only as hypotheses.
 - If the tapes show a large NEGATIVE opponent_mean_delta, that is itself the
   suppression signature expressed against the tape's scripted sells and fails
   criterion 3 by construction.
+
+## ADDENDUM (2026-09-05, post-run): CLOSED
+
+Runs executed 2026-09-05T21:53-22:01Z at 75377a9 (agent source byte-identical
+to d7efe73), serially, no source edits while any run was in flight.
+
+| tape | n | mean_delta | ci_lower | bar | bar met | opp_mean_delta |
+|---|---|---|---|---|---|---|
+| thunder | 64 | -3,001.6 | -5,859.7 | >$1,000 | no | **-4,731.3** |
+| barnyard | 64 | -3,601.3 | -6,510.6 | >$0 | no | -2,327.8 |
+| metac95 | 64 | -2,619.4 | -4,978.6 | >$0 | no | -1,333.8 |
+| mirror | 64 | -2,256.6 | -5,277.8 | >$0 | no | **-4,286.4** |
+
+Ledgers:
+- eval/gates/2026-09-05T21-53-12Z-champion-vs-zoo_tape-thunder-719-money.json
+- eval/gates/2026-09-05T21-55-42Z-champion-vs-zoo_tape-barnyard-719-money.json
+- eval/gates/2026-09-05T21-58-09Z-champion-vs-zoo_tape-metac95-720-money.json
+- eval/gates/2026-09-05T22-00-34Z-champion-vs-zoo_tape-mirror-719-money.json
+
+vetoes == [] on all four; barnyard fired the catastrophic_tail blocker
+(diagnostic only, does not gate; n_regressed 40/64, tail_quantile -20,106).
+
+Decision-rule application: every money bar is missed (ci_lower -4,979 to
+-6,511), and |opponent_mean_delta| > $3,000 on thunder and mirror — the
+registered suppression signature, expressed against tapes exactly as
+predicted. **CLOSED.**
+
+The config-only livestock corner is dead end to end: cow7, cow8/sheep5 and
+cow8/sheep6 failed the head-to-head viability gate (PR #92); the sole
+survivor, cow7/sheep5, loses money against every tape while dragging tape
+revenue down. The registered prediction (zero production gain head-to-head,
+therefore no transfer) is confirmed. The staged-purchase scale-up
+(kaggriculture#59 item 1) remains a distinct, unmeasured thesis and is not
+condemned by this closure.
