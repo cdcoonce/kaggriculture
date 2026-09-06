@@ -103,3 +103,61 @@ ALIVE authorizes a promotion-grade registration, not a submission. Uploading
 remains a separate HITL decision: T-2 freeze is 2026-09-28 and a new submission
 evicts one of the Bradley-Terry pair [M3b 55784368, M3a 55471731]. Nothing here
 authorizes an upload.
+
+## ADDENDUM (2026-09-06, post-run): ALIVE — replicated, and production-driven
+
+Runs executed 2026-09-06T22:04-22:11Z at 03c8f17 (agent package byte-identical
+to the shipped M3b at b6ce655; config-only arms), serially, CTRL first, no
+source edits while any run was in flight. Band 835000, n=100 seeds / 200 games
+per arm, opponent `frozen:m3b_live_b6ce655`.
+
+| arm | agent_config | W-L | rate | ci_lower | mean cand $ | mean opp $ | dCand | dOpp |
+|---|---|---|---|---|---|---|---|---|
+| CTRL | (shipped defaults) | 97-97 | 0.500 | 0.431 | 63,446 | 63,446 | — | — |
+| W20 | wheat_rush_tiles 20 | 104-96 | 0.520 | 0.451 | 65,977 | 65,925 | +2,531 | +2,480 |
+| W25 | wheat_rush_tiles 25 | 148-52 | 0.740 | 0.675 | 64,242 | 63,411 | +796 | −35 |
+| **W30** | **wheat_rush_tiles 30** | **172-28** | **0.860** | **0.805** | **65,589** | 64,116 | **+2,143** | +670 |
+| W35 | wheat_rush_tiles 35 | 140-60 | 0.700 | 0.633 | 63,940 | 63,442 | +494 | −3 |
+
+Ledgers: eval/gates/2026-09-06T22-04-08Z (CTRL), T22-05-29Z (W25), T22-06-49Z
+(W20), T22-08-10Z (W30), T22-09-49Z (W35), all
+`-champion-vs-frozen_m3b_live_b6ce655-promotion.json`. Money figures are the
+ledgers' own per-game rows, seat-averaged per seed then meaned over seeds.
+
+**Decision-rule application:**
+
+- VALIDITY: CTRL rate **0.500** (97-97), inside the registered [0.40, 0.60]
+  window — a champion at defaults against a frozen snapshot of itself lands
+  exactly on the null, so the comparison measures what this document claims.
+  `any_candidate_crash` false on all five arms. The run is VALID.
+- REPLICATION: **MET.** Best arm W30 at rate 0.860 / ci_lower 0.805, far above
+  the registered 0.65 / 0.55. Independently, the exploratory arm W25 reproduced
+  on a fresh band: 0.750 (834000) → 0.740 (835000).
+- PRODUCTION, NOT SUPPRESSION: **MET, and in the strongest available form.**
+  W30's mean candidate money is +$2,143 over CTRL, and the OPPONENT's money is
+  also **up** (+$670). Nobody is being starved. Contrast the cow7/sheep5
+  closure (2026-09-05), where a similar 0.70 head-to-head record came with
+  candidate money identical to the losing arm and opponent money dragged down
+  ~$2k — that is the signature this criterion exists to catch, and it is absent
+  here.
+
+**Verdict: ALIVE.** Proceed to a promotion-grade registration (four-tape money
+intersection-union plus a redirection decomposition). Nothing here authorizes
+an upload.
+
+**Shape of the effect, recorded for the successor.** The response is not
+monotone in the cap, and the money columns say why. W20 produces the largest
+absolute gain (+$2,531) but the weakest edge (0.520), because the opponent
+gains almost exactly as much (+$2,480): a smaller wheat zone sells less into
+the shared book, which lifts prices for BOTH players. W30 is where our own
+productivity gain outruns the price gift handed across the table. A successor
+should treat the cap as trading own-production against a market externality,
+not as a monotone "smaller is better" knob, and should not assume the optimum
+sits at an endpoint.
+
+**Mechanism remains hypothesis, not result.** The champion holds 42.0 standing
+tiles with 39.4 bare, walking is ~57% of unit-turns and flat as hands are
+added, and added hands raise idle share (all measured 2026-09-06) — consistent
+with a farm sprawled beyond what its crew can service, which a cap concentrates.
+This registration measured the OUTCOME. Nothing here instruments the mechanism,
+and the successor should not cite one as established.
