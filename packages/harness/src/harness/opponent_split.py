@@ -178,6 +178,29 @@ def _diff(a: Mapping[str, float], b: Mapping[str, float]) -> dict[str, float]:
     return {key: a.get(key, 0.0) - b.get(key, 0.0) for key in set(a) | set(b)}
 
 
+def ledger_form_opponent_mean_delta(
+    candidate_seat_means: Mapping[int, float],
+    baseline_seat_means: Mapping[int, float],
+) -> float:
+    """gate.py's own association for ``opponent_mean_delta`` -- diff-of-means.
+
+    Replicates gate.py lines 516-522 exactly: ``sum(candidate)/n -
+    sum(baseline)/n`` over sorted seeds. This is NOT interchangeable with
+    mean-of-diffs (``sum(c_i - b_i)/n``): both are exact up to the division,
+    but an ``n`` with an odd factor rounds the two associations differently
+    (observed ~5e-12 apart on the real metac95 n=384 ledger). Bit-equality
+    with the ledgered value requires this form.
+    """
+    if set(candidate_seat_means) != set(baseline_seat_means):
+        raise ValueError("the two arms did not cover the same seeds")
+    seeds = sorted(candidate_seat_means)
+    n = len(seeds)
+    return (
+        sum(candidate_seat_means[seed] for seed in seeds) / n
+        - sum(baseline_seat_means[seed] for seed in seeds) / n
+    )
+
+
 @dataclass(frozen=True)
 class SeedSplit:
     """One seed's opponent money delta: seat-averaged per arm, then arm-diffed."""
@@ -242,6 +265,43 @@ def bucket_seed(
     )
 
 
+#: The four episode keys ``split_ledger`` reconstructs per seed -- candidate
+#: arm at both seats, then baseline arm at both seats. Shared by
+#: ``_play_seed_episodes`` (the sequential, single-task-per-seed path) and
+#: ``split_ledger``'s parallel path (one ``ProcessPoolExecutor`` task per
+#: key) so the two paths can never drift on what a "seed's episodes" means.
+_EPISODE_KEYS: tuple[str, str, str, str] = ("candidate0", "candidate1", "baseline0", "baseline1")
+
+
+def _episode_task_args(
+    key: str,
+    seed: int,
+    candidate: str,
+    opponent: str,
+    baseline: str,
+    agent_config: dict[str, Any] | None,
+    baseline_agent_config: dict[str, Any] | None,
+) -> tuple[int, str, str, dict[str, Any] | None, int]:
+    """The exact positional ``play_with_settlement(seed, spec, opponent,
+    config, seat)`` args for one episode ``key`` (one of ``_EPISODE_KEYS``).
+
+    Pulled out of ``split_ledger``'s parallel branch so a fast test can
+    assert, without ever touching ``ProcessPoolExecutor`` or the engine, that
+    every submitted task's arguments are plain picklable data (a seed int, two
+    spec strings, an ``agent_config`` dict-or-``None``, a seat int -- never a
+    resolved agent or a ``Settlement``/``_Recorder`` object) in the order
+    ``play_with_settlement`` itself expects. ``key``'s own trailing digit is
+    its seat; the ``"candidate"``/``"baseline"`` prefix picks that arm's spec
+    and config, exactly as ``_play_seed_episodes`` (the sequential path)
+    does inline.
+    """
+    if key.startswith("candidate"):
+        spec, config = candidate, agent_config
+    else:
+        spec, config = baseline, baseline_agent_config
+    return seed, spec, opponent, config, int(key[-1])
+
+
 def _play_seed_episodes(
     seed: int,
     candidate: str,
@@ -257,7 +317,12 @@ def _play_seed_episodes(
     (each arm's OWN agent goes through ``resolve_agent(spec, that arm's
     agent_config)``; the opponent never receives an ``agent_config``). Kept
     module-level and picklable, like ``harness.episodes.play_game``, so it
-    can run under ``ProcessPoolExecutor`` from ``split_ledger`` or the CLI.
+    can run under ``ProcessPoolExecutor`` -- but ``split_ledger`` only ever
+    hands it to the pool on the SEQUENTIAL (``workers <= 1``) path, mirroring
+    ``run_gate``'s own restriction of the bundled ``_play_seed_pair`` helper
+    to its ``workers <= 1`` branch (see ``split_ledger``'s parallel branch,
+    which submits ``harness.settlement.play_with_settlement`` directly, one
+    task per episode, matching ``run_gate``'s per-episode granularity).
     """
     return {
         "candidate0": play_with_settlement(seed, candidate, opponent, agent_config, seat=0),
@@ -306,14 +371,41 @@ def split_ledger(
     -- the whole run raises rather than return a decomposition of a run this
     instrument could not faithfully reproduce.
 
-    ``workers`` parallelizes the per-seed replay with ``ProcessPoolExecutor``
-    exactly the way ``harness.gate.run_gate`` does (submit all, then collect
-    in submission order) via the module-level, picklable
-    ``_play_seed_episodes``; the default of 1 runs sequentially in-process,
-    which is what every test in this module (and the fast path generally)
-    exercises. ``progress(seed_index, n_seeds)`` (0-based) is called once
-    per seed, after that seed's four episodes are collected but before
-    verification -- for the CLI to report progress on a long replay.
+    ASSOCIATION HAZARD: that aggregate must be computed with gate.py's OWN
+    association -- diff-of-means (``sum(cand)/n - sum(base)/n``, gate.py's
+    ``opponent_mean_delta`` at its lines 516-522), never mean-of-diffs
+    (``sum(cand_i - base_i)/n``). Every per-episode money value here is a
+    dyadic rational (integer prices, seat-means halve them once), so sums
+    are exact -- but dividing by an ``n`` with an odd factor rounds, and the
+    two associations round DIFFERENTLY: on the real metac95 n=384 ledger
+    they disagree by ~5e-12, which the exact ``==`` correctly refused. At
+    power-of-two n (256, 512) the division is exact and both associations
+    coincide, which is why the defect hid on thunder/mirror/barnyard.
+    ``ledger_form_opponent_mean_delta`` is that replication;
+    ``mean_total`` reports its value so the decomposition's headline number
+    is bit-identical to the ledger's. Per-seed ``SeedSplit.total`` values
+    remain exact per-seed sums of their own buckets.
+
+    ``workers`` parallelizes the replay with ``ProcessPoolExecutor`` exactly
+    the way ``harness.gate.run_gate`` does: submit every task up front, then
+    collect in submission order. The default of 1 runs sequentially
+    in-process via ``_play_seed_episodes`` (one seed's four episodes per
+    call) -- what every test in this module (and the fast path generally)
+    exercises. ``workers > 1`` submits ``harness.settlement.
+    play_with_settlement`` directly, ONE TASK PER EPISODE (four tasks per
+    seed), mirroring ``run_gate``'s own split: its bundled
+    ``_play_seed_pair`` helper runs only the ``workers <= 1`` branch, and its
+    ``workers > 1`` branch submits the raw per-episode ``play_game`` so no
+    single task holds more than one game's worth of work. Submitting the
+    bundled ``_play_seed_episodes`` to the pool instead would still be
+    module-level and picklable, but a task four times the size of gate.py's
+    quadruples the blast radius of any one slow or wedged episode and
+    coarsens load balancing across ``workers`` -- a real divergence from the
+    "mirrors run_gate's pattern" this module's own introducing PR claimed,
+    and the shape of the reported ``--workers 8`` stall on a 512-seed ledger.
+    ``progress(seed_index, n_seeds)`` (0-based) is called once per seed,
+    after that seed's four episodes are collected but before verification --
+    for the CLI to report progress on a long replay.
 
     A non-empty ``identity.extra_config`` is refused (``NotImplementedError``)
     before any game is played: ``harness.settlement.play_with_settlement``
@@ -355,20 +447,30 @@ def split_ledger(
                 progress(index, n_seeds)
     else:
         with ProcessPoolExecutor(max_workers=workers) as pool:
-            futures = [
-                pool.submit(
-                    _play_seed_episodes,
-                    seed,
-                    candidate,
-                    opponent,
-                    baseline,
-                    agent_config,
-                    baseline_agent_config,
+            # One ``play_with_settlement`` task per EPISODE (four per seed),
+            # matching ``harness.gate.run_gate``'s per-episode
+            # ``pool.submit(play_game, seed, seat, candidate, opponent, ...)``
+            # granularity instead of bundling a seed's four episodes
+            # (``_play_seed_episodes``) into one task -- see this function's
+            # docstring for why that bundling was the bug.
+            futures = {
+                (seed, key): pool.submit(
+                    play_with_settlement,
+                    *_episode_task_args(
+                        key,
+                        seed,
+                        candidate,
+                        opponent,
+                        baseline,
+                        agent_config,
+                        baseline_agent_config,
+                    ),
                 )
                 for seed in seeds
-            ]
-            for index, (seed, future) in enumerate(zip(seeds, futures, strict=True)):
-                seed_episodes[seed] = future.result()
+                for key in _EPISODE_KEYS
+            }
+            for index, seed in enumerate(seeds):
+                seed_episodes[seed] = {key: futures[(seed, key)].result() for key in _EPISODE_KEYS}
                 if progress is not None:
                     progress(index, n_seeds)
 
@@ -383,6 +485,7 @@ def split_ledger(
     all_settlements: list[Settlement] = []
     all_champion_seats: list[int] = []
     max_residual = 0.0
+    opponent_money: dict[tuple[str, int, int], float] = {}
 
     for seed in seeds:
         for key, settlement in seed_episodes[seed].items():
@@ -409,6 +512,7 @@ def split_ledger(
 
             all_settlements.append(settlement)
             all_champion_seats.append(candidate_seat)
+            opponent_money[(arm, seed, candidate_seat)] = final_money
 
     traded_items = champion_traded_items(all_settlements, all_champion_seats)
 
@@ -428,7 +532,17 @@ def split_ledger(
     mean_traded_market = sum(s.traded_market for s in seed_splits) / n_seeds
     mean_untraded_market = sum(s.untraded_market for s in seed_splits) / n_seeds
     mean_fixed_price = sum(s.fixed_price for s in seed_splits) / n_seeds
-    mean_total = sum(s.total for s in seed_splits) / n_seeds
+
+    candidate_seat_means = {
+        seed: (opponent_money[("candidate", seed, 0)] + opponent_money[("candidate", seed, 1)])
+        / 2.0
+        for seed in seeds
+    }
+    baseline_seat_means = {
+        seed: (opponent_money[("baseline", seed, 0)] + opponent_money[("baseline", seed, 1)]) / 2.0
+        for seed in seeds
+    }
+    mean_total = ledger_form_opponent_mean_delta(candidate_seat_means, baseline_seat_means)
 
     ledgered_delta = ledger["money_verdict"]["opponent_mean_delta"]
     if mean_total != ledgered_delta:

@@ -9,17 +9,22 @@ or seat-averaging drift from ``harness.gate``'s reality.
 
 from __future__ import annotations
 
+import pickle
+
 import pytest
 from harness.opponent_split import (
+    _EPISODE_KEYS,
     SeedSplit,
+    _episode_task_args,
     bucket_seed,
     champion_traded_items,
     episode_opponent_flows,
     episode_residual,
+    ledger_form_opponent_mean_delta,
     opponent_flows,
     split_ledger,
 )
-from harness.settlement import Settlement
+from harness.settlement import Settlement, play_with_settlement
 
 # --- 1. opponent_flows -------------------------------------------------
 
@@ -272,3 +277,126 @@ def test_split_ledger_matches_a_real_money_gate_ledger():
     assert split.mean_total == seed.total
     assert split.mean_total == ledger["money_verdict"]["opponent_mean_delta"]
     assert split.max_residual == 0.0
+
+
+# --- 7. workers>1 task shape (regression: stalled-pool bug) ---------------
+#
+# The reported bug (``--workers 8`` on a 512-seed ledger stalling with
+# vanished worker processes) traced to ``split_ledger``'s parallel branch
+# submitting the BUNDLED ``_play_seed_episodes`` -- a seed's whole four
+# episodes -- as one ``ProcessPoolExecutor`` task, instead of one task per
+# episode the way ``harness.gate.run_gate`` submits ``play_game`` directly.
+# Bundling still pickles fine (both helpers are module-level), so a pure
+# picklability check would not have caught a reversion to it; these tests
+# pin the actual per-episode SHAPE instead.
+
+
+def test_episode_task_args_is_one_task_per_episode_matching_play_with_settlement():
+    """``_episode_task_args`` must return plain, picklable, positionally-correct
+    ``play_with_settlement(seed, spec, opponent, config, seat)`` args for
+    each of the four episode keys -- never a resolved agent, a closure, or a
+    ``Settlement``/``_Recorder`` object."""
+    assert len(_EPISODE_KEYS) == 4
+
+    for key in _EPISODE_KEYS:
+        args = _episode_task_args(
+            key,
+            663400,
+            "champion",
+            "zoo:pass",
+            "champion-unshelled",
+            {"hand_mule_load": 20},
+            None,
+        )
+        # Round-trips through pickle -- plain data only, exactly what a
+        # spawned ProcessPoolExecutor worker needs to receive.
+        assert pickle.loads(pickle.dumps(args)) == args
+
+        seed, spec, opponent, config, seat = args
+        assert seed == 663400
+        assert opponent == "zoo:pass"
+        assert seat == int(key[-1])
+        if key.startswith("candidate"):
+            assert (spec, config) == ("champion", {"hand_mule_load": 20})
+        else:
+            assert (spec, config) == ("champion-unshelled", None)
+
+
+def test_play_with_settlement_is_the_module_level_pool_target():
+    """The parallel branch's submitted callable must be resolvable by
+    reference (module-level), not a closure/lambda/bound method -- the
+    ``ProcessPoolExecutor``/macOS-spawn precondition for pickling a task at
+    all. Mirrors ``harness.episodes.play_game``'s role in
+    ``harness.gate.run_gate``'s own parallel branch."""
+    assert pickle.loads(pickle.dumps(play_with_settlement)) is play_with_settlement
+
+
+@pytest.mark.slow
+def test_split_ledger_workers_gt_1_matches_the_sequential_result():
+    """End-to-end teeth for the ``workers>1`` branch itself (real engine,
+    real ``ProcessPoolExecutor``, ``zoo:pass`` -- no tapes): the parallel
+    path must reproduce the SAME ledger a sequential replay does, not just
+    submit well-shaped tasks. Two seeds, ``workers=2``, so at least one real
+    cross-process round trip happens per arm/seat."""
+    import json
+    import tempfile
+    from pathlib import Path
+
+    from harness.gate import run_money_gate
+    from harness.ledger import write_money_ledger
+
+    result = run_money_gate(
+        candidate="champion",
+        opponent="zoo:pass",
+        n_seeds=2,
+        seed_base=663400,
+        baseline="champion",
+        agent_config={"hand_mule_load": 20},
+        baseline_agent_config=None,
+        workers=1,
+        run_canary=False,
+    )
+
+    with tempfile.TemporaryDirectory() as tmp:
+        path = write_money_ledger(
+            result, Path(tmp), candidate_commit="test", timestamp="19700101T000000Z"
+        )
+        ledger = json.loads(path.read_text(encoding="utf-8"))
+
+    sequential = split_ledger(ledger, workers=1)
+    seen_progress: list[tuple[int, int]] = []
+    parallel = split_ledger(ledger, progress=lambda i, n: seen_progress.append((i, n)), workers=2)
+
+    assert seen_progress == [(0, 2), (1, 2)]
+    assert parallel.mean_total == sequential.mean_total
+    assert parallel.mean_total == ledger["money_verdict"]["opponent_mean_delta"]
+    assert parallel.max_residual == 0.0
+    assert [s.seed for s in parallel.seeds] == [s.seed for s in sequential.seeds]
+    assert [s.total for s in parallel.seeds] == [s.total for s in sequential.seeds]
+
+
+# --- ledger_form_opponent_mean_delta (association hazard) ------------------
+
+
+def test_aggregate_uses_gate_pys_diff_of_means_association_not_mean_of_diffs():
+    # Dyadic seat-means (integer prices halved once) whose two associations
+    # round DIFFERENTLY under the n=3 division -- the same last-ulp divergence
+    # the exact == against the ledger refused on the real metac95 n=384
+    # ledger (~5e-12 apart). Mean-of-diffs here would be a wrong answer, not
+    # an equivalent one.
+    candidate = {0: 84890.5, 1: 39544.0, 2: 103500.5}
+    baseline = {0: 170638.5, 1: 12657.5, 2: 18988.5}
+
+    gate_form = (
+        sum(candidate[s] for s in sorted(candidate)) / 3
+        - sum(baseline[s] for s in sorted(baseline)) / 3
+    )
+    mean_of_diffs = sum(candidate[s] - baseline[s] for s in sorted(candidate)) / 3
+    assert gate_form != mean_of_diffs  # the fixture has teeth
+
+    assert ledger_form_opponent_mean_delta(candidate, baseline) == gate_form
+
+
+def test_aggregate_association_rejects_mismatched_seed_sets():
+    with pytest.raises(ValueError, match="same seeds"):
+        ledger_form_opponent_mean_delta({0: 1.0, 1: 2.0}, {0: 1.0, 2: 2.0})
