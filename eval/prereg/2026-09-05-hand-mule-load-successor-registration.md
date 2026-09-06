@@ -175,3 +175,80 @@ still legitimately fire; (2) the traded component is consistently negative
 on every tape (−1.2k…−2.7k) — hml20's gain is part genuine redirection, real
 but within the registered tolerance. Nothing here changes the rule or the
 launch: band 826000, the four gates and their instrument runs, as registered.
+
+## ADDENDUM (2026-09-06, post-run): NOT PROMOTED — criterion 3′ fired on
+## thunder. The hml20 line ends here.
+
+Runs executed 2026-09-06T02:41–04:00Z at b60bb6a (agent package byte-identical
+to d7efe73 throughout; only harness/eval code landed since), serially,
+metac95 first as the binding constraint, no source edits while any run was in
+flight. Opponent digests recorded per ledger.
+
+| tape | n | mean_delta | ci_lower | bar | bar met | skew | vetoes |
+|---|---|---|---|---|---|---|---|
+| metac95 | 384 | +1,947.11 | +830.79 | >$0 | yes | −0.04 | none |
+| thunder | 512 | +3,126.29 | +2,148.63 | >$1,000 | yes | +0.02 | none |
+| barnyard | 256 | +3,718.10 | +2,290.71 | >$0 | yes | −0.03 | none |
+| mirror | 256 | +2,950.57 | +1,552.59 | >$0 | yes | −0.18 | none |
+
+Gate ledgers: eval/gates/2026-09-06T02-52-58Z-…-metac95-720-money.json,
+2026-09-06T03-07-49Z-…-thunder-719-money.json,
+2026-09-06T03-15-28Z-…-barnyard-719-money.json,
+2026-09-06T03-22-59Z-…-mirror-719-money.json. (metac95's ledger records
+`passed: false` against the runner's default $1,000 threshold; this
+registration's bar for metac95 is >$0, which it clears. The runner's own
+flag is not this registration's rule.)
+
+Instrument decomposition (eval/recon/2026-09-06-opponent-split-*-826000.json;
+exactness contract holds on all four — per-episode residual 0.0, every
+aggregate == the ledgered `opponent_mean_delta`):
+
+| tape | traded_market | untraded_market | fixed_price | total | 3′ |
+|---|---|---|---|---|---|
+| metac95 | −2,394.26 | −382.44 | 0.00 | −2,776.69 | ok |
+| thunder | **−3,077.35** | +226.21 | −2.58 | −2,853.73 | **FIRES** |
+| barnyard | −356.07 | −278.96 | 0.00 | −635.02 | ok |
+| mirror | −1,886.63 | −516.68 | −1.56 | −2,404.87 | ok |
+
+**Decision-rule application: criteria 1, 2 and 4 HOLD. Criterion 3′ FAILS on
+thunder (|−3,077.35| > $3,000, by $77.35). NOT PROMOTED. Per this
+registration's own text, that ends the hml20 line for this competition: no
+fourth registration.**
+
+Three things this run establishes, recorded because they outlive the verdict:
+
+1. **The mechanism-aware criterion was stricter, not looser — on the tape
+   that decided it.** Under the superseded criterion 3 (bounding the WHOLE
+   opponent delta), every tape on this band sits inside ±$3,000 (−2,777 /
+   −2,854 / −635 / −2,405) and hml20 would have been PROMOTED. Criterion 3′
+   killed it. On thunder the untraded component is **+226** — mediator noise
+   pointing the other way, partially masking a traded component larger than
+   the aggregate ever showed. The successor was built on the hypothesis that
+   the old band was too tight for a coupled arm; the instrument answered by
+   making the decisive tape's redirection *visible*, not by excusing it. A
+   criterion designed to be more permissive that instead refuses a candidate
+   the old rule would have passed is the strongest available evidence that it
+   is measuring a mechanism rather than laundering a veto.
+
+2. **The gain is real and it is substantially redirection — heterogeneously
+   so.** Set our money gain against the opponent's traded-market loss per
+   tape: thunder +3,126 vs −3,077 (≈1:1 — the gain is very nearly the
+   opponent's lost traded revenue); metac95 +1,947 vs −2,394 (the opponent
+   loses more than we gain); mirror +2,951 vs −1,887; barnyard +3,718 vs
+   −356 (nearly pure production). The same knob is production against one
+   opponent and redirection against another. No single scalar criterion —
+   old or new — was ever going to represent that cleanly, and the per-tape
+   split is the artifact worth keeping.
+
+3. **The money effect itself replicated.** Two independent bands (824000,
+   826000) at n=256–512 per tape, all four intersection-union bars cleared
+   both times, vetoes empty, skew flat. "hand_mule_load 20 does not convert
+   labor to money" remains refuted; what killed it is how the money arrives.
+
+Not acted on, recorded as hypothesis only, and NOT grounds for a successor:
+$77.35 is 2.6% of the band, and the band itself was inherited from the
+strawberry-closure convention rather than derived. A future project could
+derive a redirection tolerance from the ladder's own scoring (the final is
+Bradley-Terry over wins, where taking an opponent's revenue is not obviously
+worth less than earning it) instead of borrowing one. That is a different
+question, asked before data, in a different competition.
