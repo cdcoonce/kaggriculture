@@ -137,3 +137,41 @@ remains valid — the agent package is byte-identical from d7efe73 through this
 registration's commit. Uploading is a separate HITL decision — T-2 freeze
 2026-09-28; a new submission evicts one of the Bradley-Terry pair
 [M3b 55784368, M3a 55471731]. Nothing in this document authorizes an upload.
+
+## PRE-LAUNCH ADDENDUM (2026-09-06, diagnostic-only — the registered runs
+## below proceed unchanged regardless of anything in this section)
+
+Validation and diagnostic executed at 73b1862 (instrument PR #95 plus the
+association fix PR #96; agent package still byte-identical to d7efe73).
+
+**Exactness contract: HOLDS on all four band-824000 ledgers.** Per-episode
+conservation residual exactly 0.0 everywhere (6,144 episodes replayed), every
+replayed opponent money matched its ledger row exactly, and every aggregate
+reproduced the ledgered `opponent_mean_delta` bit-for-bit. One instrument
+defect was found and fixed en route (PR #96): the aggregate was computed as
+mean-of-diffs while gate.py uses diff-of-means; the two associations differ
+by ~5e-12 at any n with an odd factor (metac95's n=384 exposed it; the
+power-of-two n's masked it), and the exact `==` correctly refused the
+near-miss. The criterion is registered against gate.py's statistic, so the
+instrument now replicates gate.py's association verbatim.
+
+**Diagnostic decomposition of the 824000 runs** (ledgered at
+eval/recon/2026-09-05-opponent-split-{metac95,thunder,barnyard,mirror}-824000.json;
+traded items EGG/FERTILIZER/MELON/MILK/WHEAT/WOOL on every tape):
+
+| tape | traded_market | untraded_market | fixed_price | total (=ledgered) |
+|---|---|---|---|---|
+| metac95 (n=384) | −1,603.47 | −247.11 | 0.00 | −1,850.59 |
+| thunder (n=512) | −2,746.17 | −1,247.87 | −3.16 | −3,997.21 |
+| barnyard (n=256) | −1,205.79 | −1,581.65 | 0.00 | −2,787.44 |
+| mirror (n=256) | −2,487.59 | −1,438.56 | −1.76 | −3,927.91 |
+
+Read against the registered prediction: every traded_market component sits
+inside the ±$3,000 band — both 824000 breaches were carried over the line by
+untraded mediator noise. Two honest caveats, recorded before the registered
+runs: (1) the margins are thin (thunder $254, mirror $512 inside the band)
+and the traded component re-rolls on the fresh band, so criterion 3′ can
+still legitimately fire; (2) the traded component is consistently negative
+on every tape (−1.2k…−2.7k) — hml20's gain is part genuine redirection, real
+but within the registered tolerance. Nothing here changes the rule or the
+launch: band 826000, the four gates and their instrument runs, as registered.
