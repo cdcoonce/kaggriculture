@@ -4,7 +4,7 @@ and how both widen once land purchases unlock more quadrants."""
 from __future__ import annotations
 
 from agent.constants import PASTURE_TILE_TARGET, target_tiles
-from agent.dispatch import STRAWBERRY_PLANT_DAILY_CAP, dispatch
+from agent.dispatch import HAND_MULE_LOAD, STRAWBERRY_PLANT_DAILY_CAP, dispatch
 from viewfactory import built_pasture, make_view, pasture, plant, strawberry
 
 NW_TILES = target_tiles(("NW",))
@@ -45,12 +45,22 @@ def test_ripe_tile_watered_before_harvest_and_weed_dug() -> None:
 
 
 def test_heavy_hand_routes_to_shed_and_drops() -> None:
+    # Expressed against HAND_MULE_LOAD rather than a literal: the invariant is
+    # "a hand carrying AT the threshold mules", which must hold at whatever the
+    # threshold is. A hand loaded to exactly the threshold walks home and drops.
     tiles = make_view().tiles
-    walking = make_view(hands=[(2, 4)], tiles=tiles, inventories=[{}, {"WHEAT": 9}], seeds=5)
+    load = {"WHEAT": HAND_MULE_LOAD}
+    walking = make_view(hands=[(2, 4)], tiles=tiles, inventories=[{}, load], seeds=5)
     assert dispatch(walking, NW_TILES).hands[0] == ["EAST"]
 
-    at_shed = make_view(hands=[(4, 4)], inventories=[{}, {"WHEAT": 9}], seeds=5)
+    at_shed = make_view(hands=[(4, 4)], inventories=[{}, load], seeds=5)
     assert dispatch(at_shed, NW_TILES).hands[0] == ["DROP"]
+
+    # One below the threshold must NOT mule -- otherwise the assertions above
+    # would pass for an agent that mules unconditionally.
+    below = {"WHEAT": HAND_MULE_LOAD - 1}
+    keeps_farming = make_view(hands=[(4, 4)], tiles=tiles, inventories=[{}, below], seeds=5)
+    assert dispatch(keeps_farming, NW_TILES).hands[0] != ["DROP"]
 
 
 def test_field_task_exists_on_unlocked_ne_tile() -> None:
@@ -432,13 +442,23 @@ def test_feed_batch_stays_below_the_mule_threshold() -> None:
     # routed straight back to the shed to DROP next turn -- feeding nobody and
     # manufacturing the very shed trip the batch exists to avoid. Headroom is
     # the threshold minus what the unit already carries.
+    # Carry is pinned RELATIVE to the threshold so headroom is always 2, no
+    # matter what HAND_MULE_LOAD is. A literal carry would stop exercising the
+    # headroom term the moment the threshold moved -- the batch would then be
+    # bounded by shed share or the cap instead, and the test would keep passing
+    # while testing nothing.
+    carried = HAND_MULE_LOAD - 3  # headroom = threshold - 1 - carried = 2
     tiles, herd = _unfed_herd(8)
     view = make_view(
-        hands=[(4, 4)], tiles=tiles, shed={"WHEAT": 20}, inventories=[{"WHEAT": 1}, {"MILK": 6}]
+        hands=[(4, 4)],
+        tiles=tiles,
+        shed={"WHEAT": 20},
+        inventories=[{"WHEAT": 1}, {"MILK": carried}],
     )
     action = dispatch(view, NW_TILES, frozenset(), herd, feed_batch_cap=8).hands[0]
     assert action == ["PICKUP", "WHEAT", 2], (
-        f"batch ignored the 6 units already carried against HAND_MULE_LOAD=9 (got {action})"
+        f"batch ignored the {carried} units already carried against "
+        f"HAND_MULE_LOAD={HAND_MULE_LOAD} (got {action})"
     )
 
 
