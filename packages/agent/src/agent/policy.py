@@ -15,7 +15,6 @@ from dataclasses import dataclass
 from typing import Any
 
 from agent.constants import (
-    BOARD_SIZE,
     COW_TARGET,
     MAX_OWNED_QUADRANTS,
     MELON_TILE_TARGET,
@@ -51,13 +50,15 @@ from agent.view import FarmView, parse_obs
 
 SOFT_BUDGET_SECONDS = 0.5  # v1 logic runs in microseconds; this guards regressions
 
-# No cap by default: the full board (BOARD_SIZE**2 tiles, minus COOP_TILE) can
-# never yield more wheat tiles than this once melon's and pasture's own zones
-# are carved out, so the default preserves today's uncapped remainder for
-# every unlock state.
-_WHEAT_RUSH_TILES_DEFAULT = (
-    BOARD_SIZE * BOARD_SIZE - 1 - MELON_TILE_TARGET - (COW_TARGET + SHEEP_TARGET)
-)
+# Capped at 30 (kaggriculture#105 line; registered
+# eval/prereg/2026-09-06-wheat-rush-tiles-cap.md + w30-promotion-confirmation).
+# The uncapped remainder this replaces was BOARD_SIZE*BOARD_SIZE - 1 -
+# MELON_TILE_TARGET - (COW_TARGET + SHEEP_TARGET) == 81, a sentinel chosen so
+# the cap never bound. It never bound because the crew cannot service 81 tiles:
+# the champion stands 42.0 tiles with 39.4 bare and spends ~57% of unit-turns
+# walking. Capping the zone concentrates the same crew on fewer tiles and wins
+# 0.856 head-to-head against the uncapped agent (n=250, band 836000).
+_WHEAT_RUSH_TILES_DEFAULT = 30
 
 # M2c (kaggriculture#59): two-tier shed valve. Absolute-unit thresholds
 # against the engine's default 100-unit shed -- policy.decide scales them by

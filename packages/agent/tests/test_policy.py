@@ -7,6 +7,7 @@ from typing import Any
 
 from agent import policy
 from agent.constants import (
+    BOARD_SIZE,
     LAND_ORDER,
     PASTURE_REFERENCE_QUADRANTS,
     STRAWBERRY_REFERENCE_QUADRANTS,
@@ -81,19 +82,30 @@ def test_default_policy_config_matches_the_gated_ranch_reshape() -> None:
     someone edits a herd constant (COW_TARGET/SHEEP_TARGET) without
     re-gating, this test must fail, not a live match.
 
-    wheat_rush_tiles is the one that silently follows: policy.
-    _WHEAT_RUSH_TILES_DEFAULT is computed ONCE AT IMPORT TIME as
-    BOARD_SIZE**2 - 1 - MELON_TILE_TARGET - (COW_TARGET + SHEEP_TARGET), so a
-    herd-constant edit reshapes the wheat zone too even though nothing here
-    references sheep/cow by name: 100 - 1 - 8 - 10 = 81, and 81 is the value
-    that was actually gated alongside 6/4.
+    wheat_rush_tiles USED to follow the herd constants silently:
+    _WHEAT_RUSH_TILES_DEFAULT was computed at import time as BOARD_SIZE**2 - 1
+    - MELON_TILE_TARGET - (COW_TARGET + SHEEP_TARGET) = 81, a sentinel high
+    enough that the cap never bound. That coupling is GONE -- the default is
+    now a literal 30, gated head-to-head against the uncapped agent at 428-72
+    (rate 0.856, Wilson ci_lower 0.8225, n=250 seeds, band 836000,
+    eval/prereg/2026-09-06-w30-promotion-confirmation.md).
+
+    So this test now pins two independent things: the gated herd (6/4), and
+    the gated wheat cap (30). A herd edit no longer reshapes the wheat zone,
+    which is why the second assertion below is a bare literal and deliberately
+    NOT expressed in terms of the herd constants -- writing it as a formula
+    would silently re-couple exactly what this change decoupled.
     """
     config = PolicyConfig()
     assert config.cow_target == 6
     assert config.sheep_target == 4
     assert config.pasture_tile_target == 10
-    assert config.wheat_rush_tiles == 81
+    assert config.wheat_rush_tiles == 30
     assert config.wheat_rush_tiles == policy._WHEAT_RUSH_TILES_DEFAULT
+    # The decoupling itself, pinned: the wheat cap must NOT track the herd.
+    assert config.wheat_rush_tiles != (
+        BOARD_SIZE * BOARD_SIZE - 1 - config.melon_tile_target - config.pasture_tile_target
+    )
 
 
 def test_day_zero_opening_orders() -> None:
