@@ -148,3 +148,111 @@ bundle at `96d8b41` is built and cleared by `submit.py` but **has not been
 uploaded**, so one free slot remains.
 
 Nothing in this document authorises an upload.
+
+## ADDENDUM (2026-09-07, post-run): one confirmed survivor, and a prediction that was flatly wrong
+
+Screen executed 2026-09-07T02:5x-03:3xZ at `5528223`, band 838000, n=100 seeds
+per arm vs `frozen:m3c_hml20_96d8b41`, CTRL first, after the runner verified
+from the loaded `PolicyConfig` that the tree carried the shipped HML20 champion.
+`any_candidate_crash` false on all 24 arms.
+
+**VALIDITY: CTRL 99-99-2, rate exactly 0.500.** VALID.
+
+| rate | ci_lower | W-L-T | arm |
+|---|---|---|---|
+| **0.690** | 0.6228 | 138-62-0 | **valve_soft_threshold=35** |
+| **0.685** | 0.6177 | 137-63-0 | **feed_reserve=0** |
+| 0.635 | 0.5663 | 127-73-0 | valve_soft_cap=25 |
+| 0.590 | 0.5208 | 118-82-0 | wool_milk_sell_cap=8 |
+| 0.585 | 0.5157 | 117-83-0 | valve_hard_threshold=65 |
+| 0.570 | 0.5007 | 114-86-0 | valve_hard_threshold=75 |
+| 0.525 | 0.4560 | 104-94-2 | wool_floor=110 |
+| 0.520 | 0.4510 | 104-96-0 | milk_floor=90 |
+| 0.515 | 0.4461 | 103-97-0 | milk_crash_trigger=100 |
+| 0.505 | 0.4363 | 100-98-2 | wool_floor=180 |
+| 0.505 | 0.4363 | 100-98-2 | wool_crash_trigger=140 |
+| 0.505 | 0.4363 | 100-98-2 | crash_trigger_ticks=4 |
+| **0.500** | 0.4314 | 99-99-2 | **CTRL** |
+| 0.450 | 0.3826 | 90-110-0 | milk_floor=127 |
+| 0.435 | 0.3682 | 87-113-0 | fert_floor=40 |
+| 0.390 | 0.3251 | 78-122-0 | wool_milk_sell_cap=2 |
+| 0.155 | 0.1114 | 31-169-0 | feed_reserve=8 |
+| 0.130 | 0.0903 | 26-174-0 | valve_soft_threshold=70 |
+| 0.070 | 0.0422 | 14-186-0 | feed_batch_cap=2 |
+| 0.065 | 0.0384 | 13-187-0 | valve_soft_cap=4 |
+| 0.050 | 0.0274 | 10-190-0 | melon_tile_target=20 |
+| 0.005 | 0.0009 | 1-199-0 | melon_tile_target=4 |
+| 0.000 | 0.0000 | 0-200-0 | max_owned_quadrants=2 |
+| 0.000 | 0.0000 | 0-200-0 | max_owned_quadrants=4 |
+
+**ARMS CLEARING 0.65: 2.** One arm (0.635) sits inside the simulated null-max
+band [0.60, 0.615 at p99] and is reported as noise, per the registration.
+
+## Confirmation, band 839000, n=250 — and the screen-then-confirm rule earning its keep
+
+| arm | screen (n=100) | confirm (n=250) | ci_lower | registered bar | |
+|---|---|---|---|---|---|
+| CTRL | 0.500 | **0.500** (243-243-14) | 0.4563 | [0.40,0.60] | VALID |
+| **valve_soft_threshold=35** | 0.690 | **0.698** (349-151) | **0.6564** | >=0.65 & ci>0.55 | **CONFIRMED** |
+| feed_reserve=0 | 0.685 | **0.568** (284-216) | 0.5242 | >=0.65 & ci>0.55 | **FAILED** |
+
+**One of the two survivors was a selection artifact.** `feed_reserve=0` came out
+of the screen at 0.685 and fell to 0.568 on a disjoint band — inside the range
+the null maximum reaches at 23 arms. Had the screen been allowed to promote
+directly, it would have shipped. This is the entire reason the registration said
+*the screen selects, it does not promote*, and it is the first time in this
+project's record that the multiplicity discipline has visibly caught something.
+
+`valve_soft_threshold`=35 went the other way: 0.690 -> **0.698** on a fresh band
+at 2.5x the n, implying **+146 Elo** on top of the shipped HML20 champion.
+
+## The registered prediction that was flatly wrong
+
+> *"max_owned_quadrants=4 is the most likely single winner."*
+
+It was the **worst arm in the screen**: 0-200, rate 0.000, candidate money
+**-$9,325**. The other direction (=2) also went 0-200 at -$3,375. The shipped
+cap of 3 is strongly optimal in both directions.
+
+**This refines the central claim of the Elo-aligned registration, and the
+refinement matters more than the miss.** The reasoning behind the prediction was
+"the money instrument was wrong about other things, so a large money effect
+might reverse on win rate." That treated a *known-direction* prior as if it were
+uninformative. It is not: the money gate said cap 3 beats cap 4 by
+$5,991-7,780, and the win-rate screen agrees emphatically.
+
+So the accurate statement is narrower than "the money gate measures the wrong
+thing": **the money gate fails when the effect lives in the opponent-relative
+GAP rather than in our absolute bank.** That is precisely the W30/HML20 case,
+where arms banked *less* than CTRL and still won 83-97% of games. When a change
+costs $9,325 in absolute terms, both instruments agree and always would have.
+`eval/prereg/2026-09-07-elo-aligned-factorial.md` should be read with that
+qualification.
+
+## What the screen actually bought: negative knowledge
+
+Nine arms scored below 0.16 — `melon_tile_target` in both directions,
+`valve_soft_cap`=4, `feed_batch_cap`=2, `valve_soft_threshold`=70,
+`feed_reserve`=8, and both land caps. The shipped configuration is well-tuned
+across most of the surface nobody had ever measured, which retroactively
+supports the earlier money-gated work and says where *not* to spend the days
+before the 2026-09-28 freeze. Two in-source priors were also confirmed on the
+new instrument: `feed_batch_cap`=2 regressed as its own source comment predicted
+(0.070), and `fert_floor`=40 did nothing (0.435), matching the fertilizer recon.
+
+**Scale honestly.** The confirmed winner's money gap is **+354** against HML20's
+**+3,150**. It is a real marginal gain, an order of magnitude below the knob
+that was just shipped, and it should not be described as comparable.
+
+## Consequence
+
+`valve_soft_threshold`=35 is CONFIRMED and is a ship candidate. It was measured
+with the shipped HML20 champion on both sides, so it stacks with HML20 **by
+construction** — unlike the wheat/mule pair, which the factorial showed were
+substitutes. Shipping it requires the same treatment HML20 got: change the
+source default, then prove bit-identically against this ledger that the shipped
+default reproduces the measured arm.
+
+`feed_reserve`=0 is CLOSED by its own registered confirmation. No successor.
+
+Nothing in this document authorises an upload.
