@@ -9,6 +9,7 @@ from agent import policy
 from agent.constants import (
     LAND_ORDER,
     PASTURE_REFERENCE_QUADRANTS,
+    QUADRANTS,
     STRAWBERRY_REFERENCE_QUADRANTS,
     melon_tiles,
     pasture_tiles,
@@ -471,6 +472,83 @@ def test_strawberry_zone_is_pinned_to_a_fixed_reference_frame() -> None:
     assert seen == [STRAWBERRY_REFERENCE_QUADRANTS], (
         f"decide() sized the strawberry zone against {seen}, not the fixed frame"
     )
+
+
+def _zone_built_by_decide(
+    *,
+    unlocked: tuple[str, ...],
+    target: int = 12,
+    frame_live: bool | None = None,
+) -> list[tuple[int, int]]:
+    """The strawberry zone ``decide()`` actually built, read off its call site.
+
+    ``frame_live=None`` leaves the field off the PolicyConfig entirely, so the
+    SHIPPED default is what gets exercised rather than a value the test handed
+    back to itself.
+    """
+    overrides: dict[str, Any] = {"strawberry_tile_target": target}
+    if frame_live is not None:
+        overrides["strawberry_frame_live"] = frame_live
+
+    seen: list[list[tuple[int, int]]] = []
+    real = policy.strawberry_tiles
+
+    def spy(unlocked_arg: tuple[str, ...], target: int = 0) -> list[tuple[int, int]]:
+        zone = real(unlocked_arg, target)
+        seen.append(zone)
+        return zone
+
+    policy.strawberry_tiles = spy  # type: ignore[assignment]
+    try:
+        make_policy(policy_config=PolicyConfig(**overrides))(
+            raw_obs(unlocked_quadrants=unlocked), None
+        )
+    finally:
+        policy.strawberry_tiles = real  # type: ignore[assignment]
+
+    assert len(seen) == 1, f"decide() sized the strawberry zone {len(seen)}x, expected once"
+    return seen[0]
+
+
+def _sw_tiles(zone: list[tuple[int, int]]) -> list[tuple[int, int]]:
+    sw_x, sw_y = QUADRANTS["SW"]
+    return [(x, y) for x, y in zone if x in sw_x and y in sw_y]
+
+
+def test_strawberry_frame_live_defaults_off_and_leaves_the_shipped_zone_alone() -> None:
+    # strawberry_frame_live is a MEASURING INSTRUMENT -- it exists so an A/B
+    # can find out whether a live frame changes behavior at all, not because
+    # a live frame is wanted. So the only thing standing between it and a
+    # silent change to the shipped agent is this default, and the default is
+    # asserted against the resulting TILES, not just the flag's value: a
+    # flipped default and a mis-wired call site both land here.
+    assert PolicyConfig().strawberry_frame_live is False
+    zone = _zone_built_by_decide(unlocked=("NW", "NE", "SW", "SE"))
+    assert zone == strawberry_tiles(STRAWBERRY_REFERENCE_QUADRANTS, target=12), (
+        "the shipped default moved the strawberry zone off its fixed frame"
+    )
+
+
+def test_strawberry_frame_live_follows_the_unlock_state_once_sw_is_bought() -> None:
+    # The other half of the guard: the flag has to actually DO something, or
+    # the A/B it was built for measures nothing and reports a clean null.
+    # With SW unlocked the live frame re-sorts target_tiles' nearest-shed
+    # ordering and pulls SW ground into the zone; the fixed frame never can.
+    zone = _zone_built_by_decide(unlocked=("NW", "NE", "SW"), frame_live=True)
+    assert _sw_tiles(zone), f"the live frame never reached SW: {zone}"
+    assert zone != strawberry_tiles(STRAWBERRY_REFERENCE_QUADRANTS, target=12)
+
+
+def test_strawberry_frame_live_is_a_no_op_before_sw_is_bought() -> None:
+    # The central finding this instrument is expected to report, pinned so a
+    # future reader cannot mistake a null result for a broken flag: while the
+    # unlock state IS the reference frame, on and off are the same zone. Any
+    # measured difference between the arms therefore has to come from a turn
+    # after SW is bought -- there is nowhere else for it to come from.
+    live = _zone_built_by_decide(unlocked=("NW", "NE"), frame_live=True)
+    fixed = _zone_built_by_decide(unlocked=("NW", "NE"))
+    assert live == fixed == strawberry_tiles(STRAWBERRY_REFERENCE_QUADRANTS, target=12)
+    assert not _sw_tiles(live)
 
 
 def test_strawberry_tiles_are_carved_out_of_the_wheat_zone() -> None:
