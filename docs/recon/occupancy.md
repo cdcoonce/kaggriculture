@@ -18,6 +18,17 @@ Days 10–28, mean over 4 seeds:
 day. Thunder leaves 1.3.** That is the entire occupancy gap, and it is not
 subtle — it is visible on every seed, on every day from 11 onward.
 
+> **STALE (corrected 2026-09-06): the champion row above is a FOUR-QUADRANT
+> agent and does not describe the shipped M3b.** This census ran 2026-08-18,
+> a week before `MAX_OWNED_QUADRANTS = 3` landed in `b6ce655` (2026-08-25) —
+> the very commit `frozen:m3b_live_b6ce655` is cut from. Peak `standing + bare`
+> is **89** on all four ledgered seeds; three quadrants is only 74 tiles, so
+> these numbers are arithmetically impossible for the agent that ships today.
+> Re-measured on the current agent: **34.8 standing / 26.2 bare**, not
+> 42.0 / 39.4. The
+> thunder row is unaffected and reproduces (58.6 measured). See "Correcting the
+> record, again" at the end of this file.
+
 "Bare" here means literal `None` tiles: owned, unlocked, no structure, no
 weed, immediately plantable. A WEED tile is excluded because it needs a `DIG`
 first, so folding it in would overstate the available ground.
@@ -100,3 +111,54 @@ The instrument that handoff named as "the read", `strawberry_labor.py`'s
 `alive_by_day`, filters `tile["crop"] == "STRAWBERRY"` and the shipped
 champion sets `strawberry_tile_target = 0`. Run against the shipped agent it
 returns `peak_alive: 0` on all thirty days. It could never have measured this.
+
+## Correcting the record, again (2026-09-06)
+
+The champion column of the headline table is **stale by six days and one gated
+decision**, and two live pre-registrations cite it.
+
+`MAX_OWNED_QUADRANTS = 3` — refusing the SE quadrant — landed 2026-08-25 in
+`b6ce655` (kaggriculture#59, PR #81), gated at
+`eval/prereg/2026-08-23-max-owned-quadrants.md`. This census ran 2026-08-18 and
+was committed 2026-08-19 (`acd7244`), so its champion owned **all four
+quadrants**.
+
+The tell is in the committed ledgers themselves. `standing + bare` can never
+exceed owned tiles, and three quadrants is 74 tiles (`target_tiles` excludes
+`COOP_TILE`):
+
+| ledger | mean standing | mean bare | peak `standing + bare` |
+| --- | --- | --- | --- |
+| `eval/recon/2026-08-18-occupancy-661200.json` | 42.9 | 38.2 | **89** |
+| `eval/recon/2026-08-18-occupancy-661201.json` | 42.6 | 38.8 | **89** |
+| `eval/recon/2026-08-18-occupancy-661202.json` | 42.0 | 39.6 | **89** |
+| `eval/recon/2026-08-18-occupancy-661203.json` | 40.4 | 40.9 | **89** |
+
+89 > 74 on every seed. Only a four-quadrant board can hold it.
+
+Re-measured (`harness.crop_quadrant`, 3 seeds, band 900600, vs
+`zoo:tape-thunder-719`, ledger
+`eval/recon/2026-09-06-crop-quadrant-shipped-900600.json`) at `5528223` — M3b
+plus `hand_mule_load` 20 from `96d8b41`: **34.8 standing** against **26.2
+bare**, over days 10–28. Thunder in the same episodes: **58.3 standing / 1.3
+bare**, confirming the 58.4 / 1.3 row is sound.
+
+The mule change moved this: the same census before `96d8b41` read 31.3 standing
+/ ~30 bare, so HML20 bought ~3.5 tiles of occupancy. Quote these figures with
+the agent commit attached — that is the error this section exists to correct,
+and it recurs every time the agent moves.
+
+**What this does and does not change.** The qualitative finding stands: the
+champion still leaves roughly as much ground bare as it farms, against a
+thunder that leaves 1.3 tiles. What changes is the magnitude and the
+denominator — the gap is ~26 idle tiles out of 74 owned, not ~39 out of 99, and
+the crop-mix percentages in the headline row are for a board that no longer
+exists.
+
+`eval/prereg/2026-09-06-wheat-rush-tiles-cap.md` and
+`eval/prereg/2026-09-06-w30-promotion-confirmation.md` both cite "42.0 standing
+tiles with 39.4 bare" from this file as the sprawl story motivating the wheat
+cap. **Neither result depends on it** — both explicitly record the mechanism as
+hypothesis rather than result, and W30's 0.860 head-to-head is an outcome
+measurement — but the figure they cite is off by about ten tiles in each
+direction and should be quoted from the 2026-09-06 ledger instead.
