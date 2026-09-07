@@ -124,3 +124,120 @@ PROMOTE authorizes an upload DECISION, not an upload. Uploading remains HITL:
 T-2 freeze 2026-09-28, final submission 2026-09-30, and a new submission evicts
 one of the Bradley-Terry pair [M3b 55784368, M3a 55471731]. Nothing in this
 document authorizes an upload.
+
+## ADDENDUM (2026-09-06, post-run): NOT PROMOTED — the head-to-head confirmed, the money IU did not
+
+Runs executed 2026-09-06T22:36-23:20Z at `9d3f4e4` (this document's own merge
+commit), band 836000, candidate `champion` with `{"wheat_rush_tiles": 30}`,
+config-only, agent package byte-identical to the shipped M3b at b6ce655. Serial,
+no source edits in flight. `any_candidate_crash` false on all five runs.
+
+**A. Head-to-head confirmation — PASSES, and did not regress.**
+
+| | n_seeds | W-L | rate | ci_lower | bar | |
+|---|---|---|---|---|---|---|
+| vs `frozen:m3b_live_b6ce655` | 250 | **428-72** | **0.856** | **0.8225** | 0.65 / 0.55 | **PASS** |
+
+Ledger: `eval/gates/2026-09-06T22-36-43Z-champion-vs-frozen_m3b_live_b6ce655-promotion.json`.
+
+**B. Four-tape money intersection-union — FAILS on all four.**
+
+| tape | bar | mean_delta | ci_lower | vetoes | skew | mde_80 | |
+|---|---|---|---|---|---|---|---|
+| thunder (primary) | > $1,000 | +925 | **−387** | `[]` | +0.119 | 1,984 | FAIL |
+| metac95 | > $0 | +1,537 | **−72** | `[]` | +0.146 | 2,432 | FAIL |
+| barnyard | > $0 | +1,607 | **−399** | `[]` | +0.048 | 3,030 | FAIL |
+| mirror | > $0 | +1,361 | **−479** | `[]` | +0.213 | 2,779 | FAIL |
+
+Ledgers: `T22-52-05Z` (thunder), `T23-04-18Z` (metac95), `T23-12-57Z`
+(barnyard), `T23-20-51Z` (mirror).
+
+**C. Redirection, one-sided — passes where measured, UNEVALUATED on mirror.**
+
+| tape | traded_market | bar | conservation | aggregate == ledgered omd | |
+|---|---|---|---|---|---|
+| thunder | −1,430.23 | ≥ −3,000 | residual 0.0 (512 rows) | yes | PASS |
+| metac95 | −179.77 | ≥ −3,000 | residual 0.0 (384 rows) | yes | PASS |
+| barnyard | −164.18 | ≥ −3,000 | residual 0.0 (256 rows) | yes | PASS |
+| **mirror** | **not computed** | — | — | — | **UNEVALUATED** |
+
+**Decision-rule application.** Criterion 1 PASSES. Criterion 2 FAILS on every
+tape, including the primary. Criterion 3 passes on the three tapes where it was
+computed. Criterion 4 is moot (no tape's bound cleared its bar, and no
+`skew_delta` is anywhere near −1.0; all four are positive). Criterion 5 holds on
+the three ledgers where the instrument was run.
+
+**Verdict: NOT PROMOTED.** The registered rule required all five to hold.
+Criterion 2 failed on all four tapes. The verdict is recorded as the rule was
+written, before the run, and is not reopened by this document.
+
+### Protocol defect, recorded rather than smoothed over
+
+Section C registered the decomposition on **each of the four** money ledgers.
+Only three were produced — `eval/recon/2026-09-06-opponent-split-mirror-836000.json`
+does not exist, tracked or untracked, while bands 824000 and 826000 each carry
+all four tapes. So criteria 3 and 5 were never evaluated on mirror. The
+promotion outcome does not turn on it (criterion 2 already failed on mirror
+independently), but the run as executed is **incomplete against its own
+registration**, and a reader who checked only the verdict line would not learn
+that. Any successor must verify the instrument ran on every registered ledger
+before applying its decision rule.
+
+### The money IU could not have passed for an effect of this size
+
+Not an argument against the verdict — an argument about the instrument, drawn
+from the ledgers' own `mde_80` field (the minimum effect detectable at 80%
+power):
+
+| tape | observed effect | its own mde_80 | ratio |
+|---|---|---|---|
+| thunder | +925 | 1,984 | 0.47× |
+| metac95 | +1,537 | 2,432 | 0.63× |
+| barnyard | +1,607 | 3,030 | 0.53× |
+| mirror | +1,361 | 2,779 | 0.49× |
+
+Every tape's observed effect is roughly half its own minimum detectable effect.
+A null was the expected outcome on all four **whether or not the effect is
+real**, so criterion 2 as registered carried almost no information about W30 at
+the n it specified. All four point estimates are positive (+$925 to +$1,607) and
+all four bounds are slightly negative (−$72 to −$479); metac95 missed its $0 bar
+by $72. This is [[null-results-are-not-measured-absences]]: an empty bucket, not
+a measured absence.
+
+**Transferable lesson for every future registration in this repo: compare the
+expected effect against `mde_80` BEFORE fixing the bar.** A bar the study cannot
+reach is a coin-flip dressed as a criterion. The three prior wheat-cap screens
+died the same way at n=20, which is how this knob stayed hidden for a month.
+
+### Registered predictions vs outcome
+
+- *"A confirms above 0.65 but below the sweep's 0.860 — 0.70-0.80 should be read
+  as success"* — **wrong, in the candidate's favour.** The confirmation landed at
+  0.856 against the sweep's 0.860, on a fresh band at 2.5× the n. Two
+  independent bands (835000 n=100, 836000 n=250) agree to within 0.004. Whatever
+  W30 is doing, peak-selection bias is not the explanation.
+- *"The money IU is the real risk"* — **correct**, and it is what killed it.
+- *"opponent_mean_delta may be large and POSITIVE"* — **mixed.** barnyard +1,908
+  (its untraded component is +2,072), but thunder −2,000, metac95 −624,
+  mirror −1,048. No tape trips the +$3,000 "reported, not gating" clause.
+- *"Criterion 3 does NOT fire"* — **correct** on all three tapes measured.
+
+### What this verdict does and does not settle
+
+It settles that W30 does not clear **this repo's inherited money-based promotion
+rule**. It does not settle whether W30 is a stronger ladder agent, because the
+money rule measures a quantity the competition does not score. From the official
+competition Evaluation page, retrieved 2026-09-07 and recorded in
+`docs/recon/competition-rules.md`:
+
+> The actual coin difference in a match does not affect the rating
+> change—only the win, loss, or tie outcome matters.
+
+That is external evidence about the objective, not a reinterpretation of this
+run's data, and it is grounds for a **successor registration** with an
+objective-aligned criterion on a fresh band — not for overriding the criterion
+that fired here. Before any such successor is written it must pass the same
+honesty test this document applied to its own one-sided change: state, with
+ledger citations, whether an Elo-aligned rule would retroactively rescue any
+line already closed (`hand_mule_load` 20, cow7/sheep5, melon18, strawberry). If
+it would, that must be declared in the successor, not discovered afterwards.
