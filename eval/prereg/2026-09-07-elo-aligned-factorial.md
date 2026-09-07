@@ -205,3 +205,120 @@ The second upload after that would displace M3b, and M3b's exact code is
 recoverable at b6ce655 if it ever needs restoring.
 
 Nothing in this document authorises an upload.
+
+## ADDENDUM (2026-09-07, post-run): RECOMMENDED = HML20, and the two knobs are substitutes
+
+Runs executed 2026-09-07T01:14–01:29Z at `9ad4d36` (this document's own merge
+commit), band 837000, serially, CTRL first. The runner refused to start until it
+had verified from the *loaded* `PolicyConfig` that the tree carried shipped
+defaults (`wheat_rush_tiles=81`, `hand_mule_load=9`) — the CTRL arm is only
+meaningful if the tree is not already carrying a treatment.
+`any_candidate_crash` false on all eight runs.
+
+**A. vs `frozen:m3b_live_b6ce655`, n=250 seeds (500 games):**
+
+| arm | W-L-T | rate | ci_lower | implied Elo | vs CTRL |
+|---|---|---|---|---|---|
+| CTRL | 244-244-12 | **0.500** | 0.4563 | +0 | — |
+| W30 | 415-85-0 | 0.830 | 0.7946 | +275 | +0.330 |
+| **HML20** | **484-16-0** | **0.968** | **0.9487** | **+592** | **+0.468** |
+| BOTH | 441-59-0 | 0.882 | 0.8508 | +349 | +0.382 |
+
+**B. Diversity guard vs `zoo:meta-clone`, n=100 seeds (200 games):**
+
+| arm | W-L-T | rate | vs CTRL |
+|---|---|---|---|
+| CTRL | 159-41-0 | 0.795 | — |
+| W30 | 158-42-0 | 0.790 | −0.005 |
+| HML20 | 159-41-0 | 0.795 | +0.000 |
+| BOTH | 167-33-0 | 0.835 | +0.040 |
+
+**Decision-rule application.** VALIDITY: CTRL 0.500, inside [0.40, 0.60], no
+crashes — VALID. PRIMARY: all three treatment arms clear rate >= 0.65 with
+ci_lower > 0.55. DIVERSITY GUARD: no arm is more than 0.10 below CTRL's
+meta-clone rate; none disqualified. SELECTION on highest `ci_lower`:
+
+**RECOMMENDED: HML20 (`hand_mule_load` = 20), ci_lower 0.9487, rate 0.968.**
+It entered with a prior measurement, so it carries no confirmation debt. BOTH
+was not selected, so its declared debt never comes due.
+
+### The guard is live, not blind — checked rather than assumed
+
+CTRL and HML20 posted *identical* records against meta-clone (159-41). An
+identical record is what a dead knob looks like, so it was checked: **all 200
+per-game rows differ**, and HML20 banks +$2,700/game more than CTRL there. The
+match is a coincidence of win counts, not of games. A guard that cannot see the
+treatment is not a guard, and this one can.
+
+### Money, the registered diagnostic — and why it was never the right gate
+
+Recorded as REPORTED, NOT GATING, fixed before the data existed:
+
+| arm | cand $ | opp $ | dCand | dOpp | **gap (cand − opp)** | rate |
+|---|---|---|---|---|---|---|
+| CTRL | 65,860 | 65,860 | — | — | **0** | 0.500 |
+| W30 | 65,354 | 63,875 | −507 | −1,985 | **+1,479** | 0.830 |
+| HML20 | 66,931 | 63,782 | +1,071 | −2,079 | **+3,150** | 0.968 |
+| BOTH | 64,401 | 62,963 | −1,460 | −2,898 | **+1,438** | 0.882 |
+
+**Win rate tracks the GAP, not our absolute money.** W30 and BOTH both bank
+*less* than CTRL and still win 83% and 88% of games. Under the four-tape money
+rule every one of these arms is a failure; under the rule the competition
+actually applies — most coins at turn 720 — they are decisive. That is the whole
+case for this registration, visible in one table: the old gate measured our
+absolute money against a third-party tape, and the objective is the difference
+against the opponent in front of us.
+
+**The suppression worry, tested rather than argued.** HML20's edge here is
+partly redirection (dOpp −2,079 against dCand +1,071), which is the signature
+that closed this line on 2026-09-06. But against `zoo:meta-clone` — a build from
+a different lineage — HML20 is *production-driven*: candidate +$2,700 and
+opponent **+$2,093**, both players richer. The redirection appears against
+`frozen:m3b_live`, our own agent, which competes for the identical market slots.
+That is what taking share from a near-clone looks like, and it is evidence the
+tape-measured redirection was partly an artifact of tapes that cannot react.
+It is evidence, not proof; only the ladder settles transfer.
+
+### Registered predictions vs outcome
+
+- *"BOTH lands BELOW the better of W30 and HML20"* — **correct.** 0.882 against
+  HML20's 0.968. The interaction is strongly negative: additive-in-Elo would
+  predict +868, observed +349, an interaction of **−518 Elo**. Adding W30 on top
+  of HML20 costs **−243 Elo**; adding HML20 on top of W30 gains only +74. The
+  two knobs are **substitutes, and HML20 dominates.**
+- *"HML20 regresses from 0.965"* — **wrong, in the candidate's favour.** It
+  landed 0.968 at n=250 on a fresh band against 0.965 at n=200 on band 821000.
+  This is the second registration in two days to predict regression-to-the-mean
+  from a selected maximum and be wrong: W30 also held (0.860 → 0.856). These
+  effects are large enough that selection bias is not the story.
+- *"CTRL lands within [0.45, 0.55]"* — **correct**, and exactly 0.500 for the
+  second consecutive band (97-97-6 at 835000; 244-244-12 at 837000).
+- *"The diversity guard does not fire"* — **correct.**
+
+### What the mechanism now looks like
+
+Both knobs were hypothesised to relieve the same bottleneck: the crew spends
+~57% of unit-turns walking. The interaction says they do, and that
+`hand_mule_load` relieves it **better and without giving anything up**. W30 buys
+logistics relief by *shrinking the farm* — fewer tiles to service, but less
+grown, which is why its own money falls (−$507) while it still wins. HML20 buys
+the same relief by *carrying more per trip*, keeping the tiles. Stacking them
+pays the tile cost twice for relief already bought, which is exactly the −243
+Elo that adding W30 on top of HML20 costs.
+
+**This is a hypothesis consistent with the outcome, not an instrumented result.**
+Nothing here measures walking turns per arm. `tools/recon-scripts/strawberry_labor.py`
+already instruments assignment and walking and could settle it; a successor
+should not cite this mechanism as established.
+
+### Consequence
+
+HML20 is RECOMMENDED, which authorises an upload **decision**, not an upload.
+Shipping it needs the same treatment W30 got on `feat/wheat-rush-cap-30`: the
+gate measured a `--agent-config` override, a bundle builds from source defaults,
+and the two are only equivalent if nothing else derives from `HAND_MULE_LOAD`.
+That equivalence must be **proved bit-identically against this ledger**, not
+assumed, before any bundle is built.
+
+W30 is not withdrawn; it is simply dominated. `feat/wheat-rush-cap-30` should not
+be merged as the ship candidate.
