@@ -63,7 +63,17 @@ _WHEAT_RUSH_TILES_DEFAULT = (
 # against the engine's default 100-unit shed -- policy.decide scales them by
 # the real shedCapacity/100 before comparing against shed_total, so a
 # non-default capacity still trips the valve at the same *fraction* full.
-VALVE_SOFT_THRESHOLD = 55
+#
+# The soft tier fires EARLIER than M2c shipped it (55 -> 35): tier 1 waives the
+# regime floor and substitutes valve_soft_cap for each product's own tighter
+# cap, so entering it sooner drains backlog before it can reach the hard tier's
+# floor-ignoring full-shed dump. Screened at 0.690 (n=100, band 838000) and
+# confirmed 349-151 = 0.698, Wilson ci_lower 0.6564 (n=250, band 839000) against
+# frozen:m3c_hml20_96d8b41, the shipped HML20 champion -- so this stacks ON TOP
+# of hand_mule_load=20 by construction, not instead of it. Note the screen's own
+# opposite arm: valve_soft_threshold=70 scored 0.130, so this knob is steep and
+# signed, not a plateau. See eval/prereg/2026-09-07-untested-knob-screen.md.
+VALVE_SOFT_THRESHOLD = 35
 VALVE_HARD_THRESHOLD = 85
 
 # M2c: WOOL/MILK crash-latch defaults (agent.state.ProductCrashLatch). Tuned

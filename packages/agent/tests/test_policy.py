@@ -72,6 +72,32 @@ def raw_obs(
 # --- Shipped defaults must match the gated ranch reshape (kaggriculture#59) -
 
 
+def test_default_valve_thresholds_are_the_gated_pair() -> None:
+    """The two-tier shed valve's thresholds are gated numbers, and until now
+    nothing pinned them -- unlike the herd and the wheat cap.
+
+    valve_soft_threshold was moved 55 -> 35 on head-to-head evidence: 0.690 at
+    n=100 (band 838000) and 349-151 = 0.698, Wilson ci_lower 0.6564, at n=250
+    (band 839000) against frozen:m3c_hml20_96d8b41. The knob is steep AND
+    signed, not a plateau -- the same screen's opposite arm
+    (valve_soft_threshold=70) scored 0.130 -- so drifting this value is not a
+    small mistake in either direction.
+
+    The ordering assertion is the load-bearing one. _valve_tier tests
+    `>= hard` before `>= soft`, so any config with soft >= hard collapses the
+    tier-1 band to empty and silently makes valve_soft_cap a no-op. That is a
+    configuration that still runs, still passes every other test, and quietly
+    disables a whole tier of the M2c valve.
+    """
+    config = PolicyConfig()
+    assert config.valve_soft_threshold == 35
+    assert config.valve_hard_threshold == 85
+    assert config.valve_soft_threshold == policy.VALVE_SOFT_THRESHOLD
+    assert config.valve_hard_threshold == policy.VALVE_HARD_THRESHOLD
+    # Tier 1 must be reachable at all: soft strictly below hard.
+    assert config.valve_soft_threshold < config.valve_hard_threshold
+
+
 def test_default_policy_config_matches_the_gated_ranch_reshape() -> None:
     """PolicyConfig()'s defaults ARE the shipped ranch, gated against the
     full opponent roster on identical seeds (~24,000 games): 6 cow / 4 sheep
