@@ -20,9 +20,22 @@ from agent.view import FarmView, Tile
 
 UnitAction = list[object]
 
-# Fewer shed round-trips at scale: day-end auto-drop makes carried units
-# safe, and 12 units x 9 stays under the 100-cap shed.
-HAND_MULE_LOAD = 9
+# Carry threshold: a HAND carrying at least this many units walks its harvest
+# to the shed instead of taking new field work. (The farmer mules on any load
+# at all, and ENDGAME_MULE_THRESHOLD overrides on the last day -- neither
+# reads this constant.)
+#
+# 20 effectively DISABLES the mid-day mule: hands rarely reach it, so they keep
+# farming and rely on the free day-end auto-drop instead of paying a shed round
+# trip during the day. That is the point. The old value of 9 was chosen against
+# shed CAPACITY ("12 units x 9 stays under the 100-cap shed"), never against
+# travel cost, and travel is the binding constraint -- the crew spends ~57% of
+# unit-turns walking.
+#
+# Gated head-to-head against the shipped agent at 484-16 (rate 0.968, Wilson
+# ci_lower 0.9487, n=250 seeds, band 837000), replicating 193-7 (0.965) on band
+# 821000. See eval/prereg/2026-09-07-elo-aligned-factorial.md.
+HAND_MULE_LOAD = 20
 
 # How many WHEAT a unit may draw in one shed visit to feed animals. 1 is
 # today's behavior and measurement says keep it there.
@@ -39,7 +52,8 @@ HAND_MULE_LOAD = 9
 # shed into unit inventories and doubles the concurrent fetcher count, so
 # the per-fetcher share collapses. It is NOT the mule threshold, which binds
 # on under 1% of normal-day fetches; the regression survives intact with the
-# mule effectively disabled at hand_mule_load=20.
+# mule effectively disabled at hand_mule_load=20 -- which is now the shipped
+# default, so that ablation is simply today's behavior.
 FEED_BATCH_CAP = 1
 
 # Melon lifecycle (engine-verified against kaggle_environments 1.32.4): seed
