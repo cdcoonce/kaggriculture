@@ -70,6 +70,48 @@ measured exactly once, at n=200, on a single band, in an unregistered sweep,
 whereas W30's has been measured twice (0.860 at n=100 band 835000; 0.856 at
 n=250 band 836000).
 
+## Correction to the record, made before this run launches
+
+`eval/prereg/2026-09-06-w30-promotion-confirmation.md` states, twice, that the
+W30 candidate's "agent package is byte-identical to the shipped M3b at
+b6ce655." **That is false**, and the addendum committed in #105 repeated it
+without checking. Correcting it here, before this run produces any data.
+
+Two commits touched `packages/agent/src/` after b6ce655 and both are ancestors
+of the W30 run commit `9d3f4e4`:
+
+- `aad11ae` (2026-08-29) — "fund wheat before strawberry, and size the
+  strawberry seed line to cash" (#83)
+- `f79f357` (2026-08-29) — strawberry line closure (#84)
+
+This is not a pedantic correction. #83 did not merely gate dormant strawberry
+code; it **restructured the wheat seed purchase**, adding a cap of two days of
+the dispatcher's plant quota:
+
+```
+quota = plant_quota(day, active_tiles)
+seed_target = min(plantable_target_tiles, 2 * quota)
+```
+
+`plantable_target_tiles` is derived from the wheat zone — the same zone
+`wheat_rush_tiles` caps. So the W30 effect is measured **through** this seed
+budgeter and may be partly mediated by it. W30 need not reproduce on M3b's own
+code, and nobody should assume it would.
+
+What this does and does not damage:
+
+- It does **not** invalidate the W30 result. The candidate is config-only
+  relative to *current main*, which is what a submission bundle would ship, and
+  the sweep's CTRL arm — current main at defaults versus frozen M3b — landed
+  97-97-6, rate **exactly 0.500**, on band 835000. The intervening changes are
+  therefore measured behaviourally neutral at default config, not assumed to be.
+- It does mean the phrase "config-only" is only true relative to current main,
+  and that **shipping W30 ships current main plus the knob**, not M3b plus the
+  knob.
+- It makes the CTRL arm load-bearing rather than ceremonial. CTRL is not a
+  self-mirror; it measures everything-except-the-knob. An arm's edge over CTRL
+  is what is attributable to the knob, and that is how this run reports.
+
 ## What is being asked
 
 Two questions, one of which has never been asked at all:
