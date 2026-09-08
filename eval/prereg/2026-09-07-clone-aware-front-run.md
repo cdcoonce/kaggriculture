@@ -162,3 +162,20 @@ experiment or independent efficacy sample.
   proposed source-default SHA with no runtime config override.
 
 The default change, PR merge, and Kaggle upload remain separate human gates.
+
+## Exact artifact rehearsal
+
+The proposed source-default commit was rebuilt in a clean detached worktree at
+`a344ab14725d20f541c99933bfb6ca4399941b77`. The rebuilt file, committed Git
+object, and `dist/MANIFEST.txt` all identify the same artifact:
+
+- Bundle: `dist/submission.tar.gz`.
+- SHA-256: `187b81b74f650303e018da8fa8b6382be2d2a5ef68e10cdfbd00b89ebff8f3e5`.
+- Rebuild diff against the committed bundle: empty.
+- Rehearsal: 100 mirror seeds from seed base 90000, completed successfully.
+- Exact command emitted:
+  `kaggle competitions submit kaggriculture -f dist/submission.tar.gz -m "a344ab14725d20f541c99933bfb6ca4399941b77"`.
+
+The emitted command was recorded but **not executed**. The explicit byte checks
+are load-bearing because `submit.py` validates the bundle at runtime but does
+not independently bind its bytes to `--candidate-sha`.
