@@ -130,6 +130,16 @@ class PolicyConfig:
     # day regardless of what the feed and land lines behind it needed.
     strawberry_seed_budget_share: float = STRAWBERRY_SEED_BUDGET_SHARE
     strawberry_floor: float = STRAWBERRY_MIN_PRICE
+    # A measuring instrument, not a promotion candidate.
+    # STRAWBERRY_REFERENCE_QUADRANTS pins the strawberry zone to a fixed
+    # frame, while melon_tiles deliberately tracks the LIVE
+    # unlocked_quadrants; nobody has measured whether that difference reaches
+    # the agent's behavior at all. It provably cannot before SW is bought --
+    # the unlock state IS the reference frame until then -- so the whole
+    # question lives in the turns after a third quadrant lands. True swaps in
+    # view.unlocked_quadrants so an A/B can answer it empirically. False, the
+    # shipped default, is today's call bit-for-bit.
+    strawberry_frame_live: bool = False
 
     # M2c (kaggriculture#59): two-tier shed valve + WOOL/MILK crash latches.
     # See the VALVE_*/*_CRASH_TRIGGER module constants above and market.py's
@@ -335,8 +345,25 @@ def make_policy(
         # urgently: a strawberry tile is occupied for seventeen days, so a zone
         # that drifted on a BUY_LAND would orphan a live plant mid-cycle and it
         # would weed two days later. See STRAWBERRY_REFERENCE_QUADRANTS.
+        #
+        # strawberry_frame_live lifts that pin, for measurement only. What
+        # makes a live frame survivable for a CROP and not for an ANIMAL is an
+        # asymmetry in dispatch: standing-crop scheduling keys on the tile's
+        # own tile["crop"] (dispatch.py, commit 01a5123), so a strawberry the
+        # zone sheds is still worked on strawberry's seventeen-day timeline
+        # rather than wheat's five-day one -- pinned by
+        # test_strawberry_evicted_from_the_zone_keeps_strawberry_timing. Animal
+        # chores have no such fallback: dispatch gates them on `is_pasture`
+        # zone membership with nothing animal-generic behind it, so a drifting
+        # PASTURE_REFERENCE_QUADRANTS silently starves and loses placed
+        # animals. Do NOT mirror this flag onto pastures.
+        strawberry_frame = (
+            view.unlocked_quadrants
+            if resolved_config.strawberry_frame_live
+            else STRAWBERRY_REFERENCE_QUADRANTS
+        )
         strawberries = strawberry_tiles(
-            STRAWBERRY_REFERENCE_QUADRANTS, target=resolved_config.strawberry_tile_target
+            strawberry_frame, target=resolved_config.strawberry_tile_target
         )
         melon_set = frozenset(melons)
         pasture_set = frozenset(pastures)

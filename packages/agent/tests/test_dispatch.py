@@ -277,6 +277,26 @@ def test_wheat_stranded_in_the_melon_zone_keeps_wheat_timing() -> None:
     assert actions.hands[0] == ["HARVEST"]
 
 
+def test_strawberry_evicted_from_the_zone_keeps_strawberry_timing() -> None:
+    # The strawberry mirror of the melon eviction above. Only melon had this
+    # pinned; strawberry rode on inference from the shared branch -- which is
+    # exactly the assumption policy.strawberry_frame_live is about to put
+    # weight on, since a live frame is a zone that can shed an occupied tile.
+    #
+    # Age 5 holding yield is the sharpest probe available. Wheat's rules
+    # HARVEST at age >= 5, but strawberry's first yield tick is age 9, so a
+    # zone-keyed dispatcher issues a HARVEST the engine rejects -- and the
+    # task regenerates every turn, so the unit re-issues the same dead action
+    # for as long as it stays parked there. Keyed off tile["crop"], the tile
+    # is simply mid-dead-zone on an off-maintenance age and offers no task.
+    tiles = make_view().tiles
+    tiles[2][2] = strawberry(planted_day=0, watered_today=False, yield_units=2)
+    view = make_view(step=5 * 24, hands=[(2, 2)], tiles=tiles)  # age 5
+    # (2, 2) is NOT in the strawberry zone; (3, 3) is.
+    actions = dispatch(view, NW_TILES, frozenset(), frozenset(), frozenset({(3, 3)}))
+    assert actions.hands[0] == ["PASS"]
+
+
 def test_empty_melon_tile_gets_plant_melon_task() -> None:
     view = make_view(step=0, hands=[(2, 2)], melon_seeds=5)
     actions = dispatch(view, NW_TILES, frozenset({(2, 2)}))
