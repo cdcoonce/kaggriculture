@@ -99,6 +99,22 @@ The generic CLI printed `PASS` because its configured lower-bound threshold was
 0.50; the registered point-rate criterion above is independently satisfied.
 Per the prospective protocol, Stage B is now eligible to run unchanged.
 
+## Stage B primary result
+
+The fixed primary confirmation then ran on band 844000 with the same candidate
+source and config against the same frozen shipped comparator.
+
+- Record: 400-100-0 over 500 games (both seats), rate 0.800.
+- Wilson lower bound: 0.7627108943838625.
+- Candidate crashes: none.
+- Ledger: `eval/gates/2026-09-08T01-07-40Z-champion-vs-frozen_m3d_vst35_93e2913-promotion.json`.
+- Registered primary verdict: **CONFIRMED** (`0.800 >= 0.65` and
+  `0.7627 > 0.55`).
+
+Both prospectively registered live-source guards are therefore eligible to run
+on their fixed, disjoint bands. The overall intervention is not promoted unless
+both guards also clear their 0.90 rate and zero-crash requirements.
+
 ## Consequence
 
 Only all-green Stage B evidence can recommend making the tactic a source
