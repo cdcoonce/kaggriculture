@@ -82,6 +82,23 @@ Each guard requires rate >= 0.90 and no candidate crashes. Either failure makes
 the overall verdict **NOT PROMOTED**. These guards are regression checks, not
 claims that local rates calibrate to live-field Elo.
 
+## Stage A result
+
+Stage A ran after the registration and implementation commits on the fixed
+band 843000 against `frozen:m3d_vst35_93e2913`, with
+`{"clone_front_run": true}` and candidate source
+`77c8f0106d0bb8c7d22dfb535bca7837e42f8937`.
+
+- Record: 165-35-0 over 200 games (both seats), rate 0.825.
+- Wilson lower bound: 0.7663556880107202.
+- Candidate crashes: none.
+- Ledger: `eval/gates/2026-09-08T01-02-18Z-champion-vs-frozen_m3d_vst35_93e2913-promotion.json`.
+- Registered verdict: **ALIVE** (`0.825 >= 0.60` and `0.7664 > 0.50`).
+
+The generic CLI printed `PASS` because its configured lower-bound threshold was
+0.50; the registered point-rate criterion above is independently satisfied.
+Per the prospective protocol, Stage B is now eligible to run unchanged.
+
 ## Consequence
 
 Only all-green Stage B evidence can recommend making the tactic a source
