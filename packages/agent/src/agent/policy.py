@@ -47,7 +47,7 @@ from agent.market import (
 from agent.plan import FEED_RESERVE, STRAWBERRY_SEED_BUDGET_SHARE, plan_day
 from agent.shell import Action, Observation, pass_action
 from agent.state import MelonMarketMemory, ProductCrashLatch, StateTracker
-from agent.view import FarmView, parse_obs
+from agent.view import FarmView, clone_pressure_products, parse_obs
 
 SOFT_BUDGET_SECONDS = 0.5  # v1 logic runs in microseconds; this guards regressions
 
@@ -154,6 +154,7 @@ class PolicyConfig:
     milk_crash_trigger: float = MILK_CRASH_TRIGGER
     crash_trigger_ticks: int = CRASH_TRIGGER_TICKS
     wool_milk_sell_cap: int = WOOL_MILK_SELL_CAP
+    clone_front_run: bool = False
 
     @property
     def pasture_tile_target(self) -> int:
@@ -457,6 +458,9 @@ def make_policy(
             wool_crashed=wool_latch.latched,
             milk_crashed=milk_latch.latched,
             wool_milk_sell_cap=resolved_config.wool_milk_sell_cap,
+            front_run_products=(
+                clone_pressure_products(view) if resolved_config.clone_front_run else frozenset()
+            ),
         )
         # Clamped to what we actually held, not just what we asked for --
         # build_orders' own _capped_sell already enforces this (an order for

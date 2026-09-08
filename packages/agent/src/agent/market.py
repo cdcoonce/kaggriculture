@@ -286,6 +286,7 @@ def build_orders(
     wool_crashed: bool = False,
     milk_crashed: bool = False,
     wool_milk_sell_cap: int = WOOL_MILK_SELL_CAP,
+    front_run_products: frozenset[str] = frozenset(),
 ) -> list[list[object]]:
     """Sells first (crashables at index 0, melon leading), then buys, capped at 10.
 
@@ -305,7 +306,9 @@ def build_orders(
     liquidating = day >= final_day
 
     melon = shed.get("MELON", 0)
-    if melon > 0 and _satellite_sell_allowed(day, hour, valve_tier):
+    if melon > 0 and (
+        _satellite_sell_allowed(day, hour, valve_tier) or "MELON" in front_run_products
+    ):
         melon_price = prices.get("MELON", 0.0)
         if day >= final_day:
             orders.append(_capped_sell("MELON", shed, MELON_SELL_CAP, liquidating=True))
@@ -313,6 +316,8 @@ def build_orders(
             orders.append(_capped_sell("MELON", shed, MELON_SELL_CAP, liquidating=True))
         elif valve_tier == 1:
             orders.append(_capped_sell("MELON", shed, valve_soft_cap, liquidating=False))
+        elif "MELON" in front_run_products:
+            orders.append(_capped_sell("MELON", shed, MELON_SELL_CAP, liquidating=False))
         elif day >= MELON_RAMP_DAY_28:
             if melon_price >= MELON_RAMP_FLOOR_28:
                 orders.append(_capped_sell("MELON", shed, MELON_SELL_CAP, liquidating=False))
@@ -334,13 +339,15 @@ def build_orders(
     # book. Ordering among our own different products is otherwise neutral
     # (each item walks its own inventory curve independently), so the only
     # thing this position buys is a better slot in the one race that exists.
-    if shed.get("STRAWBERRY", 0) > 0 and _satellite_sell_allowed(day, hour, valve_tier):
+    if shed.get("STRAWBERRY", 0) > 0 and (
+        _satellite_sell_allowed(day, hour, valve_tier) or "STRAWBERRY" in front_run_products
+    ):
         strawberry_order = _valve_sell(
             "STRAWBERRY",
             shed,
             prices.get("STRAWBERRY", 0.0),
             strawberry_floor,
-            False,  # no crash latch: the floor is already the self-limiting throttle
+            "STRAWBERRY" in front_run_products,
             STRAWBERRY_SELL_CAP,
             liquidating,
             valve_tier,
@@ -349,13 +356,15 @@ def build_orders(
         if strawberry_order is not None:
             orders.append(strawberry_order)
 
-    if shed.get("MILK", 0) > 0 and _satellite_sell_allowed(day, hour, valve_tier):
+    if shed.get("MILK", 0) > 0 and (
+        _satellite_sell_allowed(day, hour, valve_tier) or "MILK" in front_run_products
+    ):
         milk_order = _valve_sell(
             "MILK",
             shed,
             prices.get("MILK", 0.0),
             milk_floor,
-            milk_crashed,
+            milk_crashed or "MILK" in front_run_products,
             wool_milk_sell_cap,
             liquidating,
             valve_tier,
@@ -364,13 +373,15 @@ def build_orders(
         if milk_order is not None:
             orders.append(milk_order)
 
-    if shed.get("WOOL", 0) > 0 and _satellite_sell_allowed(day, hour, valve_tier):
+    if shed.get("WOOL", 0) > 0 and (
+        _satellite_sell_allowed(day, hour, valve_tier) or "WOOL" in front_run_products
+    ):
         wool_order = _valve_sell(
             "WOOL",
             shed,
             prices.get("WOOL", 0.0),
             wool_floor,
-            wool_crashed,
+            wool_crashed or "WOOL" in front_run_products,
             wool_milk_sell_cap,
             liquidating,
             valve_tier,
