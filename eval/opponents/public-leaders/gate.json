@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "registered_at": "2026-09-08T00:00:00-07:00",
+  "candidate": "flag-gated demand-aware seasonal controller",
+  "baseline": "current source default at 028309354ad975a818a3aa7d29e39a03e0eb3b6e",
+  "opponent_panel": "panel.json",
+  "selection_seed_band": {
+    "start": 900000,
+    "stop_inclusive": 900099
+  },
+  "confirmation_seed_band": {
+    "start": 901000,
+    "stop_inclusive": 901249
+  },
+  "selection": {
+    "seeds_per_opponent": 100,
+    "both_seat_games_per_opponent": 200,
+    "aggregate_uplift_min": 0.15,
+    "per_opponent_uplift_min": 0.10,
+    "absolute_aggregate_score_rate_min": 0.25,
+    "each_seat_score_rate_strictly_greater_than": 0.15,
+    "max_crashes": 0,
+    "max_fallbacks": 0
+  },
+  "confirmation": {
+    "fresh_seeds_per_opponent": 250,
+    "both_seat_games_per_opponent": 500,
+    "aggregate_uplift_min": 0.15,
+    "per_opponent_uplift_min": 0.10,
+    "stratified_paired_95pct_lower_bound_strictly_greater_than": 0.10,
+    "absolute_aggregate_score_rate_min": 0.30,
+    "max_crashes": 0,
+    "max_fallbacks": 0
+  },
+  "integrity": {
+    "selection_and_confirmation_seed_bands_disjoint": true,
+    "opponent_independence_and_provenance_required": true,
+    "any_miss_closes_whole_slice": true,
+    "threshold_revisions_after_registration_allowed": false,
+    "opponent_substitution_after_registration_allowed": false,
+    "seed_band_reuse_allowed": false,
+    "component_salvage_allowed": false
+  }
+}
