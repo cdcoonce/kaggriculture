@@ -151,7 +151,7 @@ def test_clone_front_run_malformed_opponent_quadrants_fail_closed() -> None:
     assert not any(order[:2] == ["SELL", "MELON"] for order in action["market"])
 
 
-def test_clone_front_run_is_default_off() -> None:
+def test_clone_front_run_is_active_when_policy_config_is_omitted() -> None:
     obs = raw_obs(step=6, unlocked_quadrants=("NW",))
     obs["farms"][1]["tiles"][0][0] = {
         "kind": "PLANT",
@@ -163,7 +163,7 @@ def test_clone_front_run_is_default_off() -> None:
 
     action = make_policy()(obs)
 
-    assert not any(order[:2] == ["SELL", "MELON"] for order in action["market"])
+    assert ["SELL", "MELON", 2] in action["market"]
 
 
 def test_clone_front_run_rejects_dissimilar_opponent() -> None:
