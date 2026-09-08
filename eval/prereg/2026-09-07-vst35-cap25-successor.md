@@ -71,3 +71,20 @@ its own tests, bundle rebuild, and bit-identical gate reproduction. It does not
 authorize merging, uploading a Kaggle submission, evicting a tracked
 submission, or claiming live-ladder Elo. A NOT CONFIRMED result changes
 nothing shipped and is recorded permanently.
+
+## Addendum: registered result (2026-09-07 America/Phoenix)
+
+Band 842000 ran after the prospective registration above was committed as
+`f4d8554` and pushed in PR #116. Exact ledger:
+`eval/gates/2026-09-08T00-09-21Z-champion-vs-frozen_m3d_vst35_93e2913-promotion.json`.
+
+| record | rate | Wilson lower | crashes | registered bar | verdict |
+| ---: | ---: | ---: | --- | --- | --- |
+| 321-179-0 | **0.642** | **0.5990** | none | rate >= 0.65 and lower > 0.55 | **NOT CONFIRMED** |
+
+The harness prints `PASS` because its generic CLI threshold was 0.50. That is
+not this registration's decision rule: the observed 0.642 misses the separately
+fixed 0.65 rate floor, so the registered verdict is **NOT CONFIRMED** despite
+the strong lower bound. The successor is closed without an extension, an
+alternate cap, pooled selection data, or a source-default change. The shipped
+`valve_soft_cap=10` remains unchanged.
