@@ -142,3 +142,40 @@ Only all-green Stage B evidence can recommend making the tactic a source
 default. It does not authorize merging that change or uploading a Kaggle
 submission. Any failed registered criterion is append-only and final for this
 intervention.
+
+## Source-default operational replay
+
+After the evidence-only implementation merged, commit
+`a344ab14725d20f541c99933bfb6ca4399941b77` changed only the
+`clone_front_run` default from `False` to `True`, updated the corresponding
+omitted-config behavior test, and rebuilt the submission bundle. To bind the
+submission gate to that exact proposed source-default commit, the fixed Stage B
+primary matchup was replayed with `agent_config=null` on the same band 844000.
+This is an implementation-equivalence and submission-readiness check, not a new
+experiment or independent efficacy sample.
+
+- Record: 400-100-0 over 500 games, rate 0.800.
+- Wilson lower bound: 0.7627108943838625 against threshold 0.55.
+- Candidate crashes: none.
+- Ledger: `eval/gates/2026-09-08T01-38-15Z-champion-vs-frozen_m3d_vst35_93e2913-promotion.json`.
+- Result: exact reproduction of the registered primary outcome, now at the
+  proposed source-default SHA with no runtime config override.
+
+The default change, PR merge, and Kaggle upload remain separate human gates.
+
+## Exact artifact rehearsal
+
+The proposed source-default commit was rebuilt in a clean detached worktree at
+`a344ab14725d20f541c99933bfb6ca4399941b77`. The rebuilt file, committed Git
+object, and `dist/MANIFEST.txt` all identify the same artifact:
+
+- Bundle: `dist/submission.tar.gz`.
+- SHA-256: `187b81b74f650303e018da8fa8b6382be2d2a5ef68e10cdfbd00b89ebff8f3e5`.
+- Rebuild diff against the committed bundle: empty.
+- Rehearsal: 100 mirror seeds from seed base 90000, completed successfully.
+- Exact command emitted:
+  `kaggle competitions submit kaggriculture -f dist/submission.tar.gz -m "a344ab14725d20f541c99933bfb6ca4399941b77"`.
+
+The emitted command was recorded but **not executed**. The explicit byte checks
+are load-bearing because `submit.py` validates the bundle at runtime but does
+not independently bind its bytes to `--candidate-sha`.

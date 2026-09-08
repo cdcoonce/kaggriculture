@@ -154,7 +154,7 @@ class PolicyConfig:
     milk_crash_trigger: float = MILK_CRASH_TRIGGER
     crash_trigger_ticks: int = CRASH_TRIGGER_TICKS
     wool_milk_sell_cap: int = WOOL_MILK_SELL_CAP
-    clone_front_run: bool = False
+    clone_front_run: bool = True
 
     @property
     def pasture_tile_target(self) -> int:
