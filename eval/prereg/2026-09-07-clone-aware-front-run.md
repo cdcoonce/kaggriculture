@@ -115,6 +115,27 @@ Both prospectively registered live-source guards are therefore eligible to run
 on their fixed, disjoint bands. The overall intervention is not promoted unless
 both guards also clear their 0.90 rate and zero-crash requirements.
 
+## Live-source guard results and overall verdict
+
+Both guards ran unchanged after the primary confirmation was committed:
+
+| Guard | Fixed band | Record | Rate | Wilson lower | Crashes | Registered result |
+|---|---:|---:|---:|---:|---:|---|
+| `frozen:m3b_live_b6ce655` | 845000 | 197-3-0 / 200 | 0.985 | 0.9568342709 | 0 | PASS |
+| `frozen:m3a_live_48487b6` | 846000 | 200-0-0 / 200 | 1.000 | 0.9811546733 | 0 | PASS |
+
+Ledgers:
+
+- `eval/gates/2026-09-08T01-10-26Z-champion-vs-frozen_m3b_live_b6ce655-promotion.json`
+- `eval/gates/2026-09-08T01-12-02Z-champion-vs-frozen_m3a_live_48487b6-promotion.json`
+
+Each guard clears the prospectively fixed 0.90 rate bar with no candidate
+crash. Together with the confirmed primary, the registered overall verdict is
+**PROMOTION RECOMMENDED** for making `clone_front_run` a source default.
+That recommendation is evidence, not authorization: the branch leaves the
+flag default-off and requires separate human gates for a default change, merge,
+or Kaggle upload.
+
 ## Consequence
 
 Only all-green Stage B evidence can recommend making the tactic a source
