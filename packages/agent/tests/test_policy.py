@@ -70,6 +70,138 @@ def raw_obs(
     }
 
 
+def test_clone_front_run_advances_a_pressured_melon_sale() -> None:
+    obs = raw_obs(step=6, unlocked_quadrants=("NW",))
+    own_tiles = obs["farms"][0]["tiles"]
+    opponent_tiles = obs["farms"][1]["tiles"]
+    own_tiles[0][0] = {
+        "kind": "PLANT",
+        "crop": "MELON",
+        "yield_units": 0,
+        "planted_day": 0,
+    }
+    opponent_tiles[0][0] = {
+        "kind": "PLANT",
+        "crop": "MELON",
+        "yield_units": 6,
+        "planted_day": 0,
+    }
+    obs["private"]["shed"] = {"MELON": 12}
+    obs["market"]["prices"]["MELON"] = 100.0
+
+    action = make_policy(policy_config=PolicyConfig(clone_front_run=True))(obs)
+
+    assert ["SELL", "MELON", 2] in action["market"]
+
+
+def test_clone_front_run_malformed_opponent_tiles_fail_closed() -> None:
+    obs = raw_obs(step=6, unlocked_quadrants=("NW",))
+    obs["farms"][1]["tiles"] = [7]
+    obs["private"]["shed"] = {"MELON": 12}
+    obs["market"]["prices"]["MELON"] = 100.0
+
+    action = make_policy(policy_config=PolicyConfig(clone_front_run=True))(obs)
+
+    assert not any(order[:2] == ["SELL", "MELON"] for order in action["market"])
+
+
+def test_clone_front_run_malformed_opponent_yield_fails_closed() -> None:
+    obs = raw_obs(step=6, unlocked_quadrants=("NW",))
+    obs["farms"][1]["tiles"][0][0] = {
+        "kind": "PLANT",
+        "crop": "MELON",
+        "yield_units": "not-public-yield",
+    }
+    obs["private"]["shed"] = {"MELON": 12}
+    obs["market"]["prices"]["MELON"] = 100.0
+
+    action = make_policy(policy_config=PolicyConfig(clone_front_run=True))(obs)
+
+    assert not any(order[:2] == ["SELL", "MELON"] for order in action["market"])
+
+
+def test_clone_front_run_boolean_opponent_yield_fails_closed() -> None:
+    obs = raw_obs(step=6, unlocked_quadrants=("NW",))
+    obs["farms"][1]["tiles"][0][0] = {
+        "kind": "PLANT",
+        "crop": "MELON",
+        "yield_units": True,
+    }
+    obs["private"]["shed"] = {"MELON": 12}
+    obs["market"]["prices"]["MELON"] = 100.0
+
+    action = make_policy(policy_config=PolicyConfig(clone_front_run=True))(obs)
+
+    assert not any(order[:2] == ["SELL", "MELON"] for order in action["market"])
+
+
+def test_clone_front_run_malformed_opponent_quadrants_fail_closed() -> None:
+    obs = raw_obs(step=6, unlocked_quadrants=("NW",))
+    obs["farms"][1]["unlocked_quadrants"] = [7]
+    obs["farms"][1]["tiles"][0][0] = {
+        "kind": "PLANT",
+        "crop": "MELON",
+        "yield_units": 6,
+    }
+    obs["private"]["shed"] = {"MELON": 12}
+    obs["market"]["prices"]["MELON"] = 100.0
+
+    action = make_policy(policy_config=PolicyConfig(clone_front_run=True))(obs)
+
+    assert not any(order[:2] == ["SELL", "MELON"] for order in action["market"])
+
+
+def test_clone_front_run_is_default_off() -> None:
+    obs = raw_obs(step=6, unlocked_quadrants=("NW",))
+    obs["farms"][1]["tiles"][0][0] = {
+        "kind": "PLANT",
+        "crop": "MELON",
+        "yield_units": 6,
+    }
+    obs["private"]["shed"] = {"MELON": 12}
+    obs["market"]["prices"]["MELON"] = 100.0
+
+    action = make_policy()(obs)
+
+    assert not any(order[:2] == ["SELL", "MELON"] for order in action["market"])
+
+
+def test_clone_front_run_rejects_dissimilar_opponent() -> None:
+    obs = raw_obs(step=6, unlocked_quadrants=("NW",))
+    for x in range(5):
+        obs["farms"][1]["tiles"][0][x] = {
+            "kind": "PLANT",
+            "crop": "MELON" if x == 0 else "WHEAT",
+            "yield_units": 6 if x == 0 else 0,
+        }
+    obs["private"]["shed"] = {"MELON": 12}
+    obs["market"]["prices"]["MELON"] = 100.0
+
+    action = make_policy(policy_config=PolicyConfig(clone_front_run=True))(obs)
+
+    assert not any(order[:2] == ["SELL", "MELON"] for order in action["market"])
+
+
+def test_clone_front_run_requires_public_yield_for_matching_product() -> None:
+    obs = raw_obs(step=6, unlocked_quadrants=("NW",))
+    obs["farms"][1]["tiles"][0][0] = {
+        "kind": "PLANT",
+        "crop": "MELON",
+        "yield_units": 0,
+    }
+    obs["farms"][1]["tiles"][0][1] = {
+        "kind": "PLANT",
+        "crop": "WHEAT",
+        "yield_units": 4,
+    }
+    obs["private"]["shed"] = {"MELON": 12}
+    obs["market"]["prices"]["MELON"] = 100.0
+
+    action = make_policy(policy_config=PolicyConfig(clone_front_run=True))(obs)
+
+    assert not any(order[:2] == ["SELL", "MELON"] for order in action["market"])
+
+
 # --- Shipped defaults must match the gated ranch reshape (kaggriculture#59) -
 
 

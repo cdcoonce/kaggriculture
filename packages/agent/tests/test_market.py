@@ -26,6 +26,52 @@ from agent.market import (
 from kaggle_environments.envs.kaggriculture.kaggriculture import MARKET_PARAMS, market_price
 
 
+def test_clone_front_run_products_bypass_waits_but_keep_normal_caps() -> None:
+    orders = build_orders(
+        shed={"MELON": 12, "STRAWBERRY": 12, "MILK": 12, "WOOL": 12},
+        prices={"MELON": 0.0, "STRAWBERRY": 0.0, "MILK": 0.0, "WOOL": 0.0},
+        day=6,
+        hour=6,
+        wheat_reserve=0,
+        buys=[],
+        front_run_products=frozenset({"MELON", "STRAWBERRY", "MILK", "WOOL"}),
+    )
+
+    assert orders == [
+        ["SELL", "MELON", 2],
+        ["SELL", "STRAWBERRY", 2],
+        ["SELL", "MILK", 4],
+        ["SELL", "WOOL", 4],
+    ]
+
+
+def test_clone_front_run_default_off_and_unrelated_product_preserve_waits() -> None:
+    common = dict(
+        shed={"MELON": 12},
+        prices={"MELON": 0.0},
+        day=6,
+        hour=6,
+        wheat_reserve=0,
+        buys=[],
+    )
+    assert build_orders(**common) == []
+    assert build_orders(**common, front_run_products=frozenset({"MILK"})) == []
+
+
+def test_clone_front_run_bypasses_melon_ramp_floor() -> None:
+    orders = build_orders(
+        shed={"MELON": 12},
+        prices={"MELON": 0.0},
+        day=28,
+        hour=6,
+        wheat_reserve=0,
+        buys=[],
+        front_run_products=frozenset({"MELON"}),
+    )
+
+    assert orders == [["SELL", "MELON", 2]]
+
+
 def test_crashable_fertilizer_sell_is_index_zero() -> None:
     orders = build_orders(
         shed={"WHEAT": 10, "EGG": 2, "FERTILIZER": 3},
