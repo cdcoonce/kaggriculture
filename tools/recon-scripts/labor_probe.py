@@ -33,11 +33,15 @@ RAMP_GAIN_MIN = 1.0  # mean units over hours 1-2 above the reference's
 PLANTINGS_RATIO_MIN = 1.15
 LATE_PLANTINGS_MIN = 10.0  # plantings ordered at decision hours 21-22, mean per game
 WEED_RATIO_MAX = 1.5
+CREW_GAIN_PER_HAND_MIN = 0.7  # mean units over hours 4-20 above the reference's, per extra hand
 CRITERIA = {
     "H10": ("ramp",),
     "WP2": ("plantings",),
     "CUT22": ("late_plantings",),
     "COMBO": ("ramp", "plantings", "late_plantings"),
+    "EH1": ("crew1",),
+    "EH2": ("crew2",),
+    "EH2_H10": ("crew2", "ramp"),
 }
 
 
@@ -108,6 +112,7 @@ def summarize(games, arms):
             },
             "wheat_plantings": _mean([r["wheat_plantings"] for r in rows]),
             "late_plantings": _mean([sum(r["plantings_by_hour"][21:23]) for r in rows]),
+            "crew_4_20": _mean([sum(r["units_by_hour"].get(h, 0.0) for h in range(4, 21)) / 17 for r in rows]),
             "weed_tile_days": _mean([r["weed_tile_days"] for r in rows]),
             "final_money": _mean([r["final_money"] for r in rows]),
         }
@@ -131,6 +136,10 @@ def check(summary, arms, ref):
                 crit[name] = (s["wheat_plantings"], need, s["wheat_plantings"] >= need)
             elif name == "late_plantings":
                 crit[name] = (s["late_plantings"], LATE_PLANTINGS_MIN, s["late_plantings"] >= LATE_PLANTINGS_MIN)
+            elif name in ("crew1", "crew2"):
+                hands = 1 if name == "crew1" else 2
+                need = base["crew_4_20"] + CREW_GAIN_PER_HAND_MIN * hands
+                crit[name] = (s["crew_4_20"], need, s["crew_4_20"] >= need)
             else:
                 raise ValueError(f"unknown criterion {name!r}: a registered criterion must never be skipped")
         cap = WEED_RATIO_MAX * base["weed_tile_days"]
@@ -170,12 +179,12 @@ def main():
 
     print(f"{len(seeds)} seeds {seeds[0]}..{seeds[-1]} vs {a.opponent}; reference {ref}")
     print(f"{'arm':<8}{'u@h0':>6}{'u@h1':>6}{'u@h2':>6}{'u@h3':>6}{'u@h4':>6}"
-          f"{'plant':>8}{'late':>6}{'weeds':>7}{'final$':>9}{'Δ$':>8}")
+          f"{'crew':>6}{'plant':>8}{'late':>6}{'weeds':>7}{'final$':>9}{'Δ$':>8}")
     for arm in arms:
         s = summary[arm]
         u = s["units_by_hour"]
         print(f"{arm:<8}" + "".join(f"{u[h]:>6.1f}" for h in range(5))
-              + f"{s['wheat_plantings']:>8.1f}{s['late_plantings']:>6.1f}{s['weed_tile_days']:>7.1f}"
+              + f"{s['crew_4_20']:>6.1f}{s['wheat_plantings']:>8.1f}{s['late_plantings']:>6.1f}{s['weed_tile_days']:>7.1f}"
               + f"{s['final_money']:>9,.0f}{s['final_money'] - summary[ref]['final_money']:>+8,.0f}")
 
     verdict = check(summary, arms, ref) if a.check else None
