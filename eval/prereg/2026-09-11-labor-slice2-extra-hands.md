@@ -139,3 +139,21 @@ margin delta. For the selected arm:
 
 CONFIRMED plus a passing GUARD authorizes an upload **decision** only. The next upload evicts
 M3b (our best live bot), and that remains an owner decision.
+
+## ADDENDUM — EXPRESSION CHECK (2026-09-11): all three arms PASS
+
+Run on the build `f0b92d7` (engine 1.32.7, `packages/` clean), seeds 855000-855007 against
+`public:sokolovsky-v12`. The criteria were committed beforehand, in 3e1ed9b. Record:
+`eval/recon/2026-09-11-labor-slice2-expression-check-855000.json`.
+
+| arm | crew hours 4-20 | hour 1-2 crew | wheat plantings | weed tile-days | verdict |
+|---|---|---|---|---|---|
+| shipped | 9.9 | 6.6 | 195.2 | 58.1 | reference |
+| EH1 | 10.9 (needs >= 10.6) | 6.9 | 215.5 | 37.0 | **PASS** |
+| EH2 | 11.9 (needs >= 11.3) | 7.0 | 227.8 | 29.1 | **PASS** |
+| EH2_H10 | 11.9 (needs >= 11.3) | 9.6 (needs >= 7.6) | 232.1 | 32.1 | **PASS** |
+
+Each extra hand adds about one unit to the crew. Wheat plantings rise 10-19% and weeds fall
+36-50%, so this is the first labor lever that adds work without starving something else.
+All three arms go to the screen at band 869000. The record's bank numbers (8 seeds, one
+leader, one shared baseline) are recon, not a result, and play no part here.
