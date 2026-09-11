@@ -7,7 +7,7 @@ import importlib.metadata
 import tomllib
 from pathlib import Path
 
-EXPECTED_PIN = "1.32.6"
+EXPECTED_PIN = "1.32.7"
 
 
 def test_installed_engine_is_exact_pin() -> None:
