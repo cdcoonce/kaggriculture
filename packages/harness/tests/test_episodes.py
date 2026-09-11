@@ -224,6 +224,45 @@ class TestResolveAgent:
         assert config.strawberry_fert_reserve == "planted"
         assert config.strawberry_plant_priority == 2
 
+    def test_agent_config_flows_all_three_labor_knobs_to_policy_config(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # The JSON-shaped-config wiring proof for the labor knobs (kaggriculture
+        # diagnosis, 2026-09-11): a CLI --agent-config
+        # '{"max_hires_per_turn": 10, "wheat_plant_priority": 2,
+        # "wheat_plant_hour_cutoff": 22}' must reach make_policy as an actual
+        # PolicyConfig with all three fields set, not get silently dropped or
+        # partially applied -- mirrors
+        # test_agent_config_flows_strawberry_fert_reserve_and_priority_to_policy_config
+        # above.
+        import agent.policy as policy_module
+
+        captured: dict[str, object] = {}
+
+        def fake_make_policy(clock: object = None, policy_config: object = None) -> object:
+            captured["policy_config"] = policy_config
+            return lambda obs, config=None: {"farmer": ["PASS"], "hands": [], "market": []}
+
+        monkeypatch.setattr(policy_module, "make_policy", fake_make_policy)
+        resolve_agent(
+            "champion",
+            {
+                "max_hires_per_turn": 10,
+                "wheat_plant_priority": 2,
+                "wheat_plant_hour_cutoff": 22,
+            },
+        )
+
+        config = captured["policy_config"]
+        assert isinstance(config, policy_module.PolicyConfig)
+        assert config.max_hires_per_turn == 10
+        assert config.wheat_plant_priority == 2
+        assert config.wheat_plant_hour_cutoff == 22
+
+    def test_agent_config_rejects_an_out_of_range_labor_knob(self) -> None:
+        with pytest.raises(ValueError, match="max_hires_per_turn"):
+            resolve_agent("champion", {"max_hires_per_turn": 0})
+
     def test_frozen_spec_raises_on_a_knob_its_own_build_never_had(self) -> None:
         """The guard that matters, kept. A frozen package that predates the
         knob it is handed must reject it LOUDLY, naming the frozen package --

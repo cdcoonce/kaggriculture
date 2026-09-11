@@ -142,6 +142,42 @@ STRAWBERRY_PLANT_DAILY_CAP = 6
 # CARE/COLLECT_FERTILIZER -- real, ongoing competition, not an empty tier.
 STRAWBERRY_PLANT_PRIORITY = 3
 
+# Priority tier for a fresh PLANT WHEAT task. Single source of truth for
+# PolicyConfig.wheat_plant_priority (threaded policy.py -> dispatch() ->
+# _field_tasks(), exactly like STRAWBERRY_PLANT_PRIORITY above), so the
+# knob's default can never drift out of sync with what the module actually
+# does when the knob is left alone.
+#
+# 3 is today's hardcoded value at BOTH PLANT WHEAT call sites in
+# _field_tasks: the plain wheat-tile branch, and the strawberry-zone
+# fall-through once that zone's own planting window has shut or its daily
+# cap is spent (see _field_tasks' docstring, "the reservation trap, fixed
+# rather than inherited"). Both call sites read this one constant, so they
+# can never drift apart.
+#
+# Diagnosis (SHIPPED agent, all-default PolicyConfig, seeds 855000-855001 vs
+# public:sokolovsky-v12): PLANT WHEAT tasks are generated ~7,800 times,
+# claimed ~740, executed ~200 of the ~410 plant_quota intends. At this
+# default, wheat shares its tier with melon/strawberry/pasture work, so a
+# same-tier task nearer an idle unit wins the tie every time -- distance
+# decides within a class, and classes are worked in strict priority order
+# (dispatch()'s ``for priority in range(5)``), so a lower value here would
+# let wheat win that race by CLASS instead.
+WHEAT_PLANT_PRIORITY = 3
+
+# Hour cutoff for a fresh PLANT WHEAT task, at both call sites above (the
+# plain wheat-tile branch and the strawberry-zone fall-through). Single
+# source of truth for PolicyConfig.wheat_plant_hour_cutoff, exactly like
+# WHEAT_PLANT_PRIORITY above.
+#
+# 20 is today's hardcoded value: a plant issued at hour 21+ cannot reliably
+# get its own same-day water, so PLANT WHEAT stops even with seeds in hand
+# and an empty tile underfoot (see test_plant_suppressed_after_hour_twenty).
+# Melon's and strawberry's own ``hour <= 20`` plant gates elsewhere in
+# _field_tasks are SEPARATE literals, not read from this constant -- they
+# stay at 20 regardless of what this knob is set to.
+WHEAT_PLANT_HOUR_CUTOFF = 20
+
 # The last game day. Harvested or dropped goods can't reach the shed before
 # the market closes once it's this late (the market reads shed contents
 # pre-drop), so they sell for $0 — stop manufacturing more of them and rush
@@ -399,6 +435,8 @@ def _field_tasks(
     strawberry_tiles: frozenset[tuple[int, int]] = frozenset(),
     strawberry_plant_daily_cap: int = STRAWBERRY_PLANT_DAILY_CAP,
     strawberry_plant_priority: int = STRAWBERRY_PLANT_PRIORITY,
+    wheat_plant_priority: int = WHEAT_PLANT_PRIORITY,
+    wheat_plant_hour_cutoff: int = WHEAT_PLANT_HOUR_CUTOFF,
 ) -> list[_Task]:
     """Work needed on the target tiles, tagged with an urgency class.
 
@@ -414,9 +452,11 @@ def _field_tasks(
         watered_today (a missed final water still converts to harvest
         rather than leaving the tile stuck).
       2 an in-window water (age 2..4, unwatered) — still earns +1 yield.
-      3 an empty tile to plant, but only through hour 20 (a later planting
-        can't reliably get its own same-day water) and only within what
-        remains of today's ``plant_quota``.
+      3 an empty tile to plant, gated on ``wheat_plant_hour_cutoff`` (a later
+        planting can't reliably get its own same-day water; defaults to hour
+        20) and only within what remains of today's ``plant_quota``. The
+        class itself defaults to ``wheat_plant_priority`` (3, today's shared
+        tier with melon/strawberry/pasture) rather than a bare literal.
       4 a weed to dig.
     Age-1 tiles get no task at all: one unwatered day is safe (the weed
     trap needs two consecutive misses) and age 1 is outside the yield
@@ -536,7 +576,7 @@ def _field_tasks(
                         )
                     )
                     strawberry_budget -= 1
-                elif view.hour <= 20 and plant_budget > 0:
+                elif view.hour <= wheat_plant_hour_cutoff and plant_budget > 0:
                     # The reservation trap, fixed rather than inherited. A zone
                     # that keeps claiming tiles it can no longer plant is just
                     # idle ground: melon reserves its whole zone all game
@@ -550,12 +590,24 @@ def _field_tasks(
                     # wheat instead of being held for a crop that can no
                     # longer profitably go in it.
                     tasks.append(
-                        _Task((x, y), ["PLANT", "WHEAT"], priority=3, uses_seed=True, crop="WHEAT")
+                        _Task(
+                            (x, y),
+                            ["PLANT", "WHEAT"],
+                            priority=wheat_plant_priority,
+                            uses_seed=True,
+                            crop="WHEAT",
+                        )
                     )
                     plant_budget -= 1
-            elif view.hour <= 20 and plant_budget > 0:
+            elif view.hour <= wheat_plant_hour_cutoff and plant_budget > 0:
                 tasks.append(
-                    _Task((x, y), ["PLANT", "WHEAT"], priority=3, uses_seed=True, crop="WHEAT")
+                    _Task(
+                        (x, y),
+                        ["PLANT", "WHEAT"],
+                        priority=wheat_plant_priority,
+                        uses_seed=True,
+                        crop="WHEAT",
+                    )
                 )
                 plant_budget -= 1
         elif isinstance(tile, dict) and tile.get("kind") == "WEED":
@@ -661,6 +713,8 @@ def dispatch(
     prior_claims: dict[int, tuple[int, int]] | None = None,
     strawberry_plant_daily_cap: int = STRAWBERRY_PLANT_DAILY_CAP,
     strawberry_plant_priority: int = STRAWBERRY_PLANT_PRIORITY,
+    wheat_plant_priority: int = WHEAT_PLANT_PRIORITY,
+    wheat_plant_hour_cutoff: int = WHEAT_PLANT_HOUR_CUTOFF,
     feed_batch_cap: int = FEED_BATCH_CAP,
     hand_mule_load: int = HAND_MULE_LOAD,
 ) -> Actions:
@@ -711,6 +765,8 @@ def dispatch(
         strawberry_tiles,
         strawberry_plant_daily_cap,
         strawberry_plant_priority,
+        wheat_plant_priority,
+        wheat_plant_hour_cutoff,
     )
     # Wheat, melon and strawberry draw from separate seed pools; keyed by the
     # task's own crop so exhausting one never blocks the others' PLANT tasks.

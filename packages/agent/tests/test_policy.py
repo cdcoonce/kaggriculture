@@ -6,7 +6,7 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
-from agent import dispatch, policy
+from agent import dispatch, plan, policy
 from agent.constants import (
     LAND_ORDER,
     PASTURE_REFERENCE_QUADRANTS,
@@ -1181,3 +1181,102 @@ def test_strawberry_fert_reserve_planted_sells_like_strawberry_off_before_anythi
     )(obs, None)
 
     assert _sells(planted_mode).get("FERTILIZER") == _sells(off).get("FERTILIZER")
+
+
+# --- Labor knobs (kaggriculture diagnosis, 2026-09-11) ----------------------
+#
+# SHIPPED agent, all-default PolicyConfig, seeds 855000-855001 vs
+# public:sokolovsky-v12: only ~200 of the ~410 wheat plantings plant_quota
+# intends actually execute per game. PLANT WHEAT tasks are generated ~7,800
+# times, claimed ~740, executed ~200. Three causes, three knobs:
+#   max_hires_per_turn   -- plan.MAX_HIRES_PER_TURN rebuilds the morning crew
+#                            over 3 hours (units on the farm at hours 0/1/2/3:
+#                            1/5/9/11), starving early-day field work.
+#   wheat_plant_priority  -- dispatch._field_tasks hardcodes PLANT WHEAT at
+#                            the same tier as melon/strawberry/pasture work,
+#                            so nearer same-tier tasks starve it.
+#   wheat_plant_hour_cutoff -- dispatch._field_tasks stops generating PLANT
+#                            WHEAT tasks past hour 20, unconditionally.
+
+
+def test_labor_knob_defaults_pin_todays_constants() -> None:
+    # The only thing standing between these three knobs and a silent change to
+    # the shipped agent is this test -- every existing PolicyConfig() must keep
+    # resolving to exactly today's hardcoded behavior. Compared against the
+    # modules' OWN constants, not bare literals, so an edit to either hardcoded
+    # value can never drift silently out of sync with these defaults.
+    config = PolicyConfig()
+    assert config.max_hires_per_turn == 4
+    assert config.max_hires_per_turn == plan.MAX_HIRES_PER_TURN
+    assert config.wheat_plant_priority == 3
+    assert config.wheat_plant_priority == dispatch.WHEAT_PLANT_PRIORITY
+    assert config.wheat_plant_hour_cutoff == 20
+    assert config.wheat_plant_hour_cutoff == dispatch.WHEAT_PLANT_HOUR_CUTOFF
+
+
+def test_labor_knobs_reject_out_of_range_values() -> None:
+    # max_hires_per_turn: 1..10 (0 disables hiring outright; above 10 can never
+    # place more HIREs than market.MAX_ORDERS has slots for in a single turn,
+    # so it can never mean anything beyond 10).
+    with pytest.raises(ValueError, match="max_hires_per_turn"):
+        PolicyConfig(max_hires_per_turn=0)
+    with pytest.raises(ValueError, match="max_hires_per_turn"):
+        PolicyConfig(max_hires_per_turn=11)
+
+    # wheat_plant_priority: dispatch()'s own priority-class dict is keyed 0..4
+    # (tasks_by_priority = {p: [] for p in range(5)}); a value outside that
+    # range would KeyError deep inside a turn instead of failing here, at
+    # construction -- the same reasoning strawberry_plant_priority already
+    # uses.
+    with pytest.raises(ValueError, match="wheat_plant_priority"):
+        PolicyConfig(wheat_plant_priority=5)
+    with pytest.raises(ValueError, match="wheat_plant_priority"):
+        PolicyConfig(wheat_plant_priority=-1)
+
+    # wheat_plant_hour_cutoff: 0..23, the valid range of view.hour.
+    with pytest.raises(ValueError, match="wheat_plant_hour_cutoff"):
+        PolicyConfig(wheat_plant_hour_cutoff=-1)
+    with pytest.raises(ValueError, match="wheat_plant_hour_cutoff"):
+        PolicyConfig(wheat_plant_hour_cutoff=24)
+
+
+def test_max_hires_per_turn_threads_from_policy_config_to_the_market_list() -> None:
+    """The knob has to reach the emitted market orders, not just plan_day.
+
+    money=0.0 makes every OTHER buy line unaffordable (see plan.py: goose,
+    land, seeds, and animals all gate on ``budget >= price``), so the market
+    list is pure HIRE orders with nothing else competing for the 10-slot cap
+    -- isolating the knob's effect from the truncation behavior documented on
+    the field itself (see the next test).
+    """
+    obs = raw_obs(step=12 * 24, money=0.0, unlocked_quadrants=("NW", "NE", "SW", "SE"))
+
+    default_action = make_policy()(obs, None)
+    assert default_action["market"] == [["HIRE"]] * 4  # hands_target 12, MAX_HIRES_PER_TURN=4
+
+    overridden_action = make_policy(policy_config=PolicyConfig(max_hires_per_turn=10))(obs, None)
+    assert overridden_action["market"] == [["HIRE"]] * 10
+
+
+def test_hires_beyond_the_market_order_cap_are_dropped_not_deferred() -> None:
+    """market.MAX_ORDERS=10 caps the WHOLE per-turn list (sells, then buys,
+    then HIRE last -- see policy.decide's "Buys first, hires last" comment),
+    so a busy turn's sells/buys can crowd HIRE orders out of that same turn
+    even with max_hires_per_turn=10 asking for all 10. They are silently
+    DROPPED by ``orders[:MAX_ORDERS]``, not moved to a later slot -- and
+    since plan_day recomputes ``hands_target - hires_today`` fresh every
+    turn, the shortfall is simply asked for again next turn rather than
+    queued anywhere.
+    """
+    obs = raw_obs(step=3 * 24, money=6000.0, unlocked_quadrants=("NW", "NE"))
+    obs["private"]["shed"] = {"FERTILIZER": 3, "EGG": 2, "WHEAT": 2}
+
+    action = make_policy(policy_config=PolicyConfig(max_hires_per_turn=10))(obs, None)
+    market = action["market"]
+
+    assert len(market) == 10
+    hires = market.count(["HIRE"])
+    assert 0 < hires < 10, (
+        f"expected the busy turn's sells/buys to crowd out some of the 10 requested "
+        f"hires, got {hires} HIRE orders in {market}"
+    )

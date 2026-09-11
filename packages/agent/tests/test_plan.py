@@ -8,7 +8,13 @@ is in the shared farm dict), so re-running it never double-buys.
 
 from __future__ import annotations
 
-from agent.plan import MELON_SEED_PRICE, SEED_PRICE, STRAWBERRY_SEED_PRICE, plan_day
+from agent.plan import (
+    MAX_HIRES_PER_TURN,
+    MELON_SEED_PRICE,
+    SEED_PRICE,
+    STRAWBERRY_SEED_PRICE,
+    plan_day,
+)
 
 
 def test_day_zero_opening_buys_seeds_goose_feed_and_hires() -> None:
@@ -236,6 +242,32 @@ def test_hire_count_capped_at_max_hires_per_turn() -> None:
         active_tiles=99,
     )
     assert plan.hire_count == 4  # hands_target is 12; MAX_HIRES_PER_TURN clamps it
+
+
+def test_max_hires_per_turn_default_and_override() -> None:
+    # Diagnosis: the morning crew rebuilds over 3 hours (units on the farm at
+    # hours 0/1/2/3: 1/5/9/11) because MAX_HIRES_PER_TURN=4 caps every day's
+    # ramp-up, regardless of how large the actual shortfall is. active_tiles=80
+    # makes hands_target = round(80/8) == 10 exactly, so hires_today=0 is a
+    # clean "need 10 hires" scenario: the default constant clamps it to 4, and
+    # an explicit override recovers the full 10.
+    kwargs = dict(
+        day=0,
+        money=0.0,
+        wheat_seeds=0,
+        plantable_target_tiles=0,
+        wheat_on_hand=0,
+        goose_owned=True,
+        hires_today=0,
+        unlocked_quadrants=("NW", "NE", "SW", "SE"),
+        active_tiles=80,
+    )
+    default_plan = plan_day(**kwargs)
+    assert default_plan.hire_count == 4
+    assert default_plan.hire_count == MAX_HIRES_PER_TURN
+
+    overridden_plan = plan_day(**kwargs, max_hires_per_turn=10)
+    assert overridden_plan.hire_count == 10
 
 
 def test_hire_count_floors_at_zero_when_hires_today_exceeds_target() -> None:
