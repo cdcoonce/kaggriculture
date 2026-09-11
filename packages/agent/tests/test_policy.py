@@ -19,7 +19,7 @@ from agent.constants import (
 )
 from agent.policy import PolicyConfig, make_policy
 from agent.shell import pass_action
-from viewfactory import built_pasture, plant
+from viewfactory import built_pasture, make_view, plant
 from viewfactory import pasture as animal_tile
 
 
@@ -942,6 +942,129 @@ def test_a_small_zone_leaves_the_wheat_seed_line_alone() -> None:
         make_policy(policy_config=PolicyConfig(strawberry_tile_target=6))(raw_obs(), None)["market"]
     )
     assert small < baseline
+
+
+# --- _zone_fallthrough_tiles: how far beyond strawberry's own two-day seed
+# horizon the wheat fall-through reaches into idle zone ground -------------
+#
+# _zone_fallthrough_tiles's own docstring: "the horizon here is strawberry's
+# own, not the dispatcher's single-turn budget: plan.py sizes the strawberry
+# seed line to TWO days of the planting stagger, so anything past 2 * cap is
+# ground strawberry's own seed line is not asking for either." That
+# arithmetic -- max(0, empty_zone - 2 * cap) -- had no test of its own
+# anywhere in this file; test_wheat_seed_line_sees_the_zone_ground_the_
+# dispatcher_falls_through above only pins "some ground comes back" (qty >
+# 0), not the formula that decides how much. Diagnosis (kaggriculture,
+# 2026-09-11): at a 36-tile zone, standing wheat collapses from day 6 (1-8
+# tiles, against 8-23 for the shipped agent), starving the early cash that
+# buys land and animals -- this pins the exact formula responsible before it
+# gains a tuning knob.
+
+
+def test_zone_fallthrough_tiles_formula_is_pinned_at_todays_multiplier() -> None:
+    # 36 idle zone tiles (empty_tiles() leaves every unlocked tile None, so
+    # slicing target_tiles gives an exact, controlled empty_zone count) and a
+    # daily cap of 11 mirror the diagnosis's own worked example: fall-through
+    # hands wheat exactly 36 - 2*11 = 14 tiles today. day=0 keeps this well
+    # inside STRAWBERRY_PLANT_CUTOFF_DAY (12), the branch every eval config
+    # actually runs under before the planting window shuts.
+    zone = frozenset(target_tiles(("NW", "NE"))[:36])
+    view = make_view(step=0, unlocked_quadrants=("NW", "NE"))
+    config = PolicyConfig(strawberry_plant_daily_cap=11)
+    assert policy._zone_fallthrough_tiles(view, config, zone) == 14
+
+
+# --- zone_fallthrough_multiplier: how far beyond strawberry's own two-day
+# seed horizon an eval run can reach into idle zone ground (kaggriculture,
+# 2026-09-11) -------------------------------------------------------------
+#
+# DEFAULT-NEUTRAL: 2 reproduces the fixed boundary _zone_fallthrough_tiles
+# has always used (pinned above), so nothing changes until an eval run
+# lowers it. See PolicyConfig.zone_fallthrough_multiplier and
+# ZONE_FALLTHROUGH_MULTIPLIER for the full diagnosis.
+
+
+def test_zone_fallthrough_multiplier_default_pins_todays_behavior() -> None:
+    # Compared against the module's OWN constant, the same pattern
+    # test_goose_min_day_default_pins_todays_behavior above uses, so an edit
+    # to ZONE_FALLTHROUGH_MULTIPLIER can never drift silently out of sync
+    # with this default.
+    config = PolicyConfig()
+    assert config.zone_fallthrough_multiplier == 2
+    assert config.zone_fallthrough_multiplier == policy.ZONE_FALLTHROUGH_MULTIPLIER
+
+
+def test_zone_fallthrough_multiplier_lower_values_return_more_ground_to_wheat() -> None:
+    # Same 36-tile zone, cap 11 as the pin above -- only the multiplier
+    # changes. Lowering it narrows how much of that idle ground stays
+    # reserved for strawberry's own two-day seed line and hands the rest to
+    # wheat instead: 1 hands back 36 - 11 = 25 (more than the default's 14),
+    # and 0 removes the reservation entirely -- every idle zone tile goes to
+    # wheat, i.e. the result equals the zone's own size.
+    zone = frozenset(target_tiles(("NW", "NE"))[:36])
+    view = make_view(step=0, unlocked_quadrants=("NW", "NE"))
+
+    at_default = policy._zone_fallthrough_tiles(
+        view, PolicyConfig(strawberry_plant_daily_cap=11), zone
+    )
+    at_one = policy._zone_fallthrough_tiles(
+        view,
+        PolicyConfig(strawberry_plant_daily_cap=11, zone_fallthrough_multiplier=1),
+        zone,
+    )
+    at_zero = policy._zone_fallthrough_tiles(
+        view,
+        PolicyConfig(strawberry_plant_daily_cap=11, zone_fallthrough_multiplier=0),
+        zone,
+    )
+
+    assert at_default == 14
+    assert at_one == 25
+    assert at_one > at_default
+    assert at_zero == 36
+    assert at_zero == len(zone)  # 0 -> every idle zone tile, none held back
+
+
+def test_zone_fallthrough_multiplier_rejects_out_of_range_values() -> None:
+    # 0-10 -- see _MAX_ZONE_FALLTHROUGH_MULTIPLIER for why 10 is a
+    # deliberately generous ceiling and 0 is the floor.
+    with pytest.raises(ValueError, match="zone_fallthrough_multiplier"):
+        PolicyConfig(zone_fallthrough_multiplier=-1)
+    with pytest.raises(ValueError, match="zone_fallthrough_multiplier"):
+        PolicyConfig(zone_fallthrough_multiplier=11)
+
+
+def test_zone_fallthrough_multiplier_threads_from_policy_config_to_the_wheat_seed_line() -> None:
+    """The knob has to reach plan_day's plantable_target_tiles through
+    decide()'s own wheat_tiles + _zone_fallthrough_tiles sum, not just
+    _zone_fallthrough_tiles in isolation (the unit tests above cover the
+    formula itself) -- mirrors test_ne_land_min_day_threads_from_policy_
+    config_and_delays_the_buy_land above.
+
+    Money raised to 10000 (day 0, so plant_quota's 2x cap is
+    2*active_tiles -- far above plantable_target_tiles either way -- and the
+    seed buy is bounded only by the target and the budget) so the comparison
+    isolates the knob rather than an affordability ceiling. Exact quantities
+    empirically verified against this fixture before being pinned here.
+    """
+    obs = raw_obs(step=0, unlocked_quadrants=("NW", "NE"), money=10000.0)
+    zone_kwargs: dict[str, Any] = {
+        "strawberry_tile_target": 36,
+        "strawberry_plant_daily_cap": 11,
+    }
+
+    default_qty = _wheat_seed_qty(
+        make_policy(policy_config=PolicyConfig(**zone_kwargs))(obs, None)["market"]
+    )
+    assert default_qty == 9
+
+    lower_qty = _wheat_seed_qty(
+        make_policy(policy_config=PolicyConfig(**zone_kwargs, zone_fallthrough_multiplier=0))(
+            obs, None
+        )["market"]
+    )
+    assert lower_qty == 31
+    assert lower_qty > default_qty
 
 
 # --- strawberry_start_day: the WHOLE mechanic is off before it, not just the
