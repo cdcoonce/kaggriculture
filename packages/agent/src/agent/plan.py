@@ -58,6 +58,24 @@ STRAWBERRY_SEED_PRICE = 100
 STRAWBERRY_SEED_BUDGET_SHARE = 0.5
 GOOSE_COST = 300
 GOOSE_LAST_BUY_DAY = 14  # $300 payback needs ~12 egg days; later purchase never breaks even
+# GOOSE_MIN_DAY (PolicyConfig.goose_min_day): earliest day the goose purchase
+# may fire, the same day >= *_min_day mechanism NE_LAND_MIN_DAY below uses for
+# NE land. The goose branch never had an earliest-day gate before this knob
+# existed -- it buys the instant cash allows, including turn 0 -- so 0 is
+# DEFAULT-NEUTRAL: day >= 0 is always true, and every existing game is
+# bit-for-bit unchanged. Single source of truth for PolicyConfig.
+# goose_min_day's own default (threaded policy.py -> plan_day(), the same
+# pattern NE_LAND_MIN_DAY and MAX_HIRES_PER_TURN below use), so the knob's
+# default can never drift out of sync with what this module does when the
+# knob is left alone.
+#
+# Diagnosis (observed strongest public bots, game replays, 2026-09-11): the
+# strongest public bots never buy a goose at all and keep the 5 NW pasture
+# slots for 4 sheep + 1 cow before NE is bought -- our goose takes one of
+# those slots, so a sheep-first opening stalls at 3 sheep. An eval run sets
+# this to the NE day (e.g. 6, ne_land_min_day's own eval value) to defer the
+# goose while that opening plays out.
+GOOSE_MIN_DAY = 0
 PLANT_CUTOFF_DAY = 25  # last profitable wheat planting day (4 growth days + sale)
 
 LAND_RESERVE = 500  # cash floor kept in hand after any land purchase
@@ -208,6 +226,7 @@ def plan_day(
     strawberry_seed_budget_share: float = STRAWBERRY_SEED_BUDGET_SHARE,
     wheat_on_hand: int,
     goose_owned: bool,
+    goose_min_day: int = GOOSE_MIN_DAY,
     hires_today: int,
     unlocked_quadrants: tuple[str, ...],
     active_tiles: int,
@@ -227,7 +246,12 @@ def plan_day(
     buys: list[list[object]] = []
     budget = money
 
-    if not goose_owned and day <= GOOSE_LAST_BUY_DAY and budget >= GOOSE_COST:
+    if (
+        not goose_owned
+        and day >= goose_min_day
+        and day <= GOOSE_LAST_BUY_DAY
+        and budget >= GOOSE_COST
+    ):
         buys.append(["BUY_ANIMAL", "GOOSE", 1])
         budget -= GOOSE_COST
 

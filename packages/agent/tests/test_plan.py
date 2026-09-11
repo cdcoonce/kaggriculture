@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from agent.plan import (
     ANIMAL_BUY_ORDER,
+    GOOSE_MIN_DAY,
     MAX_HIRES_PER_TURN,
     MELON_SEED_PRICE,
     NE_LAND_MIN_DAY,
@@ -63,6 +64,40 @@ def test_phase_cutoffs_stop_seed_and_goose_purchases() -> None:
         active_tiles=24,
     )
     assert not any(b[0] == "BUY_ANIMAL" for b in past_payback.buys)
+
+
+def test_goose_min_day_default_is_zero_so_shipped_behavior_is_unchanged() -> None:
+    # DEFAULT-NEUTRAL by construction: the goose branch never had an
+    # earliest-day gate before this knob existed (it buys the instant cash
+    # allows, including turn 0), so 0 reproduces that exactly -- day >= 0 is
+    # always true. Pinned against the module constant so an edit can never
+    # drift silently out of sync with plan_day's own default. Mirrors
+    # test_ne_land_min_day_default_is_zero_so_shipped_behavior_is_unchanged.
+    assert GOOSE_MIN_DAY == 0
+
+
+def test_goose_waits_for_goose_min_day_then_buys_on_time() -> None:
+    # Mirrors test_ne_land_waits_for_ne_land_min_day_then_buys_on_time: the
+    # same day >= *_min_day mechanism, gating the goose purchase instead of
+    # NE land. Ample cash throughout so the gate under test is the day
+    # check, not affordability.
+    kwargs = dict(
+        money=10000.0,
+        wheat_seeds=0,
+        plantable_target_tiles=24,
+        wheat_on_hand=0,
+        goose_owned=False,
+        hires_today=0,
+        unlocked_quadrants=("NW",),
+        active_tiles=24,
+        goose_min_day=6,
+    )
+    for day in (0, 3, 5):
+        too_early = plan_day(day=day, **kwargs)  # type: ignore[arg-type]
+        assert ["BUY_ANIMAL", "GOOSE", 1] not in too_early.buys, day
+
+    on_time = plan_day(day=6, **kwargs)  # type: ignore[arg-type]
+    assert ["BUY_ANIMAL", "GOOSE", 1] in on_time.buys
 
 
 def test_idempotent_against_observed_state() -> None:

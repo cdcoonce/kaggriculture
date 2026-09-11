@@ -341,6 +341,36 @@ class TestResolveAgent:
         with pytest.raises(ValueError, match="animal_buy_order"):
             resolve_agent("champion", {"animal_buy_order": ["COW"]})
 
+    def test_agent_config_flows_goose_min_day_to_policy_config(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # The JSON-shaped-config wiring proof for goose_min_day (kaggriculture,
+        # 2026-09-11): a CLI --agent-config '{"goose_min_day": 6}' must reach
+        # make_policy as an actual PolicyConfig with the field set, not get
+        # silently dropped -- mirrors
+        # test_agent_config_flows_ne_land_min_day_and_animal_buy_order_to_policy_config
+        # above.
+        import agent.policy as policy_module
+
+        captured: dict[str, object] = {}
+
+        def fake_make_policy(clock: object = None, policy_config: object = None) -> object:
+            captured["policy_config"] = policy_config
+            return lambda obs, config=None: {"farmer": ["PASS"], "hands": [], "market": []}
+
+        monkeypatch.setattr(policy_module, "make_policy", fake_make_policy)
+        resolve_agent("champion", {"goose_min_day": 6})
+
+        config = captured["policy_config"]
+        assert isinstance(config, policy_module.PolicyConfig)
+        assert config.goose_min_day == 6
+
+    def test_agent_config_rejects_an_out_of_range_goose_min_day(self) -> None:
+        with pytest.raises(ValueError, match="goose_min_day"):
+            resolve_agent("champion", {"goose_min_day": -1})
+        with pytest.raises(ValueError, match="goose_min_day"):
+            resolve_agent("champion", {"goose_min_day": 30})
+
     def test_frozen_spec_raises_on_a_knob_its_own_build_never_had(self) -> None:
         """The guard that matters, kept. A frozen package that predates the
         knob it is handed must reject it LOUDLY, naming the frozen package --
