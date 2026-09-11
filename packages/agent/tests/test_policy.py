@@ -19,7 +19,7 @@ from agent.constants import (
 )
 from agent.policy import PolicyConfig, make_policy
 from agent.shell import pass_action
-from viewfactory import built_pasture
+from viewfactory import built_pasture, plant
 from viewfactory import pasture as animal_tile
 
 
@@ -1483,3 +1483,64 @@ def test_goose_min_day_threads_from_policy_config_and_delays_the_buy_goose() -> 
     on_time_obs = raw_obs(step=6 * 24, money=3000.0)
     on_time_action = make_policy(policy_config=PolicyConfig(goose_min_day=6))(on_time_obs, None)
     assert on_time_action["market"].count(["BUY_ANIMAL", "GOOSE", 1]) == 1
+
+
+# --- rescue_water: water a plant the day before the engine kills it --------
+#
+# dispatch.py's own rescue_water tests (test_dispatch.py) cover the
+# mechanism; these two prove the knob actually threads PolicyConfig ->
+# make_policy -> dispatch(), the same "defaults pin the module constant" /
+# "threading reaches the real action" pair every other knob above gets.
+
+
+def test_rescue_water_default_pins_todays_behavior() -> None:
+    # Compared against the module's OWN constant, the same pattern
+    # test_opening_knob_defaults_pin_todays_behavior uses above, so an edit
+    # to dispatch.RESCUE_WATER can never drift silently out of sync with
+    # this default.
+    config = PolicyConfig()
+    assert config.rescue_water is False
+    assert config.rescue_water == dispatch.RESCUE_WATER
+
+
+def test_rescue_water_threads_from_policy_config_to_the_hands_action() -> None:
+    """The knob has to reach the emitted hand actions through decide()'s
+    dispatch() call, not just dispatch() in isolation (test_dispatch.py's
+    rescue_water tests cover the mechanism itself) -- mirrors
+    test_ne_land_min_day_threads_from_policy_config_and_delays_the_buy_land
+    above.
+
+    cow/sheep/melon targets zeroed so the only task on the whole board is
+    the one on our tile: at their real defaults, most of target_tiles(("NW",))
+    falls inside the melon/pasture zone, and an empty pasture tile emits an
+    unconditional (no-seed) BUILD_PASTURE task -- a real P3 task elsewhere
+    on the board that would pull an idle hand toward it and mask the PASS
+    this test means to pin. Wheat's own PLANT tasks need no such zeroing:
+    raw_obs's default 0 WHEAT seeds already blocks every one of them.
+
+    Uses target_tiles(...)[1], not [0]: raw_obs's farmer always starts at
+    (4, 4), which IS target_tiles(("NW",))[0] -- placing our tile and hand
+    there too would let the farmer (checked first, at the same position)
+    claim the rescue task ahead of the hand, since only one unit can claim
+    a given tile.
+    """
+    unlocked = ("NW",)
+    px, py = target_tiles(unlocked)[1]
+    obs = raw_obs(step=5 * 24, money=3000.0, unlocked_quadrants=unlocked)
+    # age 1: the calendar's own deliberate gap day, with one miss already
+    # banked (consecutive_unwatered=1) -- the same fixture test_dispatch.py's
+    # test_rescue_water_on_rescues_wheat_the_night_it_would_weed uses.
+    obs["farms"][0]["tiles"][py][px] = plant(
+        planted_day=4, watered_today=False, consecutive_unwatered=1
+    )
+    obs["farms"][0]["hands"] = [[px, py]]
+    obs["private"]["inventories"] = [{}, {}]
+    isolated = {"cow_target": 0, "sheep_target": 0, "melon_tile_target": 0}
+
+    default_action = make_policy(policy_config=PolicyConfig(**isolated))(obs, None)
+    assert default_action["hands"][0] == ["PASS"]
+
+    overridden_action = make_policy(policy_config=PolicyConfig(**isolated, rescue_water=True))(
+        obs, None
+    )
+    assert overridden_action["hands"][0] == ["WATER"]

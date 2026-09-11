@@ -71,15 +71,21 @@ def plant(
     watered_today: bool = False,
     yield_units: int = 1,
     fertilized_until_day: int = -1,
+    consecutive_unwatered: int = 1,
+    max_lifespan_step: int = -1,
 ) -> dict[str, Any]:
     return {
         "kind": "PLANT",
         "crop": crop,
         "planted_day": planted_day,
         "watered_today": watered_today,
-        "consecutive_unwatered": 1,
+        "consecutive_unwatered": consecutive_unwatered,
         "yield_units": yield_units,
         "fertilized_until_day": fertilized_until_day,
+        # -1 (the engine's own convention for "no cap yet" -- see
+        # kaggriculture.py's _new_plant for ongoing crops) means the rescue
+        # knob's lifespan skip never trips unless a test asks for it.
+        "max_lifespan_step": max_lifespan_step,
     }
 
 
@@ -89,6 +95,8 @@ def strawberry(
     watered_today: bool = False,
     yield_units: int = 0,
     fertilized_until_day: int = -1,
+    consecutive_unwatered: int = 1,
+    max_lifespan_step: int = -1,
 ) -> dict[str, Any]:
     """A strawberry tile, shaped as the engine's ``_new_plant`` leaves an
     ongoing crop: ``yield_units`` starts at 0, not wheat's 1 -- the engine
@@ -100,6 +108,8 @@ def strawberry(
         watered_today=watered_today,
         yield_units=yield_units,
         fertilized_until_day=fertilized_until_day,
+        consecutive_unwatered=consecutive_unwatered,
+        max_lifespan_step=max_lifespan_step,
     )
 
 

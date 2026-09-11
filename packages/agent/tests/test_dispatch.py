@@ -6,6 +6,7 @@ from __future__ import annotations
 from agent.constants import PASTURE_TILE_TARGET, target_tiles
 from agent.dispatch import (
     HAND_MULE_LOAD,
+    RESCUE_WATER,
     STRAWBERRY_PLANT_DAILY_CAP,
     STRAWBERRY_PLANT_PRIORITY,
     WHEAT_PLANT_HOUR_CUTOFF,
@@ -774,9 +775,13 @@ def _sb_view(
     )
 
 
-def _sb_action(tile: dict[str, object], *, day: int, **kwargs: object) -> list[object]:
+def _sb_action(
+    tile: dict[str, object], *, day: int, rescue_water: bool = False, **kwargs: object
+) -> list[object]:
     view = _sb_view(tile, day=day, **kwargs)  # type: ignore[arg-type]
-    return dispatch(view, NW_TILES, frozenset(), frozenset(), SB_ZONE).hands[0]
+    return dispatch(
+        view, NW_TILES, frozenset(), frozenset(), SB_ZONE, rescue_water=rescue_water
+    ).hands[0]
 
 
 def test_strawberry_is_watered_on_its_planting_day() -> None:
@@ -1123,6 +1128,144 @@ def test_wheat_plant_hour_cutoff_is_tunable_independent_of_melon() -> None:
     assert raised_cutoff.hands[1] == ["PASS"], (
         "melon's own hour<=20 gate must stay unaffected by wheat_plant_hour_cutoff"
     )
+
+
+# --- rescue_water: water a plant the day before the engine kills it --------
+#
+# Engine mechanic (kaggriculture.py, _daily_refresh_plants, verified against
+# kaggle_environments 1.32.7): at every day boundary, an unwatered PLANT tile
+# gets consecutive_unwatered += 1, and consecutive_unwatered >= 2 converts it
+# straight to WEED -- only DIG clears a WEED. A fresh planting starts at
+# consecutive_unwatered = 1 (the planting day counts as unwatered until it
+# is actually watered), so the mandatory day-0 water is already pinned above
+# (test_hand_standing_on_unwatered_plant_waters_it,
+# test_strawberry_is_watered_on_its_planting_day).
+#
+# Every crop calendar in this file schedules deliberate unwatered gap days
+# on the assumption that the NEXT scheduled water actually happens (wheat's
+# age 1, melon's odd ages 1/3/5, strawberry's odd maintenance ages) --
+# "one unwatered day is safe" is only true when that assumption holds.
+# dispatch() never reads consecutive_unwatered, so a scheduled water that a
+# saturated crew never got to (it competes at priority 2, same as every
+# other in-window water) leaves the tile with no task at all the day it
+# would die -- 47 missed-water deaths per 4 games at shipped defaults,
+# measured (kaggriculture, 2026-09-11).
+#
+# rescue_water fires a priority-0 WATER task, ahead of every crop's own
+# calendar, whenever a tile both would weed tonight AND is worth saving --
+# default False reproduces today's behavior exactly, since dispatch()
+# ignores consecutive_unwatered entirely at the default.
+
+
+def test_rescue_water_default_is_off_so_shipped_behavior_is_unchanged() -> None:
+    # Pinned against the module constant, the same pattern
+    # test_ne_land_min_day_default_is_zero_so_shipped_behavior_is_unchanged
+    # uses in test_plan.py, so an edit can never drift silently out of sync
+    # with dispatch()'s own default.
+    assert RESCUE_WATER is False
+
+
+def test_rescue_water_default_off_pins_calendar_gap_day_behavior() -> None:
+    # Default OFF must reproduce today's behavior bit-for-bit. Age 1 is the
+    # calendar's own deliberate gap (test_age_one_plant_generates_no_task):
+    # the engine already carries one miss into this day (plant()'s own
+    # consecutive_unwatered=1 default -- see kaggriculture.py's
+    # _daily_refresh_plants), and the tile is still unwatered here, which is
+    # exactly the condition the knob watches for. Left off, dispatch must
+    # still emit nothing: a saturated crew gets the same silence it always
+    # has, weed or no weed tonight.
+    tiles = make_view().tiles
+    tiles[2][2] = plant(planted_day=4, watered_today=False, consecutive_unwatered=1)
+    view = make_view(step=5 * 24, hands=[(2, 2)], tiles=tiles, seeds=0)
+    actions = dispatch(view, NW_TILES)  # rescue_water defaults to RESCUE_WATER (False)
+    assert actions.hands[0] == ["PASS"]
+
+
+def test_rescue_water_on_rescues_wheat_the_night_it_would_weed() -> None:
+    # Same tile as the default-off pin above -- age 1, one miss already
+    # banked -- but rescue_water=True: tonight's day boundary would push
+    # consecutive_unwatered from 1 to 2 and convert the tile straight to
+    # WEED, so this must now win priority 0 even though wheat's own calendar
+    # has no branch at age 1 at all.
+    tiles = make_view().tiles
+    tiles[2][2] = plant(planted_day=4, watered_today=False, consecutive_unwatered=1)
+    view = make_view(step=5 * 24, hands=[(2, 2)], tiles=tiles, seeds=0)
+    actions = dispatch(view, NW_TILES, rescue_water=True)
+    assert actions.hands[0] == ["WATER"]
+
+
+def test_rescue_water_on_rescues_strawberry_on_a_maintenance_gap_day() -> None:
+    # Age 3 is a deliberate strawberry maintenance gap -- odd ages get no
+    # task at all (test_strawberry_maintenance_water_runs_every_other_day_
+    # before_the_ticks). If age 2's maintenance water was missed (a
+    # saturated crew), the tile enters age 3 with consecutive_unwatered=1
+    # and the calendar offers NOTHING here -- the silent-gap failure mode
+    # rescue_water exists to close, distinct from wheat's case above where
+    # the calendar tries but loses the priority race.
+    tile = strawberry(planted_day=0, watered_today=False, consecutive_unwatered=1)
+    assert _sb_action(tile, day=3, rescue_water=True) == ["WATER"]
+
+
+def test_rescue_water_on_does_not_fire_with_zero_consecutive_misses() -> None:
+    # consecutive_unwatered=0 means today would be only the FIRST miss --
+    # tonight's boundary raises it to 1, not 2, so the tile survives either
+    # way. The knob must not preempt the calendar here: age 1 keeps getting
+    # exactly what it gets today, which is nothing.
+    tiles = make_view().tiles
+    tiles[2][2] = plant(planted_day=4, watered_today=False, consecutive_unwatered=0)
+    view = make_view(step=5 * 24, hands=[(2, 2)], tiles=tiles, seeds=0)
+    actions = dispatch(view, NW_TILES, rescue_water=True)
+    assert actions.hands[0] == ["PASS"]
+
+
+def test_rescue_water_on_does_not_fire_when_already_watered_today() -> None:
+    # Already watered today zeroes consecutive_unwatered at tonight's
+    # boundary regardless of what it is entering the turn, so there is
+    # nothing left to rescue.
+    tiles = make_view().tiles
+    tiles[2][2] = plant(planted_day=4, watered_today=True, consecutive_unwatered=1)
+    view = make_view(step=5 * 24, hands=[(2, 2)], tiles=tiles, seeds=0)
+    actions = dispatch(view, NW_TILES, rescue_water=True)
+    assert actions.hands[0] == ["PASS"]
+
+
+def test_rescue_water_on_skips_a_tile_past_its_lifespan() -> None:
+    # max_lifespan_step is the engine's OWN unconditional decay clock
+    # (kaggriculture.py's _decay_plants): once step >= that value,
+    # yield_units drains every other step with no dependence on
+    # watered_today at all -- this tile is exhausting regardless, so
+    # spending a hand's trip watering it buys nothing even though it also
+    # satisfies the weed-tonight condition checked above.
+    tiles = make_view().tiles
+    tiles[2][2] = plant(
+        planted_day=4,
+        watered_today=False,
+        consecutive_unwatered=1,
+        max_lifespan_step=5 * 24,  # already reached as of this very turn
+    )
+    view = make_view(step=5 * 24, hands=[(2, 2)], tiles=tiles, seeds=0)
+    actions = dispatch(view, NW_TILES, rescue_water=True)
+    assert actions.hands[0] == ["PASS"]
+
+
+def test_rescue_water_outranks_an_ordinary_priority_two_water_task() -> None:
+    # Demonstrates why priority 0 and not e.g. 2 (the tier ordinary in-window
+    # WATER tasks already use): with one unit each and the rescue tile
+    # FARTHER from its unit than the ordinary water tile is from its own, the
+    # rescue must still win, because priority classes are worked in strict
+    # order and distance only breaks a tie within one class (mirrors
+    # test_priority_classes_starve_lower_priority_once_units_exhausted's
+    # board layout, with the P0 slot now filled by a rescue instead of a
+    # fresh planting).
+    tiles = make_view().tiles
+    tiles[0][4] = plant(
+        planted_day=4, watered_today=False, consecutive_unwatered=1
+    )  # (4, 0): dying tonight, far from the farmer
+    tiles[2][2] = plant(planted_day=2, watered_today=False)  # (2, 2): ordinary P2 water, near
+    view = make_view(step=5 * 24, farmer=(4, 4), hands=[(0, 0)], tiles=tiles, seeds=0)
+    actions = dispatch(view, NW_TILES, rescue_water=True)
+    assert actions.farmer == ["NORTH"]  # farmer -> (4, 0): the rescue wins priority 0
+    assert actions.hands[0] == ["EAST"]  # hand -> (2, 2): the ordinary P2 water
 
 
 def test_a_walking_unit_keeps_its_claim_when_a_nearer_task_appears() -> None:
