@@ -140,6 +140,14 @@ _MAX_HIRES_PER_TURN = 10
 _MIN_PLANT_HOUR_CUTOFF = 0
 _MAX_PLANT_HOUR_CUTOFF = 23
 
+#: extra_hands: the engine itself caps nothing (a rising Fibonacci hire cost
+#: within a day, but no ceiling on hands), so 0-5 is a deliberately
+#: conservative guard against a runaway CLI override, not a modeled market
+#: limit -- the same reasoning market.MAX_ORDERS gives max_hires_per_turn's
+#: upper bound, just without a hard mechanical ceiling to derive it from.
+_MIN_EXTRA_HANDS = 0
+_MAX_EXTRA_HANDS = 5
+
 
 @dataclass(frozen=True)
 class PolicyConfig:
@@ -200,6 +208,21 @@ class PolicyConfig:
     # hiring, and above 10 can never fit more HIRE orders than the market
     # list has slots for in one turn regardless.
     max_hires_per_turn: int = MAX_HIRES_PER_TURN
+
+    # Labor SUPPLY, not dispatch priority (kaggriculture diagnosis,
+    # 2026-09-11 continuation of the three labor knobs above): even with
+    # max_hires_per_turn/wheat_plant_priority/wheat_plant_hour_cutoff tuned,
+    # the crew measures saturated (idle share ~4.7%), and pushing labor
+    # toward planting via dispatch instead starves watering and raises weeds
+    # 1.8-3.2x. extra_hands hires above plan.py's tile-based hands_target,
+    # unconditionally -- threaded through plan_day() the same way
+    # max_hires_per_turn is, added AFTER that target's own HANDS_MIN floor
+    # and husbandry bonus so it never interacts with either. DEFAULT-NEUTRAL:
+    # 0 has no prior hardcoded behavior to reproduce (there was never an
+    # implicit "extra hands" term before this knob existed), so hands_target
+    # and every action are bit-for-bit unchanged at the default.
+    # __post_init__ rejects anything outside 0-5 -- see _MAX_EXTRA_HANDS.
+    extra_hands: int = 0
 
     # Feed logistics. Both default to today's behavior. Raising
     # feed_batch_cap measures WORSE (PICKUP +56% for flat FEED); the cause is
@@ -344,6 +367,10 @@ class PolicyConfig:
         range of view.hour) -- both checked here for the same reason as
         every other field above: loud at construction, not a silent no-op or
         a crash deep inside a turn.
+
+        extra_hands must land inside 0-5 (_MAX_EXTRA_HANDS) -- a deliberately
+        conservative guard against a runaway CLI override, checked here for
+        the same "loud at construction" reason as every other field above.
         """
         frame = tuple(self.strawberry_frame_quadrants)
         unknown = sorted(set(frame) - _KNOWN_QUADRANTS)
@@ -385,6 +412,12 @@ class PolicyConfig:
             raise ValueError(
                 f"max_hires_per_turn must be within {_MIN_HIRES_PER_TURN}-"
                 f"{_MAX_HIRES_PER_TURN}, got {self.max_hires_per_turn!r}"
+            )
+
+        if not (_MIN_EXTRA_HANDS <= self.extra_hands <= _MAX_EXTRA_HANDS):
+            raise ValueError(
+                f"extra_hands must be within {_MIN_EXTRA_HANDS}-{_MAX_EXTRA_HANDS}, "
+                f"got {self.extra_hands!r}"
             )
 
 
@@ -678,6 +711,7 @@ def make_policy(
             cow_target=cfg.cow_target,
             sheep_target=cfg.sheep_target,
             max_hires_per_turn=cfg.max_hires_per_turn,
+            extra_hands=cfg.extra_hands,
         )
         actions = dispatch(
             view,

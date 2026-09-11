@@ -1197,10 +1197,20 @@ def test_strawberry_fert_reserve_planted_sells_like_strawberry_off_before_anythi
 #                            so nearer same-tier tasks starve it.
 #   wheat_plant_hour_cutoff -- dispatch._field_tasks stops generating PLANT
 #                            WHEAT tasks past hour 20, unconditionally.
+#
+# Follow-up (2026-09-11): even with the three knobs above tuned, the crew
+# itself measures saturated (idle share ~4.7%) -- only ~200 of the ~410
+# intended wheat plantings execute. Moving labor toward planting via a higher
+# DISPATCH tier/cutoff instead starves watering and raises weeds 1.8-3.2x, so
+# the next lever is labor SUPPLY, not dispatch priority: extra_hands (below)
+# hires above plan.py's tile-based hands_target, unconditionally. It has no
+# prior hardcoded behavior to reproduce (there was never an implicit "extra
+# hands" term before this knob existed), so its default is a bare 0 rather
+# than a module constant -- pinned below the same way.
 
 
 def test_labor_knob_defaults_pin_todays_constants() -> None:
-    # The only thing standing between these three knobs and a silent change to
+    # The only thing standing between these four knobs and a silent change to
     # the shipped agent is this test -- every existing PolicyConfig() must keep
     # resolving to exactly today's hardcoded behavior. Compared against the
     # modules' OWN constants, not bare literals, so an edit to either hardcoded
@@ -1212,6 +1222,7 @@ def test_labor_knob_defaults_pin_todays_constants() -> None:
     assert config.wheat_plant_priority == dispatch.WHEAT_PLANT_PRIORITY
     assert config.wheat_plant_hour_cutoff == 20
     assert config.wheat_plant_hour_cutoff == dispatch.WHEAT_PLANT_HOUR_CUTOFF
+    assert config.extra_hands == 0
 
 
 def test_labor_knobs_reject_out_of_range_values() -> None:
@@ -1280,3 +1291,49 @@ def test_hires_beyond_the_market_order_cap_are_dropped_not_deferred() -> None:
         f"expected the busy turn's sells/buys to crowd out some of the 10 requested "
         f"hires, got {hires} HIRE orders in {market}"
     )
+
+
+# --- extra_hands: labor SUPPLY knob (kaggriculture diagnosis, 2026-09-11 --
+# continuation of the labor knobs above) --------------------------------------
+
+
+def test_extra_hands_default_is_zero() -> None:
+    # DEFAULT-NEUTRAL by construction: extra_hands has no prior hardcoded
+    # behavior to reproduce, so 0 is a bare literal, not a module constant --
+    # also pinned inside test_labor_knob_defaults_pin_todays_constants
+    # alongside the other three labor knobs.
+    assert PolicyConfig().extra_hands == 0
+
+
+def test_extra_hands_rejects_out_of_range_values() -> None:
+    # 0..5: the engine itself has no cap on hands (just a rising Fibonacci
+    # hire cost within a day), so the ceiling here is a deliberately
+    # conservative guard against a runaway CLI override, not a modeled market
+    # limit -- the same reasoning as every other __post_init__ bound above.
+    with pytest.raises(ValueError, match="extra_hands"):
+        PolicyConfig(extra_hands=-1)
+    with pytest.raises(ValueError, match="extra_hands"):
+        PolicyConfig(extra_hands=6)
+
+
+def test_extra_hands_threads_from_policy_config_to_the_market_list() -> None:
+    """extra_hands has to reach the emitted market orders through decide()'s
+    plan_day call, not just plan_day in isolation (test_plan.py's
+    test_extra_hands_raises_the_hands_target_by_exactly_two covers the
+    formula itself) -- mirrors test_max_hires_per_turn_threads_from_policy_
+    config_to_the_market_list above.
+
+    max_hires_per_turn=10 is set on BOTH arms so the comparison isolates
+    extra_hands's own effect from that separate cap; money=0.0 makes every
+    other buy line unaffordable (see that test's own docstring), so the
+    market list is pure HIRE orders.
+    """
+    obs = raw_obs(step=0, money=0.0, unlocked_quadrants=("NW",))
+
+    baseline_action = make_policy(policy_config=PolicyConfig(max_hires_per_turn=10))(obs, None)
+    assert baseline_action["market"] == [["HIRE"]] * 3  # hands_target 3 (HANDS_MIN)
+
+    overridden_action = make_policy(
+        policy_config=PolicyConfig(max_hires_per_turn=10, extra_hands=2)
+    )(obs, None)
+    assert overridden_action["market"] == [["HIRE"]] * 5  # hands_target 3+2=5

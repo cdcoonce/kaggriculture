@@ -67,6 +67,23 @@ SE_LAND_RESERVE = 2000  # demoted further: a bigger cash cushion than NE/SW's fl
 
 HANDS_MIN = 3  # the Plan A opening crew, even on the 24-tile NW-only board
 HANDS_PER_TILES = 8  # roughly one hand per eight target tiles
+# extra_hands (PolicyConfig field, default 0): a flat add-on to hands_target,
+# applied AFTER the HANDS_MIN floor and the husbandry bonus below rather than
+# inside the max(...), so it never interacts with either -- it is pure
+# additional labor SUPPLY. Unlike every other knob in this module, there is
+# no prior hardcoded constant it reproduces (there was never an implicit
+# "extra hands" term before this knob existed), so its own default lives as
+# a bare 0 on PolicyConfig rather than a named constant here.
+#
+# Diagnosis (kaggriculture, 2026-09-11, continuation of the MAX_HIRES_PER_
+# TURN/WHEAT_PLANT_PRIORITY/WHEAT_PLANT_HOUR_CUTOFF diagnosis above): even
+# with those three knobs tuned, the crew measures saturated -- idle share
+# ~4.7% -- so only ~200 of the ~410 wheat plantings plant_quota intends
+# execute per game. Moving labor toward planting via a higher DISPATCH tier
+# or a later wheat_plant_hour_cutoff instead starves WATER tasks and raises
+# weeds 1.8-3.2x, because the existing crew is already fully committed. The
+# next lever is labor SUPPLY rather than dispatch priority: more hands on
+# the farm, not a different claim order for the hands already there.
 # HIRE is one order slot each; caps the market-list cost of catching up. Single
 # source of truth for PolicyConfig.max_hires_per_turn (threaded policy.py ->
 # plan_day(), the same pattern as dispatch.STRAWBERRY_PLANT_PRIORITY), so the
@@ -167,6 +184,7 @@ def plan_day(
     cow_target: int = COW_TARGET,
     sheep_target: int = SHEEP_TARGET,
     max_hires_per_turn: int = MAX_HIRES_PER_TURN,
+    extra_hands: int = 0,
 ) -> DayPlan:
     buys: list[list[object]] = []
     budget = money
@@ -315,7 +333,9 @@ def plan_day(
             budget -= price
 
     husbandry_hand = 1 if animals_placed >= HUSBANDRY_HAND_THRESHOLD else 0
-    hands_target = max(HANDS_MIN, round(active_tiles / HANDS_PER_TILES) + husbandry_hand)
+    hands_target = (
+        max(HANDS_MIN, round(active_tiles / HANDS_PER_TILES) + husbandry_hand) + extra_hands
+    )
     hire_count = min(max(0, hands_target - hires_today), max_hires_per_turn)
 
     return DayPlan(hire_count=hire_count, buys=buys)
