@@ -208,3 +208,27 @@ result, and play no part here.
 starves watering. Only H10 lowers weeds (44 vs 58), because it adds labor earlier instead of
 moving it. The next candidates should add effective labor rather than redistribute it: the
 midnight orphaning (25% of move-steps) and labor supply.
+
+## ADDENDUM — SCREEN VERDICT (2026-09-11): NOT ADVANCED
+
+Run at `main` = `64e99e2`, whose `packages/` and `dist/` are byte-identical to the
+expression-checked build `b594240`. Engine 1.32.7, band 866000, n = 64 per leader. Only H10
+ran: the other three arms were dropped at the expression check. Ledgers:
+`eval/gates/2026-09-11T19-17-38Z` through `…T19-22-17Z-*-money.json`, with no crash and no veto.
+
+| arm | Sokolovsky | rayk | kaito | pooled Δ (se) | 95% CI | margin Δ | verdict |
+|---|---|---|---|---|---|---|---|
+| H10 | +$1,479 | +$504 | +$362 | +$781 ($1,028) | [−$1,234, +$2,797] | −$415 | NOT ADVANCED (fails 1, 2) |
+
+H10 does not reach the +$4,000 bar, and its lower bound is below zero. There is no
+confirmation run, no guard run, and no upload decision. **Labor slice 1 is NOT ADVANCED.**
+
+**Predictions scorecard.** H10 was predicted at +$1k to +$3k, below the bar. It landed at
++$781: below the bar, and just under the predicted range. The expression check's recon
+(8 seeds, one leader) had shown +$3.2k, another overstatement from arms that share one
+baseline set.
+
+**What it means (recorded, not a verdict).** A crew that arrives an hour earlier is worth
+well under $1k a game. Moving the crew toward planting starved watering (the expression
+check), and adding labor earlier barely pays. The planting shortfall is real, but the
+labor to close it is not cheaply available by re-timing or re-ranking the work.
