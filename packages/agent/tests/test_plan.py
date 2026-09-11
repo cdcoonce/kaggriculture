@@ -745,6 +745,42 @@ def test_hands_target_unaffected_below_eight_placed_animals() -> None:
     assert plan.hire_count == 1  # target stays 12 (round(99/8)); no husbandry bonus yet
 
 
+# --- extra_hands: labor SUPPLY knob (kaggriculture diagnosis, 2026-09-11 --
+# continuation of the three labor knobs in test_policy.py) --------------------
+
+
+def test_extra_hands_raises_the_hands_target_by_exactly_two() -> None:
+    # extra_hands (PolicyConfig field, default 0) is added to hands_target
+    # AFTER the existing max(HANDS_MIN, round(active_tiles/HANDS_PER_TILES) +
+    # husbandry_hand) computation, so it never interacts with the HANDS_MIN
+    # floor or the husbandry bonus -- it is a flat add-on.
+    #
+    # active_tiles=24 -> base target 3 (HANDS_MIN; round(24/8) == 3 exactly,
+    # so the floor isn't even doing anything here). hires_today is pinned one
+    # below that base target so the uncapped hire_count (1) reveals the
+    # target exactly, mirroring test_hand_target_scales_with_active_tile_
+    # universe's isolation technique. Same kwargs both calls -- only
+    # extra_hands differs -- so any change in hire_count is attributable to
+    # it alone.
+    kwargs = dict(
+        day=0,
+        money=0.0,
+        wheat_seeds=0,
+        plantable_target_tiles=0,
+        wheat_on_hand=0,
+        goose_owned=True,
+        hires_today=2,
+        unlocked_quadrants=("NW",),
+        active_tiles=24,
+    )
+    default_plan = plan_day(**kwargs)
+    assert default_plan.hire_count == 1  # hands_target 3 (HANDS_MIN), hires_today 2
+
+    with_extra_hands = plan_day(**kwargs, extra_hands=2)
+    assert with_extra_hands.hire_count == default_plan.hire_count + 2
+    assert with_extra_hands.hire_count == 3  # hands_target 3+2=5, hires_today 2
+
+
 def test_feed_reserve_scales_with_placed_animal_count() -> None:
     plan = plan_day(
         day=5,
