@@ -1,10 +1,14 @@
-# Pre-registration: strawberry slice 1 — fund the cohort from the day-8 cash takeoff
+# Pre-registration: strawberry slice 1 — hold strawberry off until the opening has run
 
 Date: 2026-09-11
-Candidate: `champion` with the new `strawberry_start_day` knob (default 0 =
-today's behaviour; its no-op at default is proven by the build PR before any run).
-Status: REGISTERED — runs launch only after this document AND the knob's build PR
-have merged. The runner asserts engine 1.32.7 and that `PolicyConfig` has the knob.
+Candidate: `champion` with the new `strawberry_start_day` knob. On every turn whose
+day is below N, the agent behaves exactly as if `strawberry_tile_target = 0`, on
+every code path; from day N on it is the configured strawberry agent. Default 0 =
+today's behaviour, proven in the build PR by a money gate against a frozen copy of
+`main` (mean_delta 0.0, sd_delta 0.0).
+Status: REGISTERED — runs launch only after (1) this document and the knob's build PR
+have merged and (2) the expression check below has passed. The runner asserts engine
+1.32.7 and that `PolicyConfig` has the knob.
 Authorization: owner decision 2026-09-11 (strawberry rebuild).
 Instrument: own bank against the public-leader panel, CALIBRATED in
 `eval/prereg/2026-09-11-panel-instrument-calibration.md` (pooled +$1,331 on the pair
@@ -13,59 +17,104 @@ the ladder scores as tied; sd_delta ~$14-15k per seed).
 ## Why
 
 The live gap to the rating band above us is 94% strawberry, a crop we never plant.
-Our three earlier strawberry closures were true about our build: it genuinely banked
-less. Slice 0 (band 855000, recon) and a day-by-day ledger on the current tree found
-**why**, and it is not what the earlier diagnoses named:
+Our three earlier strawberry closures were true about our build — it genuinely banked
+less. Slice 0 and an 8-seed early-cash ledger found why. The ledger replays each arm
+against Sokolovsky V12 and diffs its submitted actions against the shipped agent's,
+turn by turn.
 
-- **The zone never fills.** A 31-tile target peaks at 14.9 live tiles (Sokolovsky V12:
-  35.6), with only ~3 more plantings than peak — tiles are not dying, they are never
-  planted. The 6/day plant cap binds on a single day.
-- **The cause is cash.** With strawberry on, the day-0 plan buys ~8 strawberry seeds
-  (~$800) before any pasture exists — cash the shipped agent spends on cows a few turns
-  later. Shipped: 6 cows by day 5 and 4 sheep by day 7, after which milk and wool pay
-  out: **$1.9k on day 8, $2.9k day 10, $6.5k day 11**. Strawberry-on: 2 cows and 0 sheep
-  until day 10, and **$2-122 of cash every day through day 11**. No herd, no day-8
-  takeoff, no money to fund the zone. The SW purchase slips from day ~9.5 to day 12 in
-  16/16 games.
-- The leader plants strawberry from day 3 and bursts 10-11 tiles a day on days 7 and 10
-  as its cash arrives.
+**Switching strawberry on changes the agent from turn 0, before a single strawberry
+seed is bought.** The strawberry arms diverge from the shipped agent at day 0, hour 0,
+in 16/16 games, through four code paths:
 
-**Hypothesis:** gating strawberry seed purchases until after the herd is bought lets
-the shipped opening run intact and funds a ~30-tile cohort from the day 8-11 takeoff.
-The shipped herd completes on day 7, so day 8 is the natural start.
+1. **Land.** The zone is carved out of wheat's tile set (`policy.py`, `wheat_tiles`).
+   NW+NE hold exactly 31 plantable tiles after melon (8) and pasture (10), so a
+   31-tile zone takes all of the wheat land until SW is bought.
+2. **Dispatch** (`dispatch.py`, `_field_tasks`) queues strawberry plantings ahead of
+   wheat on zone tiles; with no seeds in the shed, those tiles sit empty.
+3. **Fertilizer.** `make_policy` passes `fert_reserve = strawberry_tile_target`, which
+   withholds up to 31 units from sale from turn 0.
+4. **Cash.** The strawberry seed line buys 8-9 seeds ($800-900) on day 0, and the cow
+   orders the shipped agent submits on day 0 never come.
+
+Ledger means over seeds 855000-855007
+(`eval/recon/2026-09-11-early-cash-ledger-855000.json`):
+
+| | cows d0-4 | cows d5 | sheep d7 | wheat d3 | cash d8 | cash d11 | SW day | peak strawberry | final bank | leader's bank |
+|---|---|---|---|---|---|---|---|---|---|---|
+| shipped | 1-2 | 6.0 | 3.9 | 31 | $1,506 | $7,092 | 9.5 | — | $66,163 | $116,383 |
+| 31 + wheat 21 | 0 | 2.9 | 0 | 19 | $81 | $1,192 | 12 (8/8) | 14.9 | $60,202 | $121,699 |
+| 31, cap 10 | 0 | 2.0 | 0 | 11 | $60 | $199 | 13 (8/8) | 12.4 | $59,994 | $130,321 |
+
+Without a herd there is no day-8 milk and wool takeoff and no cash to fund the zone.
+SW requires `animals_done` (6 cows or day > 9, **and** 4 sheep or day > 11) plus
+$2,500, so it stays locked until day 12-13, at or past the day-12 strawberry plant
+cutoff. The zone peaks at 12-15 of 31 tiles: plants are not dying, they are never
+planted. The leader banks $5-14k more, most plausibly because our smaller herd stops
+competing in milk and wool. Ungated strawberry therefore costs us twice, on our own
+bank and on the gap. Slice 0's internals
+(`eval/recon/2026-09-11-strawberry-slice0-*-855000.json`) and the SW re-measure
+(`eval/recon/2026-09-11-sw-timing-855000.json`) agree: the ledger reproduces their
+banks and SW days exactly, on 16/16 games each.
+
+The leader (Slice 0's `L-sokolovsky` record) plants strawberry from day 3 and bursts
+10-11 tiles a day on days 7 and 10 as its cash arrives.
+
+**Hypothesis:** holding strawberry fully off until the opening has run (the herd
+completes by day 7; the wheat rush and SW keep their shipped schedule), then switching
+it on for a planting window from day N to day 12, funds a ~30-tile cohort from the
+day 8-11 takeoff, with wheat moving onto SW.
 
 ## Registered design
 
-Money gate, candidate `champion` with the arm's `--agent-config`, **baseline `champion`
+Money gate: candidate `champion` with the arm's `--agent-config`, **baseline `champion`
 at shipped defaults**, against each of `public:sokolovsky-v12`, `public:rayk-v11`,
 `public:kaito-v4`.
 
 | arm | `--agent-config` | purpose |
 |---|---|---|
-| START8 | `{"strawberry_tile_target": 31, "strawberry_start_day": 8, "strawberry_plant_daily_cap": 10}` | primary hypothesis |
-| START6 | same, `"strawberry_start_day": 6` | competes with the day 5-7 herd buys: mechanism check |
-| START10 | same, `"strawberry_start_day": 10` | later, fewer planting days, more cash |
-| START8_W30 | START8 plus `"wheat_rush_tiles": 30` | labor relief for the cohort |
+| START8 | `{"strawberry_tile_target": 31, "strawberry_plant_daily_cap": 10, "strawberry_start_day": 8}` | primary: on the day after the herd completes |
+| START6 | same, `"strawberry_start_day": 6` | earlier: the zone takes NW+NE's wheat land and starts drawing cash two days sooner |
+| START10 | same, `"strawberry_start_day": 10` | later: after SW in most games; three planting days, so the cap binds at 30 |
+| START8_T20 | START8 with `"strawberry_tile_target": 20` | smaller zone: leaves 11 NW+NE tiles to wheat and draws less cash and labour |
 
-`strawberry_plant_daily_cap` is raised to 10 in every arm so a funded cohort can be
-planted in the 5-day window before the day-12 plant cutoff; it bound only once in
-Slice 0, so it is not the variable under test.
+`strawberry_plant_daily_cap` is 10 in every arm so the window can be planted before the
+day-12 cutoff; it is not the variable under test.
+
+**Expression check (pre-launch recon; a precondition).** Run
+`tools/recon-scripts/early_cash_ledger.py` on the knob's build tree (recorded by SHA)
+with the shipped reference plus all four arms, on seeds 855000-855007 against
+`public:sokolovsky-v12`, and commit the record under `eval/recon/`. Every arm's
+submitted actions must match the shipped arm's **through day N-1 on 8/8 seeds**. An
+arm that fails cannot express the hypothesis, and this document is amended before any
+run.
+
+The same record bounds the shop-roster coupling (`eval/README.md`, pairing
+limitation). With occupancy identical through day N-1, the first coupled shop draw is
+the first draw-day at or after N: **6/8 draws** are coupled for START6, START8 and
+START8_T20, and **5/8** for START10. Effective power is therefore below `mde_80`,
+which is why confirmation runs at n=128.
 
 - **Screen:** band **860000**, n = **64** seeds per leader.
 - **Confirmation:** the selected arm only, band **861000**, n = **128** per leader.
-- **Guard:** the confirmed arm against `frozen:m3b_live_b6ce655` as the opponent,
-  band **862000**, n = 64.
+- **Guard:** the confirmed arm against `frozen:m3b_live_b6ce655` as the opponent, band
+  **862000**, n = 64.
 
-All three bands verified unused by every ledger in `eval/gates/`.
+All three bands are verified unused by every ledger in `eval/gates/`.
 
 ## Decision rule (fixed before launch)
 
-For each arm, per leader *i*, take `mean_delta_i` and `stderr_i` from the ledger; pool
-as the simple mean with pooled se `sqrt(sum stderr_i²)/3`; intervals are
-estimate ± 1.96 × se. The ledger's `passed` field is not the verdict.
+For each arm and each leader *i*, take `mean_delta_i`, `stderr_i`, and
+`opponent_mean_delta_i` from the ledger. Pool as the simple mean, with pooled se
+`sqrt(sum stderr_i²)/3`. Intervals are estimate ± 1.96 × se. The ledger's `passed`
+field is not the verdict.
 
-**INVALID** if the engine is not 1.32.7, the knob is absent, or any run records a
-crash or a non-empty `vetoes` list.
+**INVALID** if the engine is not 1.32.7, the knob is absent, the expression check has
+not passed, or any run records a crash-type veto (`candidate_crash`, `baseline_crash`,
+`opponent_crash`, `canary_crash`) or a `baseline_degenerate` / `opponent_degenerate`
+veto. A `candidate_degenerate` veto (the arm itself ends at or below the gate's money
+floor on a quarter or more of seeds) is a result, not an invalidity: the games are
+deterministic, so a rerun would reproduce it. That arm does not advance, confirm, or
+pass the guard.
 
 **SCREEN — an arm ADVANCES** only if all hold at band 860000:
 1. pooled own-bank delta **>= +$4,000** (about +40 Elo on the ladder-derived slope);
@@ -74,35 +123,62 @@ crash or a non-empty `vetoes` list.
 
 **SELECTION:** among advancing arms, the one with the highest pooled lower bound.
 
-**CONFIRMED** only if the selected arm, at band 861000 n=128, has pooled delta
-**>= +$4,000** and pooled lower bound **> +$1,000**.
+**CONFIRMED** only if the selected arm, at band 861000 n=128, has:
+1. pooled own-bank delta **>= +$4,000**;
+2. pooled lower bound **> +$1,000**;
+3. a pooled **margin delta** point estimate **> −$2,000**, where margin delta is
+   `mean_delta_i − opponent_mean_delta_i`, pooled as a simple mean. This is a guard,
+   not a mechanism reading (`eval/README.md` warns against reading
+   `opponent_mean_delta` at screen n). The ungated arms enriched the leader by $5-14k,
+   and an arm that gains us less than it gives the leaders does not win games. The
+   margin is not an Elo proxy: the calibrated pair (shipped vs M3b, which the ladder
+   scores as tied) shows a margin delta of +$6,177 in the band-850000 ledgers. The
+   guard only screens out an arm that enriches the leaders.
 
 **GUARD** (a no-catastrophe check, not a contested-market test): the confirmed arm's
 own-bank delta against `frozen:m3b_live_b6ce655` must have a point estimate
 **> −$2,000**. Frozen M3b grows no strawberry, so this cannot test contested strawberry
-markets — the panel does that; it exists to catch a build that breaks the economy.
+markets; the panel does that. The guard exists to catch a build that breaks the
+economy.
 
 **NOT ADVANCED / NOT CONFIRMED** otherwise. No arm substitution, band reuse, or
 threshold change after launch.
 
-REPORTED, NOT GATING: the gap (own delta minus the leader's bank delta) per arm;
-`strawberry_labor.py` internals on the selected arm (plantings by day, peak alive,
-walking share, fertilizer demand met); and the SW purchase day.
+REPORTED, NOT GATING: per arm at screen, the gap (own bank minus the leader's) and the
+margin delta. For the selected arm: `strawberry_labor.py` internals (plantings by day,
+peak alive, walking share, fertilizer demand met), the SW purchase day, and wheat
+tiles by day.
 
 ## Registered predictions
 
-- **START8 advances**, pooled own-bank delta **+$5k to +$15k**, with plantings reaching
-  ~28-31 and the SW purchase back to day ~9-10.
-- **START6 lands below START8**: a day-6 start still competes with the herd buys on
-  days 6-7.
-- **START10 lands near START8** (within its interval): a day-10 planting still fits all
-  four yield ticks before the game ends, and cash is ample by then.
-- START8_W30 is uncertain; the labor relief and the lost wheat roughly offset.
+- **Expression check:** every arm matches the shipped agent through day N-1 on 8/8
+  seeds, by construction.
+- **START8 advances**, pooled own-bank delta **+$5k to +$15k**. Its SW purchase slips
+  from day ~9.5 to about day 10-11, because the seed line runs ahead of the SW line in
+  the budget order. The zone reaches **25-31** planted tiles by day 12 as the wheat on
+  zone tiles is harvested and wheat moves to SW.
+- **START6 lands below START8.** It takes NW+NE's wheat land while the day-4/5 replant
+  is still growing, and draws on the cash SW needs sooner.
+- **START10 lands within START8's interval.** Three planting days cap it at 30 tiles,
+  but SW is usually already bought.
+- **START8_T20 advances, below START8's point estimate.** The market projection puts
+  ~120 units at most of the value, and it protects 11 tiles of wheat.
 - If **no arm advances**, the funding spiral was not the binding constraint once
-  removed, and the next suspects are labor (walking 60% against the leader's 44%) and
-  harvest cadence (we harvest at the 4-unit cap; the leaders harvest after every tick).
+  removed. The next suspects are the zone's land still being under wheat at
+  switch-on; labour (walking 60% against the leader's 44%); and harvest cadence (we
+  harvest at the 4-unit cap, while the leaders harvest after every tick).
 
 ## Consequence
 
-CONFIRMED plus a passing GUARD authorizes an upload **decision** only; the next upload
+CONFIRMED plus a passing GUARD authorizes an upload **decision** only. The next upload
 evicts M3b (our best live bot), and that remains an owner decision.
+
+## Amendment history
+
+- 2026-09-11, before merge and before any run: the first draft gated only the
+  strawberry seed-buy line and included a START8 + `wheat_rush_tiles: 30` arm. The
+  8-seed ledger and a code map showed the zone acting from turn 0 through land,
+  dispatch and fertilizer paths, so the knob now holds strawberry fully off before day
+  N. `wheat_rush_tiles` defaults to 81 and never truncates, so the W30 arm was nearly a
+  no-op; START8_T20 replaces it. The margin guard and the expression check were added
+  in the same pass.
