@@ -204,3 +204,41 @@ evicts M3b (our best live bot), and that remains an owner decision.
   N. `wheat_rush_tiles` defaults to 81 and never truncates, so the W30 arm was nearly a
   no-op; START8_T20 replaces it. The margin guard and the expression check were added
   in the same pass.
+
+## ADDENDUM — SCREEN VERDICT (2026-09-11): NOT ADVANCED
+
+Run at `main` = `1d02dae`, whose `packages/` and `dist/` are byte-identical to the
+expression-checked build `f210195`. Engine 1.32.7, band 860000, n = 64 per leader. The
+twelve ledgers are `eval/gates/2026-09-11T04-00-30Z` through `…T04-26-01Z-*-money.json`,
+with no crash and no veto. The registered rule was applied verbatim: the pooled estimate
+is the simple mean over the three leaders, with pooled se = sqrt(Σ se²)/3.
+
+| arm | Sokolovsky | rayk | kaito | pooled Δ (se) | 95% CI | margin Δ | verdict |
+|---|---|---|---|---|---|---|---|
+| START8 | −$571 | −$1,041 | −$1,495 | −$1,036 ($1,008) | [−$3,011, +$939] | −$1,423 | NOT ADVANCED (fails 1, 2) |
+| START6 | −$1,287 | +$852 | +$429 | −$2 ($947) | [−$1,857, +$1,853] | −$2,609 | NOT ADVANCED (fails 1, 2) |
+| START10 | +$1,863 | +$2,110 | +$1,646 | +$1,873 ($911) | [+$88, +$3,659] | +$1,344 | NOT ADVANCED (fails 1) |
+| START8_T20 | +$1,712 | +$2,711 | +$2,422 | +$2,282 ($913) | [+$492, +$4,072] | +$1,206 | NOT ADVANCED (fails 1) |
+
+No arm reaches the +$4,000 pooled bar. There is therefore no selection, no confirmation
+run, no guard run, and no upload decision. **Slice 1 is NOT ADVANCED.**
+
+**Predictions scorecard.** The expression check held by construction. Every other
+prediction was wrong:
+- START8 lost $1.0k rather than gaining the predicted $5-15k.
+- START6 did not land below START8 (−$2 vs −$1,036, within noise).
+- START10 landed above START8's interval, not within it.
+- START8_T20 did not advance, and it was the best arm.
+The expression check's own recon (8 seeds, one leader) overstated every arm by $4.7-8.9k.
+Its paired deltas shared the same eight baseline games, so its errors were correlated
+across arms: four positive arms at n=8 were one draw, not four.
+
+**What it means (recorded here, not part of the verdict).** Holding strawberry off until
+the opening has run fixed the funding spiral; the expression check proved the opening
+untouched. But the cohort this architecture can field by the day-12 cutoff pays about
++$2k at best: 15-22 tiles, planted late, on land taken from wheat. The two arms with a
+positive lower bound are the two that take least from wheat. The 20-tile zone leaves 11
+NW+NE tiles to wheat, and the day-10 start keeps SW on its shipped schedule. The 31-tile
+arms reclaim all of NW+NE's wheat land at day 6-8, and they lose. The binding cost is now
+the zone's displacement of wheat, not cash. That points to the registered next suspects,
+land first (a zone that does not sit on wheat land), then labour and harvest cadence.
