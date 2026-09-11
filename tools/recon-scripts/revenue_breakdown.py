@@ -76,6 +76,14 @@ ALL_ARMS: dict[str, dict[str, Any]] = {
         "strawberry_plant_daily_cap": 10,
         "strawberry_start_day": 8,
     },
+    "SW25_FIX": {
+        "strawberry_frame_quadrants": ["SW"],
+        "strawberry_tile_target": 25,
+        "strawberry_plant_daily_cap": 10,
+        "strawberry_start_day": 9,
+        "strawberry_plant_priority": 2,
+        "strawberry_fert_reserve": "planted",
+    },
 }
 
 # Known-good means for OUR seat (seat 0), averaged over the 8 seeds, from a
@@ -85,6 +93,7 @@ KNOWN_TARGET_MEANS: dict[str, float] = {
     "START8": 72725,
     "START10": 74047,
     "T20": 73122,
+    "SW25_FIX": 64324,  # the slice-2 expression-check record's mean
 }
 
 # Engine default (configuration["startingMoney"]), independently confirmed
