@@ -794,3 +794,129 @@ def test_a_small_zone_leaves_the_wheat_seed_line_alone() -> None:
         make_policy(policy_config=PolicyConfig(strawberry_tile_target=6))(raw_obs(), None)["market"]
     )
     assert small < baseline
+
+
+# --- strawberry_start_day: the WHOLE mechanic is off before it, not just the
+# seed line (diagnosis 2026-09-10) ------------------------------------------
+#
+# An earlier version of this knob lived inside plan.py's plan_day, gating
+# ONLY the BUY_SEED STRAWBERRY line. That left the zone's own land
+# RESERVATION -- the strawberry_set carve-out in decide(), below, which
+# removes those tiles from wheat_tiles before plan_day ever runs -- in place
+# from day 0 regardless of the seed gate. Measured at strawberry_tile_target
+# = 31 (8 seeds, band 855000, vs public:sokolovsky-v12, engine 1.32.7,
+# turn-by-turn action diff against the shipped agent): wheat seed buys fell
+# from 31 to 11 (at strawberry_plant_daily_cap=10) or 19 (at
+# wheat_rush_tiles=21), ~17 zone tiles sat empty from day 0 through day 11,
+# the day-0 BUY_ANIMAL:COW orders disappeared (2 -> 0), the herd was cut from
+# 6 cows by day 5 to 2-3, and the day-8 milk/wool cash takeoff never
+# happened. The fix moves the gate to decide()'s own effective-config
+# derivation (STRAWBERRY_START_DAY / PolicyConfig.strawberry_start_day,
+# above ``make_policy``), so strawberry_tile_target reads as 0 on EVERY
+# downstream path before strawberry_start_day -- the zone, wheat_tiles,
+# plan_day's own args, dispatch, and the market fertilizer reserve alike --
+# not just the seed-buy line.
+
+
+def _engine_reference_observations(seed: int) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Real day-0 and day-7 observations from an actual engine run of TODAY's
+    shipped agent (strawberry off) against a "pass" opponent.
+
+    Real, not hand-built: confirmed at seed 777201, the day-7 observation
+    this returns has land bought, 17 tiles standing (wheat/melon), 10
+    pastures built, and 6 units of FERTILIZER already sitting in the shed --
+    so the no-op comparison below actually exercises the zone carve-out, the
+    wheat fall-through, dispatch's per-tile task assignment, and the market
+    fertilizer reserve, not just an empty board that would pass the
+    invariant for uninteresting reasons.
+
+    ``episodeSteps=169`` records steps 0..168 inclusive, so index 168 is the
+    first turn of day 7 (168 // 24 == 7, hour 0) -- the same "day's first
+    turn" convention ``harness.occupancy``'s census uses, and the freshest
+    possible day-7 snapshot (hour 0, before this turn's own actions land).
+    """
+    from agent.main import agent as shipped_agent
+    from kaggle_environments import make as make_env
+
+    env = make_env("kaggriculture", configuration={"seed": seed, "episodeSteps": 169})
+    env.run([shipped_agent, "pass"])
+    day0 = env.steps[0][0].observation
+    day7 = env.steps[168][0].observation
+    assert (day0["step"], day0["day"]) == (0, 0)
+    assert (day7["step"], day7["day"], day7["hour"]) == (168, 7, 0)
+    return day0, day7
+
+
+def test_strawberry_start_day_is_a_complete_action_noop_before_it() -> None:
+    # The WHOLE action object -- farmer, hands, AND market -- not just the
+    # seed-buy line, must match the strawberry-off arm at both day 0 and day
+    # 7 (still < strawberry_start_day=8). Each comparison below builds a
+    # FRESH policy instance per arm per observation (both start with
+    # identical, just-initialized trackers/latches/claims), which isolates
+    # the single-turn mechanism from any multi-turn trajectory question --
+    # that question is what the measured no-op proof at the harness level
+    # (money_gate, champion vs frozen pre-feature baseline) covers instead.
+    day0_obs, day7_obs = _engine_reference_observations(seed=777201)
+    gated_config = PolicyConfig(
+        strawberry_tile_target=31, strawberry_plant_daily_cap=10, strawberry_start_day=8
+    )
+    off_config = PolicyConfig(strawberry_tile_target=0)
+
+    for obs in (day0_obs, day7_obs):
+        gated_action = make_policy(policy_config=gated_config)(obs, None)
+        off_action = make_policy(policy_config=off_config)(obs, None)
+        assert gated_action == off_action, (
+            f"day {obs['day']}: gated action diverged from the off arm"
+        )
+
+
+def test_strawberry_activates_once_the_start_day_arrives() -> None:
+    # The other half of the invariant: given cash and free land, the gate has
+    # to actually open, or "off before start_day" would be trivially true of
+    # a knob that never turns anything on.
+    obs = raw_obs(step=8 * 24, money=100_000.0, unlocked_quadrants=("NW", "NE"))
+    config = PolicyConfig(
+        strawberry_tile_target=31, strawberry_plant_daily_cap=10, strawberry_start_day=8
+    )
+    action = make_policy(policy_config=config)(obs, None)
+    assert any(order[:2] == ["BUY_SEED", "STRAWBERRY"] for order in action["market"]), (
+        "strawberry seed line stayed closed at day == strawberry_start_day"
+    )
+
+
+def test_one_policy_instance_activates_strawberry_crossing_the_start_day() -> None:
+    # Catches frozen persistent state. Everything the zone/seed decision
+    # depends on (strawberry_set, wheat_tiles, the fertilizer reserve, ...)
+    # is recomputed fresh every turn straight off view.day, but the
+    # trackers/latches and unit_claims closed over by ONE make_policy() call
+    # are carried across turns -- if any of that cross-turn state had
+    # memoized "the zone is empty" instead of re-deriving it every turn, a
+    # policy built once and stepped across the boundary would stay off
+    # forever, even though a freshly-built policy at day 8 (as in the test
+    # above) would still pass.
+    config = PolicyConfig(
+        strawberry_tile_target=31, strawberry_plant_daily_cap=10, strawberry_start_day=8
+    )
+    decide = make_policy(policy_config=config)
+    before = decide(raw_obs(step=7 * 24, money=100_000.0, unlocked_quadrants=("NW", "NE")), None)
+    assert not any(order[:2] == ["BUY_SEED", "STRAWBERRY"] for order in before["market"]), (
+        "strawberry bought seed before its own start_day"
+    )
+
+    after = decide(raw_obs(step=8 * 24, money=100_000.0, unlocked_quadrants=("NW", "NE")), None)
+    assert any(order[:2] == ["BUY_SEED", "STRAWBERRY"] for order in after["market"]), (
+        "strawberry stayed off after the start-day boundary on a policy instance carried across it"
+    )
+
+
+def test_default_config_keeps_the_strawberry_start_day_at_zero() -> None:
+    # Pinned default: strawberry_start_day=0 is "no gate" -- the mechanic
+    # reads the configured strawberry_tile_target from turn one, exactly as
+    # it did before this knob existed. The measured no-op proof (harness
+    # money gate against a frozen pre-feature baseline, not a unit test) is
+    # what actually holds the champion byte-identical at this default across
+    # a full game; this pins the knob itself so a future edit cannot quietly
+    # move it off zero without a fast test noticing first.
+    config = PolicyConfig()
+    assert config.strawberry_start_day == 0
+    assert config.strawberry_start_day == policy.STRAWBERRY_START_DAY
