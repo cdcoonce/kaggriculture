@@ -12,9 +12,14 @@ from __future__ import annotations
 import importlib.metadata
 from dataclasses import dataclass, field
 
-# Transcribed from docs/recon/engine-mechanics.md:149-161 ("MARKET_PARAMS (lines
-# 41-51) -- dumped verbatim"). Do not import this from the engine -- it is the
-# EXPECTED value this module checks the installed engine against.
+# Originally transcribed from docs/recon/engine-mechanics.md:149-161
+# ("MARKET_PARAMS (lines 41-51) -- dumped verbatim") for 1.32.6; CARROT/
+# TOMATO/EGG's below_func/below_target were then hand-updated for the
+# 1.32.7 bump (see EXPECTED_ENGINE_VERSION below) by diffing the installed
+# 1.32.6 vs 1.32.7 kaggriculture.py directly -- that doc was not re-derived
+# and no longer matches those three products verbatim. Do not import this
+# from the engine -- it is the EXPECTED value this module checks the
+# installed engine against.
 EXPECTED_MARKET_PARAMS: dict[str, dict[str, object]] = {
     "WHEAT": {
         "base": 25,
@@ -29,8 +34,8 @@ EXPECTED_MARKET_PARAMS: dict[str, dict[str, object]] = {
         "base": 35,
         "I0": 10000,
         "T": 450,
-        "below_func": "log",
-        "below_target": 0.20,
+        "below_func": "hinge",
+        "below_target": 1.00,
         "above_func": "sqrt",
         "above_target": 0.70,
     },
@@ -38,7 +43,7 @@ EXPECTED_MARKET_PARAMS: dict[str, dict[str, object]] = {
         "base": 60,
         "I0": 10000,
         "T": 200,
-        "below_func": "linear",
+        "below_func": "hinge",
         "below_target": 0.40,
         "above_func": "sqrt",
         "above_target": 0.60,
@@ -65,7 +70,7 @@ EXPECTED_MARKET_PARAMS: dict[str, dict[str, object]] = {
         "base": 50,
         "I0": 10000,
         "T": 332,
-        "below_func": "linear",
+        "below_func": "hinge",
         "below_target": 0.40,
         "above_func": "log",
         "above_target": 0.20,
@@ -99,12 +104,20 @@ EXPECTED_MARKET_PARAMS: dict[str, dict[str, object]] = {
     },
 }
 
-# Pinned to 1.32.6 per #24's decision on #42's verification trail: ladder probe
-# (episodes 91106026/91105152, module_version=1.32.6, townCenterSellInterval=24),
-# source-level diff (TOWN_CENTER_DEMAND_SCHEDULE removed, MARKET_PARAMS unchanged),
-# and byte-exact local reproduction (0/1438 transitions mismatched on each of two
-# committed 1.32.6 fixtures).
-EXPECTED_ENGINE_VERSION = "1.32.6"
+# Originally pinned to 1.32.6 per #24's decision on #42's verification trail:
+# ladder probe (episodes 91106026/91105152, module_version=1.32.6,
+# townCenterSellInterval=24), source-level diff (TOWN_CENTER_DEMAND_SCHEDULE
+# removed, MARKET_PARAMS unchanged), and byte-exact local reproduction
+# (0/1438 transitions mismatched on each of two committed 1.32.6 fixtures).
+#
+# Bumped to 1.32.7 (on PyPI since 2026-08-15) after the live ladder's replay
+# module_version moved to 1.32.7. Source-level diff shows this release's only
+# kaggriculture.py change is CARROT/TOMATO/EGG's below-target market-price
+# shape (below_func "log"/"linear"/"linear" -> "hinge"; CARROT's below_target
+# also moves 0.20 -> 1.00, TOMATO/EGG's below_target is unchanged at 0.40) via
+# a new HINGE_GAIN=8.0 constant, plus a kaggriculture.json description-string
+# tweak. EXPECTED_MARKET_PARAMS below reflects 1.32.7's values.
+EXPECTED_ENGINE_VERSION = "1.32.7"
 
 
 @dataclass(frozen=True)

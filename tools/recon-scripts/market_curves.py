@@ -12,7 +12,7 @@ MP = kagg.MARKET_PARAMS
 I0 = kagg.MARKET_I0
 
 
-def invert(func, value):
+def invert(func, value, T=None):
     value = max(0.0, value)
     if func == "linear":
         return value
@@ -24,6 +24,25 @@ def invert(func, value):
         return math.exp(value) - 1.0
     if func == "log10":
         return 10 ** value - 1.0
+    if func == "hinge":
+        # 1.32.7: no closed form vendored here -- bisect against the engine's
+        # own forward kagg._shape("hinge", x, T) instead of hand-deriving the
+        # piecewise-quadratic inverse, so this stays correct even if
+        # HINGE_GAIN or the hinge formula changes again. _shape("hinge", ., T)
+        # is strictly increasing in x for x >= 0 (linear below the knee,
+        # +quadratic above), so bisection is well-posed.
+        if not T or T <= 0:
+            return value  # degenerates to linear, same as _shape's own fallback
+        lo, hi = 0.0, max(T, value * T)
+        while kagg._shape(func, hi, T) < value:
+            hi *= 2
+        for _ in range(100):
+            mid = (lo + hi) / 2
+            if kagg._shape(func, mid, T) < value:
+                lo = mid
+            else:
+                hi = mid
+        return (lo + hi) / 2
     raise ValueError(func)
 
 
@@ -32,13 +51,13 @@ def delta_for_price(item, target_price, side):
     base = p["base"]
     if side == "above":
         func, target, T = p["above_func"], p["above_target"], p["T"]
-        amp = target * base / kagg._shape(func, T)
+        amp = target * base / kagg._shape(func, T, T)
         val = (base - target_price) / amp
     else:
         func, target, T = p["below_func"], p["below_target"], p["T"]
-        amp = target * base / kagg._shape(func, T)
+        amp = target * base / kagg._shape(func, T, T)
         val = (target_price - base) / amp
-    return invert(func, val)
+    return invert(func, val, T)
 
 
 print("=== Sanity check vs README table: P(I0-T), P(I0+T), P(I0+2T) ===")
