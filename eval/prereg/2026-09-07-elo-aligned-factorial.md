@@ -322,3 +322,47 @@ assumed, before any bundle is built.
 
 W30 is not withdrawn; it is simply dominated. `feat/wheat-rush-cap-30` should not
 be merged as the ship candidate.
+
+## ADDENDUM (2026-09-11, post-ladder): the head-to-head-vs-self proxy did not transfer
+
+This registration's premise was that head-to-head win rate against a frozen copy
+of our own shipped agent is "the direct proxy for the thing that is scored." The
+live ladder refutes that premise for the purpose it was used for.
+
+Submission 56088917 (source default `a344ab1`: `hand_mule_load`=20 +
+`valve_soft_threshold`=35 + `clone_front_run`) went live 2026-09-08. Offline it
+beat frozen M3b **487-13 (0.974)** (`eval/gates/2026-09-07T04-58-43Z`). Live,
+under the project's registered close criterion (paired snapshots 12m44s apart,
+completed set and rating unchanged), it reads **609.2 over 70 completed
+episodes against M3b's 638.9 over 190**. Replay-derived records over the same
+window are **28-41 (0.406) against 13-20 (0.394)** — indistinguishable. The
+implied "+629 Elo" did not appear.
+
+**Why, from the replays.** Both agents win about 70% against opponents rated
+below 650 and lose about 85% above it, and roughly 90% of losses are to
+opponents banking over $70k while we bank about $71k. A live game is decided by
+whether our bank exceeds the opponent's, against an opponent-bank spread of
+roughly $60k-110k. In a mirror match the two banks are nearly equal, so an edge
+of a few thousand dollars flips most games and reads as 0.97. Against the live
+spread the same edge flips almost none. **Head-to-head against a near-identical
+opponent amplifies small edges: it measures the sign of an effect, not its
+size.**
+
+**What transfers is own-bank gain.** A first-order counterfactual on
+56088917's 41 losses — holding each opponent's bank fixed, so an upper bound in
+a shared market — prices each +$10k of own bank at about +100 Elo (+$5k: 0.507;
++$10k: 0.565; +$20k: 0.652; +$30k: 0.768, from a 0.406 base). This
+registration's own money diagnostic recorded HML20 at **+$1,071** own bank over
+CTRL: about +10-20 Elo by that slope, invisible at the ladder's n, and
+consistent with what the ladder shows.
+
+**How to read this file now.** The RECOMMENDED verdict stands as a statement
+about head-to-head against our own lineage, and the arms' *signs* are plausibly
+right — 56088917's loss deficits are smaller than M3b's (median $24.9k against
+$38.6k). The Elo magnitudes quoted above (+275, +349, +592) must not be read as
+field Elo. And the money-gate critique in "Why the criterion changes" was half
+right: money is not the scored quantity, but own-bank gain against a
+representative, reactive opponent is a better transfer proxy than win rate
+against ourselves. The money gate's real failures were power (effects at
+0.47-0.63x `mde_80`) and replay-tape opponents that cannot react — not its
+metric.

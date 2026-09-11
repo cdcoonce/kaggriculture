@@ -256,3 +256,14 @@ default reproduces the measured arm.
 `feed_reserve`=0 is CLOSED by its own registered confirmation. No successor.
 
 Nothing in this document authorises an upload.
+
+## ADDENDUM (2026-09-11): read the Elo figures here as signs, not sizes
+
+The ladder evidence recorded in `eval/prereg/2026-09-07-elo-aligned-factorial.md`
+(2026-09-11 addendum) applies here unchanged: this screen and its confirmation
+played head-to-head against a frozen copy of our own champion, which amplifies
+small edges. `valve_soft_threshold`=35's "+146 Elo" is not field Elo; its money
+diagnostic in the screen (own bank **+$135** over CTRL) is the better guide to
+its live size, which by the ladder-derived slope of roughly +100 Elo per $10k is
+close to nothing. The CONFIRMED verdict and the `feed_reserve`=0
+selection-artifact finding stand as head-to-head results.
