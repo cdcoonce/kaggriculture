@@ -33,6 +33,7 @@ from agent.constants import (
 from agent.dispatch import (
     FEED_BATCH_CAP,
     HAND_MULE_LOAD,
+    RESCUE_WATER,
     STRAWBERRY_PLANT_CUTOFF_DAY,
     STRAWBERRY_PLANT_DAILY_CAP,
     STRAWBERRY_PLANT_PRIORITY,
@@ -314,6 +315,21 @@ class PolicyConfig:
     # on well under 1% of normal-day fetches. See dispatch.FEED_BATCH_CAP.
     feed_batch_cap: int = FEED_BATCH_CAP
     hand_mule_load: int = HAND_MULE_LOAD
+
+    # dispatch.py's own crop calendars (wheat/melon/strawberry alike) leave
+    # deliberate unwatered gap days on the assumption that the calendar's
+    # NEXT scheduled water actually happens -- true only if the crew isn't
+    # saturated. A tile whose scheduled water is missed gets no signal at
+    # all (dispatch() never reads the engine's own consecutive_unwatered)
+    # and weeds overnight: measured at 47 missed-water deaths per 4 games at
+    # shipped defaults, 102-113 in strawberry-heavy configs (kaggriculture,
+    # 2026-09-11). False is DEFAULT-NEUTRAL: dispatch() ignores
+    # consecutive_unwatered entirely at this default, exactly as before the
+    # knob existed. See dispatch.RESCUE_WATER for the full mechanism
+    # (including the max_lifespan_step skip for a plant that is exhausting
+    # regardless of watering) -- this field only carries the value into
+    # dispatch() the same way feed_batch_cap/hand_mule_load above do.
+    rescue_water: bool = RESCUE_WATER
 
     # Strawberry satellite. Defaults to a zero-tile zone, which makes every
     # strawberry code path unreachable and the whole mechanic a bit-exact
@@ -847,6 +863,7 @@ def make_policy(
             wheat_plant_hour_cutoff=cfg.wheat_plant_hour_cutoff,
             feed_batch_cap=cfg.feed_batch_cap,
             hand_mule_load=cfg.hand_mule_load,
+            rescue_water=cfg.rescue_water,
         )
         unit_claims.clear()
         unit_claims.update(actions.claims)

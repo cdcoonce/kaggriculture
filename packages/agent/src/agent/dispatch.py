@@ -56,6 +56,40 @@ HAND_MULE_LOAD = 20
 # default, so that ablation is simply today's behavior.
 FEED_BATCH_CAP = 1
 
+# Rescue watering: the engine turns ANY PLANT tile into a WEED (only DIG
+# clears one -- see the WEED branch above) once consecutive_unwatered
+# reaches 2 (kaggriculture.py's _daily_refresh_plants: incremented every day
+# the tile stays unwatered, reset to 0 the moment it's watered). A fresh
+# planting starts at consecutive_unwatered=1 -- the planting day itself
+# counts as unwatered until watered -- so every crop calendar below already
+# waters day 0 unconditionally; every OTHER deliberate gap day it leaves
+# (wheat's age 1, melon's odd ages 1/3/5, strawberry's odd maintenance ages)
+# is safe ONLY because the calendar's next scheduled water actually happens.
+# This module never reads consecutive_unwatered, so a scheduled water a
+# saturated crew never got to (it competes at priority 2, same as every
+# other in-window water, and can simply lose that race) leaves the tile with
+# no task at all on the day it dies overnight -- measured at 47 missed-water
+# deaths per 4 games at shipped defaults, 102-113 in strawberry-heavy
+# configs (kaggriculture, 2026-09-11).
+#
+# False reproduces today's behavior exactly: dispatch() ignores
+# consecutive_unwatered entirely at the default, same as before this knob
+# existed. True adds one check, evaluated before every crop's own calendar
+# in _field_tasks' PLANT branch (it is strictly more urgent than anything a
+# calendar can schedule -- this tile is gone at tonight's boundary
+# otherwise), for wheat/melon/strawberry alike:
+#   priority 0 -- the same tier as the mandatory same-day-planting water
+#     above, because both are "this water happens today or the plant is
+#     gone tonight." A lower-urgency tier (e.g. the crops' own priority 2
+#     in-window water, which only costs +1 yield if missed) could lose the
+#     exact same priority race that caused the miss in the first place.
+#   skipped once the tile is past max_lifespan_step -- the engine's own
+#     UNCONDITIONAL decay clock (kaggriculture.py's _decay_plants): once
+#     step >= that value, yield_units drains every other step with no
+#     dependence on watered_today at all, so the tile is exhausting
+#     regardless and a rescue trip buys nothing.
+RESCUE_WATER = False
+
 # Melon lifecycle (engine-verified against kaggle_environments 1.32.4): seed
 # $80, first_yield_day 10, max_yield_day 12, max_yield 6; WATER gives +1
 # yield only at age in [window_start, max_yield_day], where
@@ -437,6 +471,7 @@ def _field_tasks(
     strawberry_plant_priority: int = STRAWBERRY_PLANT_PRIORITY,
     wheat_plant_priority: int = WHEAT_PLANT_PRIORITY,
     wheat_plant_hour_cutoff: int = WHEAT_PLANT_HOUR_CUTOFF,
+    rescue_water: bool = RESCUE_WATER,
 ) -> list[_Task]:
     """Work needed on the target tiles, tagged with an urgency class.
 
@@ -495,6 +530,16 @@ def _field_tasks(
     pre-drop, so anything harvested this late can't reach the shed before
     the game ends and sells for $0 (``dispatch`` makes the matching change
     on the mule side: any carried load at all becomes worth rushing home).
+
+    Rescue watering (``rescue_water``, default off — see ``RESCUE_WATER``
+    above for the full mechanism): checked BEFORE any of the per-crop
+    branches above, for wheat/melon/strawberry alike, whenever a tile is
+    both unwatered today and already carries one miss
+    (``consecutive_unwatered >= 1``) — i.e. it converts to WEED at TONIGHT's
+    boundary otherwise. Wins priority 0 over that tile's own calendar entry,
+    whatever tier that entry would have been, unless the tile is already
+    past ``max_lifespan_step`` (exhausting on the engine's own unconditional
+    decay clock regardless of watering).
     """
     wheat_planted_today = 0
     melon_planted_today = 0
@@ -531,6 +576,9 @@ def _field_tasks(
         "COW": view.shed.get("COW", 0) + sum(inv.get("COW", 0) for inv in view.inventories),
         "SHEEP": view.shed.get("SHEEP", 0) + sum(inv.get("SHEEP", 0) for inv in view.inventories),
     }
+    # For rescue_water's max_lifespan_step comparison below -- invariant for
+    # the whole turn, so computed once rather than per tile.
+    current_step = view.day * 24 + view.hour
     tasks: list[_Task] = []
     for x, y in tiles:
         tile: Tile = view.tiles[y][x]
@@ -633,7 +681,26 @@ def _field_tasks(
             # admitted wheat matched no melon branch at all so it was never
             # harvested. The zone still decides what gets PLANTED; only the
             # standing crop's own schedule is read off the crop.
-            if tile.get("crop") == "STRAWBERRY":
+            #
+            # rescue_water is checked FIRST, ahead of every crop branch below
+            # (RESCUE_WATER above has the full mechanism): a tile already
+            # carrying one miss that is still unwatered today converts to
+            # WEED at TONIGHT's boundary regardless of crop, so it outranks
+            # even that crop's own in-window water at priority 2 on this
+            # SAME tile -- first-match-wins means a crop branch never even
+            # runs once this fires. max_lifespan_step is read here rather
+            # than hoisted with age/watered_today/yield_units above because
+            # no other branch in this function needs it.
+            max_lifespan_step = int(tile.get("max_lifespan_step", -1))
+            rescue_due = (
+                rescue_water
+                and not watered_today
+                and int(tile.get("consecutive_unwatered", 0)) >= 1
+                and not (max_lifespan_step >= 0 and current_step >= max_lifespan_step)
+            )
+            if rescue_due:
+                tasks.append(_Task((x, y), ["WATER"], priority=0))
+            elif tile.get("crop") == "STRAWBERRY":
                 strawberry_task = _strawberry_task(x, y, tile, age, view.day)
                 if strawberry_task is not None:
                     tasks.append(strawberry_task)
@@ -717,6 +784,7 @@ def dispatch(
     wheat_plant_hour_cutoff: int = WHEAT_PLANT_HOUR_CUTOFF,
     feed_batch_cap: int = FEED_BATCH_CAP,
     hand_mule_load: int = HAND_MULE_LOAD,
+    rescue_water: bool = RESCUE_WATER,
 ) -> Actions:
     """Choose an action for every unit, and report what each one claimed.
 
@@ -767,6 +835,7 @@ def dispatch(
         strawberry_plant_priority,
         wheat_plant_priority,
         wheat_plant_hour_cutoff,
+        rescue_water,
     )
     # Wheat, melon and strawberry draw from separate seed pools; keyed by the
     # task's own crop so exhausting one never blocks the others' PLANT tasks.
