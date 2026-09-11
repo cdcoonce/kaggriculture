@@ -157,3 +157,36 @@ Each extra hand adds about one unit to the crew. Wheat plantings rise 10-19% and
 36-50%, so this is the first labor lever that adds work without starving something else.
 All three arms go to the screen at band 869000. The record's bank numbers (8 seeds, one
 leader, one shared baseline) are recon, not a result, and play no part here.
+
+## ADDENDUM — SCREEN VERDICT (2026-09-11): NOT ADVANCED
+
+Run at `main` = `64c7ce4`, whose `packages/` and `dist/` are byte-identical to the
+expression-checked build `f0b92d7`. Engine 1.32.7, band 869000, n = 64 per leader. The
+nine ledgers are `eval/gates/2026-09-11T19-59-22Z` through `…T20-18-33Z-*-money.json`, with
+no crash and no veto.
+
+| arm | Sokolovsky | rayk | kaito | pooled Δ (se) | 95% CI | margin Δ | verdict |
+|---|---|---|---|---|---|---|---|
+| EH1 | +$1,081 | −$61 | −$1 | +$340 ($1,001) | [−$1,623, +$2,302] | −$4,897 | NOT ADVANCED (fails 1, 2) |
+| EH2 | −$3,133 | −$3,733 | −$3,768 | −$3,545 ($1,138) | [−$5,776, −$1,314] | −$6,674 | NOT ADVANCED (fails 1, 2, 3) |
+| EH2_H10 | −$4,119 | −$3,016 | −$3,623 | −$3,586 ($1,039) | [−$5,622, −$1,550] | −$4,984 | NOT ADVANCED (fails 1, 2, 3) |
+
+No arm advances, and the two 2-hand arms are significantly worse than shipped. There is
+no confirmation run, no guard run, and no upload decision. **Labor slice 2 is NOT
+ADVANCED.**
+
+**Predictions scorecard.**
+- EH1 was predicted at +$1k to +$4k and landed at +$340, below the range.
+- EH2 (predicted +$2k to +$6k) and EH2_H10 (predicted +$3k to +$8k, the likeliest to
+  advance) both landed near −$3.6k, with intervals wholly below zero.
+
+The expression check's mechanisms held: more crew, more plantings, far fewer weeds. But the
+work the hands bought is worth less than the hands cost.
+
+**What it means (recorded, not a verdict).** The 11th hand costs about $2.6k a game and
+roughly pays for itself; the 12th costs about $4.2k and does not. The planting and weeding
+backlog the diagnosis valued is worth little at the margin: more plantings and fewer weeds
+do not turn into money. Slice 1 already showed that reallocation starves watering and that
+an earlier crew is worth under $1k. Together, the labor line's levers are exhausted at
+these margins. The remaining suspects, the midnight orphaning and dispatch churn, would also
+buy more low-value work.
