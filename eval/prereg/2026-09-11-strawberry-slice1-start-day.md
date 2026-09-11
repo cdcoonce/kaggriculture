@@ -94,6 +94,28 @@ the first draw-day at or after N: **6/8 draws** are coupled for START6, START8 a
 START8_T20, and **5/8** for START10. Effective power is therefore below `mde_80`,
 which is why confirmation runs at n=128.
 
+**Expression check — RESULT (2026-09-11): PASSED on 8/8 seeds for all four arms.**
+Run on the knob's build commit `f210195` (engine 1.32.7, `packages/` clean). Record:
+`eval/recon/2026-09-11-strawberry-slice1-expression-check-855000.json`. Every arm's
+first action that differs from the shipped agent falls on day N, hour 0, on every seed:
+day 6 for START6, day 8 for START8 and START8_T20, day 10 for START10. The opening is
+untouched by construction, and the coupled-draw counts above hold.
+
+The same record, read as recon only (8 seeds, one leader; not a gate result):
+
+| arm | own bank vs shipped (paired) | leader's bank vs shipped | strawberry tiles at day 12 | SW day |
+|---|---|---|---|---|
+| START8 | +$6,562 (se $5,495) | +$9,201 | 21.4 | 10.9 |
+| START6 | +$8,914 (se $4,740) | +$14,496 | 19.1 | 10.6 |
+| START10 | +$7,884 (se $5,398) | +$4,149 | 22.4 | 9.5 |
+| START8_T20 | +$6,960 (se $3,737) | +$5,162 | 15.5 | 10.0 |
+
+The predictions below were fixed before this ran and are left unchanged. Two readings
+bear on them. First, the zone reaches 15-22 tiles by day 12, not the predicted 25-31:
+the NW+NE zone tiles are still under wheat at switch-on, and seed cash is thin on days
+8-9. Second, the leader's bank rises in every arm, which is what the confirmation's
+margin guard exists to catch.
+
 - **Screen:** band **860000**, n = **64** seeds per leader.
 - **Confirmation:** the selected arm only, band **861000**, n = **128** per leader.
 - **Guard:** the confirmed arm against `frozen:m3b_live_b6ce655` as the opponent, band
