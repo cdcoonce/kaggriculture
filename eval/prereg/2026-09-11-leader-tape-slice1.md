@@ -233,3 +233,55 @@ M3b (our best live bot), and that remains an owner decision.
   version too (shipped 11.8 deaths a game, the strawberry calendar 28.2, the full tape
   25.5), so it stays binding and the fix stays a build. Total weed tile-days are still
   printed, as a reported, non-gating number.
+
+## ADDENDUM — EXPRESSION CHECK (2026-09-11): NO ARM PASSES; NOT LAUNCHED
+
+Run on `c7503e9`, whose `packages/` and `dist/` are identical to `main` (8cc7b06; this
+branch adds only `eval/` and `tools/`). Engine 1.32.7, seeds 855000-855007 against
+`public:sokolovsky-v12`. Records: `eval/recon/2026-09-11-leader-tape-expression-ledger-855000.json`,
+`…-weeds-855000.json` and `…-check-855000.json`. The weed scan left none of its births
+unexplained.
+
+| arm | sheep@d2 | NE day | SW day | NW+NE@d9 | total@d12 | @d16 | missed-water deaths | weed tile-days |
+|---|---|---|---|---|---|---|---|---|
+| shipped | 0.00 | 0 | 9-10 | 0.0 | 0.0 | 0.0 | 11.4 | 58.1 |
+| LTS | 0.00 | 0 | 11-12 | 18.5 | 23.5 | 23.5 | 1.1 | 101.2 |
+| LTS_HALF | 0.00 | 0 | 11 | 15.8 | 24.9 | 24.8 | 1.1 | 94.5 |
+| LTF | 4.00 | 7 | 10-12 | 13.9 | 25.5 | 25.1 | 2.8 | 99.9 |
+
+- **C5 passes in every arm**: 1.1-2.8 missed-water deaths a game against a 17.1 bar.
+  `rescue_water` does what it was built to do.
+- **C4 passes in every arm**: what gets planted survives to day 16.
+- **C1 passes in LTF**: 4.00 sheep at the end of day 2, the leaders' own opening herd.
+  `goose_min_day` 7 freed the pasture slot it was built to free.
+- **C2 fails in LTF**: NE lands on day 7 on 8 of 8 seeds, which the criterion allows, but SW
+  is unlocked by day 11 on only 6 of 8 seeds, and the criterion needs 7.
+- **C3 fails in every arm**: the day-12 cohort reaches 23.5-25.5 tiles against the required
+  27. The day-9 NW+NE bar is cleared by LTS (18.5) and LTS_HALF (15.8), and missed by LTF
+  (13.9).
+
+**NOT LAUNCHED.** No screen, confirmation or guard ran. Bands **872000, 873000 and 874000
+are retired unused**; a successor takes fresh bands ≥ 875000.
+
+**What the check measured (recorded, not a verdict).**
+- **SW land timing is the binding constraint.** SW unlocks on day 11-12 in these arms,
+  against day 9-10 for the shipped agent and day 10 for the leaders, because strawberry seed
+  spending competes with SW's $2,500. The strawberry plant cutoff is day 12, so the zone's SW
+  share gets about one day: LTS stands at 18.5 NW+NE tiles on day 9 and 23.5 in total on day
+  12, meaning only about 5 of the zone's ~12 SW tiles are ever planted.
+- **Rescue watering trades plantings for survivals at our labor level.** Deaths fall from
+  about 28 a game to about 1, and the day-12 cohort falls from 29.5 on the design probes,
+  which had no rescue watering, to 23.5 here. Both effects are real and both point at labor.
+- **The cohort is still the largest any slice has held**: about 24 tiles standing from day 12
+  through day 16, against 15-22 in strawberry slice 1 and 16.2 decaying to 13.9 in slice 2.
+
+**Predictions scorecard.**
+- **Right:** C5 passes in every arm; C1 passes in LTF at 4.00 sheep.
+- **Wrong:** LTS_HALF was predicted to fail the day-9 fill bar and it passed at 15.8. LTS and
+  LTF were predicted to clear C3 and C4; both cleared C4 and failed C3's day-12 total. The SW
+  slip that causes the failure was not predicted at all.
+- **Unscored:** the money predictions (LTS +$2k to +$12k, LTF below it, about 40% that any arm
+  clears the bar) stand unresolved, because no screen ran.
+
+No criterion was relaxed after seeing this. A successor in the same line has to make SW land
+on time, or plant the zone before the cutoff, and then face the same bars on fresh bands.
