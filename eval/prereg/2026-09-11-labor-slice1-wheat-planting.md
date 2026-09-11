@@ -180,3 +180,31 @@ M3b (our best live bot), and that remains an owner decision.
   The same probe showed the hour-22 cutoff adding about 30 wheat plantings a game, against
   WP2's 55, so CUT22 joins as an arm of its own. The probe's bank numbers were seen but are
   not a basis for anything here: two seeds that share one baseline are one draw.
+
+## ADDENDUM — EXPRESSION CHECK (2026-09-11): H10 passes; WP2, CUT22 and COMBO fail the weed guardrail
+
+Run on the build `b594240` (engine 1.32.7, `packages/` clean), seeds 855000-855007 against
+`public:sokolovsky-v12`. The criteria were committed beforehand, in 423abbd. Record:
+`eval/recon/2026-09-11-labor-slice1-expression-check-855000.json`.
+
+| arm | units at h1 / h2 | wheat plantings | plantings at h21-22 | weed tile-days | verdict |
+|---|---|---|---|---|---|
+| shipped | 4.9 / 8.3 | 195.2 | 0 | 58.1 | reference |
+| H10 | 6.5 / 9.7 | 207.1 | 0 | 44.0 | **PASS** (hour 1-2 crew 8.1 vs 7.6 required) |
+| WP2 | 5.0 / 8.4 | 248.0 | 0 | 104.4 | **FAIL** (weeds 104.4 > 87.2) |
+| CUT22 | 4.9 / 8.3 | 221.1 | 48.5 | 115.9 | **FAIL** (weeds 115.9 > 87.2) |
+| COMBO | 7.1 / 9.8 | 256.9 | 27.0 | 183.9 | **FAIL** (weeds 183.9 > 87.2) |
+
+Every mechanism was expressed. The crew arrives sooner, plantings rise 6-32%, and the late
+window plants. But the three arms that move labor toward planting raise weeds 1.8-3.2x.
+The guardrail caught exactly the failure it was registered for: a planting push that
+starves watering. WP2 puts wheat planting in the same tier as maintenance watering, and a
+later cutoff plants tiles that go unwatered overnight. Per the rule above, those three arms
+are dropped before any run. **The screen runs H10 alone** at band 866000, with confirmation
+and guard as registered. The record's bank numbers (8 seeds, one leader) are recon, not a
+result, and play no part here.
+
+**What it means (recorded, not a verdict).** Reallocating a saturated crew toward planting
+starves watering. Only H10 lowers weeds (44 vs 58), because it adds labor earlier instead of
+moving it. The next candidates should add effective labor rather than redistribute it: the
+midnight orphaning (25% of move-steps) and labor supply.
