@@ -98,3 +98,49 @@ CALIBRATED authorizes using own-bank-vs-panel as the primary instrument of the
 strawberry screen, which will be registered separately. MISCALIBRATED stops that
 reliance. Neither outcome authorizes an upload; the next upload evicts M3b and
 remains an owner decision.
+
+## ADDENDUM (2026-09-11, post-run): CALIBRATED
+
+Runs executed 2026-09-11T02:17-02:29Z at `d1050fd` (PR #125 merged, so the
+engine pin reads 1.32.7; the runner asserted the loaded version, the shipped
+config, and the frozen M3b package before the first game). Band 850000, n=128
+seeds per leader. No crashes, no vetoes, candidate canary clean.
+
+| leader | mean_delta | stderr | 95% interval | our bank (shipped) | our bank (M3b) | leader bank Δ | sd_delta |
+|---|---|---|---|---|---|---|---|
+| `public:sokolovsky-v12` | +$1,147 | $1,346 | [−$1,491, +$3,786] | $65,255 | $64,107 | −$3,734 | $15,229 |
+| `public:rayk-v11` | +$1,512 | $1,202 | [−$843, +$3,867] | $62,644 | $61,133 | −$5,489 | $13,594 |
+| `public:kaito-v4` | +$1,335 | $1,226 | [−$1,068, +$3,738] | $62,546 | $61,211 | −$5,313 | $13,870 |
+
+Pooled (simple mean of the three, pooled se `sqrt(sum se²)/3`): **+$1,331,
+se $727, 95% interval [−$94, +$2,756].**
+
+Ledgers: `eval/gates/2026-09-11T02-21-33Z-champion-vs-public_sokolovsky-v12-money.json`,
+`...T02-25-29Z-champion-vs-public_rayk-v11-money.json`,
+`...T02-29-28Z-champion-vs-public_kaito-v4-money.json`. Each ledger's `passed`
+field reads false against the runner's generic $1,000 money threshold; as
+registered, that field is not the verdict.
+
+**Decision-rule application.** 1. Pooled point estimate +$1,331 lies in
+[−$4,000, +$8,000]: met. 2. No single leader above +$12,000 (maximum +$1,512):
+met. **Verdict: CALIBRATED.** Own-bank against the panel reproduces the ladder's
+verdict on the one pair the ladder has judged, where head-to-head against our
+own lineage read 0.974 for the same pair. It may size the strawberry screen.
+
+**Registered predictions vs outcome.**
+- *Pooled delta in [0, +$5,000]* — met (+$1,331).
+- *Our absolute bank against the leaders below our ~$71k ladder mean, likely
+  $50-65k* — met ($61.1k-65.3k across arms and leaders).
+- *The leaders bank $120-150k against us* — **missed.** Their mean bank was
+  $107,382-$115,086 (sokolovsky-v12 $111,352 vs shipped and $115,086 vs M3b; rayk-v11 $107,382 vs shipped and $112,871 vs M3b; kaito-v4 $109,384 vs shipped and $114,697 vs M3b). The prediction carried over their smoke-game
+  banks against `builtin:starter` ($149k-157k); against an agent that competes
+  for the same markets they bank far less.
+
+**Reported, not gating.** The shipped configuration also lowers each leader's
+bank by $3.7k-5.5k relative to M3b, so its effect on the gap (ours minus theirs)
+is roughly +$6k — about +60 Elo on the ladder-derived slope, consistent with the
+ladder's small, noisy edge (28-41 vs 13-20). `sd_delta` of $13.6k-15.2k per
+seed means a standard error of $1k per leader needs ~232 seeds; an effect of
+$10k or more is resolvable at n≈64.
+
+Nothing in this document authorizes an upload.
