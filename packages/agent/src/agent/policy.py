@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import time
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any
 
 from agent.constants import (
@@ -84,6 +84,29 @@ WOOL_CRASH_TRIGGER = 100.0
 MILK_CRASH_TRIGGER = 60.0
 CRASH_TRIGGER_TICKS = 12
 
+# First day the strawberry mechanic may run AT ALL -- not just its seed-buy
+# line. Diagnosis 2026-09-10: an earlier version of this knob lived inside
+# plan.py's plan_day and gated ONLY the BUY_SEED STRAWBERRY line. That left
+# the zone's own land RESERVATION (the strawberry_set carve-out in decide(),
+# below, which removes those tiles from wheat_tiles before plan_day ever
+# runs) in place from day 0 regardless of the seed gate -- so wheat's rush
+# and the day-0 herd were displaced no matter when the seed line itself was
+# allowed to buy. Measured at strawberry_tile_target=31 (8 seeds, band
+# 855000, vs public:sokolovsky-v12, engine 1.32.7, turn-by-turn action diff
+# against the shipped agent): wheat seed buys fell from 31 to 11-19, ~17 zone
+# tiles sat empty from day 0 through day 11, the day-0 BUY_ANIMAL:COW orders
+# disappeared, the herd was cut from 6 cows by day 5 to 2-3, and the day-8
+# milk/wool cash takeoff never happened.
+#
+# STRAWBERRY_START_DAY instead gates decide()'s own per-turn effective
+# config (see ``cfg`` below), so every strawberry-driven read downstream of
+# it -- the zone/reservation, the wheat fall-through, plan_day's seed line,
+# dispatch, and the market fertilizer reserve alike -- sees a zero-tile zone
+# before this day and the configured zone from it on. There is exactly one
+# mechanism, not two. 0 is the shipped default: the mechanic is fully off
+# from turn one, so this is a no-op until an eval run raises it.
+STRAWBERRY_START_DAY = 0
+
 
 @dataclass(frozen=True)
 class PolicyConfig:
@@ -129,6 +152,13 @@ class PolicyConfig:
     # prereg, when the line was sized to the zone and could ask for $1,200 a
     # day regardless of what the feed and land lines behind it needed.
     strawberry_seed_budget_share: float = STRAWBERRY_SEED_BUDGET_SHARE
+    # First day the strawberry mechanic may run at all (STRAWBERRY_START_DAY
+    # above carries the full diagnosis). 0 keeps today's behavior exactly --
+    # every turn sees the configured strawberry_tile_target from turn one,
+    # same as before this knob existed. An eval run raises it to hold the
+    # ENTIRE mechanic off -- the zone's land reservation included, not just
+    # the seed buy -- until the herd and the wheat rush have already run.
+    strawberry_start_day: int = STRAWBERRY_START_DAY
     strawberry_floor: float = STRAWBERRY_MIN_PRICE
     # A measuring instrument, not a promotion candidate.
     # STRAWBERRY_REFERENCE_QUADRANTS pins the strawberry zone to a fixed
@@ -333,15 +363,27 @@ def make_policy(
         if clock() - start > resolved_config.soft_budget_seconds:
             return pass_action()
 
+        # Effective per-turn config. Before strawberry_start_day, every read
+        # below runs as though strawberry_tile_target were 0 -- not just the
+        # seed-buy line (see STRAWBERRY_START_DAY above for the full
+        # diagnosis of why gating only the seed line was not enough). cfg is
+        # identical to resolved_config in every OTHER field always, so any
+        # code path that never touches strawberry_tile_target is provably
+        # unaffected by this line; the point is that no downstream read below
+        # needs its own, separate gate to get that guarantee.
+        cfg = (
+            replace(resolved_config, strawberry_tile_target=0)
+            if view.day < resolved_config.strawberry_start_day
+            else resolved_config
+        )
+
         tiles = target_tiles(view.unlocked_quadrants)
-        melons = melon_tiles(view.unlocked_quadrants, target=resolved_config.melon_tile_target)
+        melons = melon_tiles(view.unlocked_quadrants, target=cfg.melon_tile_target)
         # Fixed reference frame, NOT view.unlocked_quadrants -- pastures must
         # never migrate as SW/SE unlock later (constants.PASTURE_REFERENCE_
         # QUADRANTS explains why: a live value orphans built pastures and
         # placed animals the instant the nearest-shed-first ordering shifts).
-        pastures = pasture_tiles(
-            PASTURE_REFERENCE_QUADRANTS, target=resolved_config.pasture_tile_target
-        )
+        pastures = pasture_tiles(PASTURE_REFERENCE_QUADRANTS, target=cfg.pasture_tile_target)
         # Fixed reference frame for the same reason pastures use one, and more
         # urgently: a strawberry tile is occupied for seventeen days, so a zone
         # that drifted on a BUY_LAND would orphan a live plant mid-cycle and it
@@ -359,13 +401,9 @@ def make_policy(
         # PASTURE_REFERENCE_QUADRANTS silently starves and loses placed
         # animals. Do NOT mirror this flag onto pastures.
         strawberry_frame = (
-            view.unlocked_quadrants
-            if resolved_config.strawberry_frame_live
-            else STRAWBERRY_REFERENCE_QUADRANTS
+            view.unlocked_quadrants if cfg.strawberry_frame_live else STRAWBERRY_REFERENCE_QUADRANTS
         )
-        strawberries = strawberry_tiles(
-            strawberry_frame, target=resolved_config.strawberry_tile_target
-        )
+        strawberries = strawberry_tiles(strawberry_frame, target=cfg.strawberry_tile_target)
         melon_set = frozenset(melons)
         pasture_set = frozenset(pastures)
         strawberry_set = frozenset(strawberries) - melon_set - pasture_set
@@ -378,7 +416,7 @@ def make_policy(
             t
             for t in tiles
             if t not in melon_set and t not in pasture_set and t not in strawberry_set
-        ][: resolved_config.wheat_rush_tiles]
+        ][: cfg.wheat_rush_tiles]
         goose = _owned_count(view, "GOOSE") > 0
         cows_owned = _owned_count(view, "COW")
         sheep_owned = _owned_count(view, "SHEEP")
@@ -389,27 +427,27 @@ def make_policy(
             wheat_seeds=view.seeds.get("WHEAT", 0),
             plantable_target_tiles=(
                 _plantable_targets(view, wheat_tiles)
-                + _zone_fallthrough_tiles(view, resolved_config, strawberry_set)
+                + _zone_fallthrough_tiles(view, cfg, strawberry_set)
             ),
             melon_seeds=view.seeds.get("MELON", 0),
             empty_melon_tiles=_plantable_targets(view, melons),
             strawberry_seeds=view.seeds.get("STRAWBERRY", 0),
             empty_strawberry_tiles=_plantable_targets(view, sorted(strawberry_set)),
-            strawberry_plant_daily_cap=resolved_config.strawberry_plant_daily_cap,
-            strawberry_seed_budget_share=resolved_config.strawberry_seed_budget_share,
+            strawberry_plant_daily_cap=cfg.strawberry_plant_daily_cap,
+            strawberry_seed_budget_share=cfg.strawberry_seed_budget_share,
             wheat_on_hand=_wheat_on_hand(view),
             goose_owned=goose,
             hires_today=view.hires_today,
             unlocked_quadrants=view.unlocked_quadrants,
             active_tiles=len(tiles),
-            max_owned_quadrants=resolved_config.max_owned_quadrants,
+            max_owned_quadrants=cfg.max_owned_quadrants,
             cows_owned=cows_owned,
             sheep_owned=sheep_owned,
             empty_pastures=_empty_built_pastures(view, pastures),
             animals_placed=animals_placed,
-            feed_reserve=resolved_config.feed_reserve,
-            cow_target=resolved_config.cow_target,
-            sheep_target=resolved_config.sheep_target,
+            feed_reserve=cfg.feed_reserve,
+            cow_target=cfg.cow_target,
+            sheep_target=cfg.sheep_target,
         )
         actions = dispatch(
             view,
@@ -418,9 +456,9 @@ def make_policy(
             pasture_set,
             strawberry_set,
             prior_claims=unit_claims,
-            strawberry_plant_daily_cap=resolved_config.strawberry_plant_daily_cap,
-            feed_batch_cap=resolved_config.feed_batch_cap,
-            hand_mule_load=resolved_config.hand_mule_load,
+            strawberry_plant_daily_cap=cfg.strawberry_plant_daily_cap,
+            feed_batch_cap=cfg.feed_batch_cap,
+            hand_mule_load=cfg.hand_mule_load,
         )
         unit_claims.clear()
         unit_claims.update(actions.claims)
@@ -430,7 +468,7 @@ def make_policy(
         buys: list[list[object]] = list(plan.buys)
         buys.extend([["HIRE"]] * plan.hire_count)
         any_animal_owned = goose or cows_owned > 0 or sheep_owned > 0
-        wheat_reserve = animals_placed + resolved_config.feed_reserve if any_animal_owned else 0
+        wheat_reserve = animals_placed + cfg.feed_reserve if any_animal_owned else 0
         orders = build_orders(
             shed=view.shed,
             prices=view.prices,
@@ -441,25 +479,23 @@ def make_policy(
             melon_contested=melon_memory.contested,
             melon_days_since_contested=melon_memory.days_since_contested(view.day),
             melon_rolling_max=melon_memory.rolling_price_max,
-            valve_tier=_valve_tier(view.shed, config, resolved_config),
-            valve_soft_cap=resolved_config.valve_soft_cap,
-            wool_floor=resolved_config.wool_floor,
-            milk_floor=resolved_config.milk_floor,
-            fert_floor=resolved_config.fert_floor,
-            strawberry_floor=resolved_config.strawberry_floor,
+            valve_tier=_valve_tier(view.shed, config, cfg),
+            valve_soft_cap=cfg.valve_soft_cap,
+            wool_floor=cfg.wool_floor,
+            milk_floor=cfg.milk_floor,
+            fert_floor=cfg.fert_floor,
+            strawberry_floor=cfg.strawberry_floor,
             # Derived, not a separate knob, so it can never drift out of sync
             # with the zone it exists to serve -- and so it is exactly 0 (and
-            # the sell path exactly unchanged) whenever strawberry is off.
-            # One unit per zone tile covers a whole same-day planting cohort's
-            # age-9 or age-13 wave; a staggered zone never needs that many at
-            # once, so this is a safe upper bound on a single wave rather than
-            # the season's total draw.
-            fert_reserve=resolved_config.strawberry_tile_target,
+            # the sell path exactly unchanged) whenever strawberry is off,
+            # including before strawberry_start_day (cfg.strawberry_tile_target
+            # is 0 there, same as every other zone read this turn).
+            fert_reserve=cfg.strawberry_tile_target,
             wool_crashed=wool_latch.latched,
             milk_crashed=milk_latch.latched,
-            wool_milk_sell_cap=resolved_config.wool_milk_sell_cap,
+            wool_milk_sell_cap=cfg.wool_milk_sell_cap,
             front_run_products=(
-                clone_pressure_products(view) if resolved_config.clone_front_run else frozenset()
+                clone_pressure_products(view) if cfg.clone_front_run else frozenset()
             ),
         )
         # Clamped to what we actually held, not just what we asked for --
