@@ -121,6 +121,28 @@ CRASH_TRIGGER_TICKS = 12
 # from turn one, so this is a no-op until an eval run raises it.
 STRAWBERRY_START_DAY = 0
 
+# Wheat fall-through into idle strawberry-zone ground (_zone_fallthrough_
+# tiles below): dispatch.py's own strawberry branch already plants WHEAT on
+# an empty zone tile once the daily strawberry cap is spent or the planting
+# window has shut ("the reservation trap, fixed rather than inherited" --
+# see that function's docstring), but the planner only ever offers wheat the
+# ground beyond strawberry's own two-day seed horizon --
+# ZONE_FALLTHROUGH_MULTIPLIER * strawberry_plant_daily_cap. Below that
+# boundary the ground is held back for strawberry's own seed line even when
+# it is sitting empty, which is what keeps the two lines disjoint by
+# construction at this default (plan.py's own strawberry_seed_target sizes
+# to the SAME fixed 2 * strawberry_plant_daily_cap, independently).
+#
+# Diagnosis (kaggriculture, 2026-09-11): at a 36-tile zone this holds back
+# 22 tiles (cap 11) that the dispatcher would fall through to wheat anyway,
+# and standing wheat collapses from day 6 on (1-8 tiles, against 8-23 for
+# the shipped agent) -- starving the early cash that buys land and animals.
+# 2 is DEFAULT-NEUTRAL: it reproduces the fixed 2x boundary
+# _zone_fallthrough_tiles has always used, so nothing changes until an eval
+# run lowers it to hand more of that idle ground back to wheat sooner --
+# trading away some of the margin above for earlier wheat cash.
+ZONE_FALLTHROUGH_MULTIPLIER = 2
+
 _KNOWN_QUADRANTS = frozenset(QUADRANTS)
 
 #: Legal values for PolicyConfig.strawberry_fert_reserve (see its field
@@ -170,6 +192,16 @@ _MAX_NE_LAND_MIN_DAY = 29
 #: invalid day, so it is not rejected here).
 _MIN_GOOSE_MIN_DAY = 0
 _MAX_GOOSE_MIN_DAY = 29
+
+#: zone_fallthrough_multiplier: how many multiples of strawberry_plant_
+#: daily_cap the fall-through in _zone_fallthrough_tiles holds back from
+#: wheat before handing the rest over (see ZONE_FALLTHROUGH_MULTIPLIER
+#: above). 10 is a deliberately generous ceiling -- raising it only makes
+#: the mechanic MORE conservative, never untested territory the way
+#: lowering it toward 0 is -- and 0 is the floor: negative has no meaning
+#: against a tile count.
+_MIN_ZONE_FALLTHROUGH_MULTIPLIER = 0
+_MAX_ZONE_FALLTHROUGH_MULTIPLIER = 10
 
 #: animal_buy_order: must be a permutation of plan.ANIMAL_BUY_ORDER itself --
 #: checked by sorted-list equality (not a set) so a duplicate (e.g. ("COW",
@@ -337,6 +369,21 @@ class PolicyConfig:
     # unchanged until a gate says otherwise.
     strawberry_tile_target: int = STRAWBERRY_TILE_TARGET
     strawberry_plant_daily_cap: int = STRAWBERRY_PLANT_DAILY_CAP
+    # How far beyond strawberry's own two-day seed horizon
+    # (ZONE_FALLTHROUGH_MULTIPLIER above has the full mechanism) the
+    # fall-through in _zone_fallthrough_tiles reaches into idle
+    # strawberry-zone ground before handing it back to wheat. Holds back
+    # zone_fallthrough_multiplier * strawberry_plant_daily_cap tiles for
+    # strawberry's own seed line even when they are sitting empty -- at a
+    # 36-tile zone (cap 11) that is 22 tiles, and standing wheat collapses
+    # from day 6 on (1-8 tiles, against 8-23 shipped) while they sit idle.
+    # Defaults to ZONE_FALLTHROUGH_MULTIPLIER (2), DEFAULT-NEUTRAL: it
+    # reproduces the fixed boundary this formula has always used. An eval
+    # run lowers it (1 or 0) to hand more of that idle ground back to wheat
+    # sooner, trading away some of strawberry's own margin above for earlier
+    # wheat cash. __post_init__ rejects anything outside 0-10 -- see
+    # _MAX_ZONE_FALLTHROUGH_MULTIPLIER.
+    zone_fallthrough_multiplier: int = ZONE_FALLTHROUGH_MULTIPLIER
     # Priority tier for a fresh PLANT STRAWBERRY task specifically --
     # dispatch.py's _field_tasks, threaded through dispatch() the same way
     # strawberry_plant_daily_cap above is. Defaults to dispatch.
@@ -478,6 +525,10 @@ class PolicyConfig:
         checked here for the same "loud at construction" reason as every
         other field above.
 
+        zone_fallthrough_multiplier must land inside 0-10 -- see
+        _MAX_ZONE_FALLTHROUGH_MULTIPLIER -- checked here for the same "loud
+        at construction" reason as every other field above.
+
         animal_buy_order gets the same list-to-tuple coercion as
         strawberry_frame_quadrants above (JSON has no tuple type, so a CLI
         --agent-config override arrives as a list -- unhashable, and never
@@ -544,6 +595,17 @@ class PolicyConfig:
             raise ValueError(
                 f"goose_min_day must be within {_MIN_GOOSE_MIN_DAY}-"
                 f"{_MAX_GOOSE_MIN_DAY}, got {self.goose_min_day!r}"
+            )
+
+        if not (
+            _MIN_ZONE_FALLTHROUGH_MULTIPLIER
+            <= self.zone_fallthrough_multiplier
+            <= _MAX_ZONE_FALLTHROUGH_MULTIPLIER
+        ):
+            raise ValueError(
+                f"zone_fallthrough_multiplier must be within "
+                f"{_MIN_ZONE_FALLTHROUGH_MULTIPLIER}-{_MAX_ZONE_FALLTHROUGH_MULTIPLIER}, "
+                f"got {self.zone_fallthrough_multiplier!r}"
             )
 
         animal_order = tuple(self.animal_buy_order)
@@ -637,13 +699,19 @@ def _zone_fallthrough_tiles(
 
     The horizon here is strawberry's own, not the dispatcher's single-turn
     budget: ``plan.py`` sizes the strawberry seed line to TWO days of the
-    planting stagger, so anything past ``2 * cap`` is ground strawberry's own
-    seed line is not asking for either. Counting from that boundary makes the
-    two lines disjoint by construction -- no tile is ever counted by both --
-    which is what keeps this from double-buying seed for the same square. It
-    is deliberately the conservative side of the dispatcher's real behaviour:
-    the dispatcher would hand wheat more than this on any turn where the daily
-    cap is already partly spent.
+    planting stagger, so anything past
+    ``config.zone_fallthrough_multiplier * cap`` (default 2, see
+    ``ZONE_FALLTHROUGH_MULTIPLIER``) is ground strawberry's own seed line is
+    not asking for either -- AT that default. Counting from that boundary
+    makes the two lines disjoint by construction -- no tile is ever counted
+    by both -- which is what keeps this from double-buying seed for the same
+    square when the multiplier matches plan.py's own fixed 2x sizing. It is
+    deliberately the conservative side of the dispatcher's real behaviour at
+    that default: the dispatcher would hand wheat more than this on any turn
+    where the daily cap is already partly spent. Lowering the multiplier
+    trades away some of that margin, on purpose, for handing idle ground
+    back to wheat sooner -- see ``ZONE_FALLTHROUGH_MULTIPLIER`` for the
+    diagnosis.
 
     Reservation itself is untouched. ``strawberry_tiles`` keeps its fixed
     reference frame and its size, and nothing is planted here that the
@@ -657,7 +725,9 @@ def _zone_fallthrough_tiles(
         # plan.py's own strawberry seed line has stopped buying, so there is
         # nothing left to stay disjoint from.
         return empty_zone
-    return max(0, empty_zone - 2 * config.strawberry_plant_daily_cap)
+    return max(
+        0, empty_zone - config.zone_fallthrough_multiplier * config.strawberry_plant_daily_cap
+    )
 
 
 def _shed_capacity(config: dict[str, Any] | None) -> int:
