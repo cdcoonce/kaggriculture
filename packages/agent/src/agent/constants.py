@@ -221,11 +221,12 @@ def strawberry_tiles(
     pre-strawberry chassis. Memoized for the same reason as ``target_tiles``.
 
     Only correct for ``unlocked == STRAWBERRY_REFERENCE_QUADRANTS`` (the one
-    frame melon/pasture's fixed-offset assumption is built around). For any
-    other frame, use ``strawberry_tiles_for_frame`` below instead of passing
-    a different ``unlocked`` here -- ``policy.decide``'s own branch on
-    ``strawberry_frame == STRAWBERRY_REFERENCE_QUADRANTS`` is what picks
-    between the two; see that function's docstring for why they disagree.
+    frame melon/pasture's fixed-offset assumption is built around). ``policy.decide``
+    routes exactly two cases here: the default fixed frame, and
+    ``strawberry_frame_live`` (kept on this formula, as before the new knob, so
+    earlier live-frame runs stay reproducible). Any other fixed frame goes to
+    ``strawberry_tiles_for_frame`` below; see its docstring for why the two
+    disagree.
     """
     start = MELON_TILE_TARGET + PASTURE_TILE_TARGET
     return target_tiles(unlocked)[start : start + target]
@@ -261,7 +262,7 @@ def strawberry_tiles_for_frame(
     ``test_the_general_formula_disagrees_with_the_default_frame_formula_
     once_sw_unlocks``), so switching the shipped default over to this
     formula would silently change its zone. ``policy.decide`` keeps calling
-    ``strawberry_tiles`` for exactly that one frame instead.
+    ``strawberry_tiles`` for that frame, and for ``strawberry_frame_live``, instead.
 
     Not memoized: ``melon_set``/``pasture_set`` are rebuilt fresh every turn,
     so a cache keyed on them would never hit anyway -- ``target_tiles``

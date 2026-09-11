@@ -457,7 +457,10 @@ def make_policy(
         # frame across most of a real game. Any OTHER frame routes through
         # the general, melon/pasture-aware formula instead -- there is no
         # shipped-behavior default to preserve for those.
-        if strawberry_frame == STRAWBERRY_REFERENCE_QUADRANTS:
+        # strawberry_frame_live predates strawberry_frame_quadrants and keeps
+        # today's fixed-offset formula over the live quadrants; only a non-default
+        # FIXED frame takes the melon/pasture-aware one.
+        if cfg.strawberry_frame_live or strawberry_frame == STRAWBERRY_REFERENCE_QUADRANTS:
             strawberries = strawberry_tiles(strawberry_frame, target=cfg.strawberry_tile_target)
         else:
             strawberries = strawberry_tiles_for_frame(

@@ -830,6 +830,32 @@ def test_default_frame_zone_matches_todays_formula_at_every_target_and_unlock_st
             )
 
 
+def test_frame_live_keeps_todays_live_formula_at_every_target_and_unlock_state() -> None:
+    """``strawberry_frame_live=True`` predates ``strawberry_frame_quadrants`` and
+    must keep origin/main's behavior: the fixed-offset ``strawberry_tiles``
+    over the LIVE unlocked quadrants, in every live state -- never the
+    melon/pasture-aware ``strawberry_tiles_for_frame`` that the new knob
+    introduced for non-default frames. Keying decide()'s branch on the
+    frame's VALUE would route every live state other than exactly NW+NE to
+    the new formula and silently change this instrument knob.
+    """
+    states = [
+        ("NW",),
+        ("NW", "NE"),
+        ("NW", "NE", "SW"),
+        ("NW", "NE", "SE"),
+        ("NW", "NE", "SW", "SE"),
+    ]
+    for unlocked in states:
+        for target in range(32):
+            actual = _zone_built_by_decide(unlocked=unlocked, target=target, frame_live=True)
+            expected = strawberry_tiles(unlocked, target=target)
+            assert actual == expected, (
+                f"frame_live unlocked={unlocked} target={target}: decide() built {actual}, "
+                f"expected origin/main's live-frame zone {expected}"
+            )
+
+
 def test_strawberry_tiles_are_carved_out_of_the_wheat_zone() -> None:
     # Both zones claiming the same ground would have wheat's seed line buying
     # seed for tiles strawberry is about to occupy, and the dispatcher
