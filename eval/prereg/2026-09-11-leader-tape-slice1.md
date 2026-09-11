@@ -285,3 +285,31 @@ are retired unused**; a successor takes fresh bands ≥ 875000.
 
 No criterion was relaxed after seeing this. A successor in the same line has to make SW land
 on time, or plant the zone before the cutoff, and then face the same bars on fresh bands.
+
+## ADDENDUM — CORRECTION (2026-09-11): the SW slip is not mainly seed cash
+
+The check addendum above explains the day-11/12 SW purchase as strawberry seed spending
+competing with SW's $2,500. A follow-up diagnosis (dev seeds 779000-779003; records
+`eval/recon/2026-09-11-leader-tape-sw-timing-*-779000.json`, instrument
+`tools/recon-scripts/sw_timing_instrument.py`) shows that explanation is at most partial,
+and the dominant mechanism is a different one. The verdict does not change: slice 1 stays
+NOT LAUNCHED on C3 and C2, with bands 872000-874000 retired unused.
+
+- **Cash is the later-binding condition**, not the animals precondition — by 2-3 days for
+  the shipped agent and on 3 of 4 seeds for LTS. But **day 10's shortfall against the $2,500
+  gate is $2,150-2,490, larger than the $1,900 LTS diverts into strawberry seed through day
+  10**, so zeroing the seed line would not have bought SW on day 10 either.
+- **Config levers do not move it.** `strawberry_seed_budget_share` at 0.25 moved the SW day
+  by zero days on 4 of 4 seeds. Lowering `sheep_target` to trip the animals precondition
+  sooner made SW *later*, because freed cash reaches strawberry before SW in `plan_day`'s
+  spend order. No config in a 10-arm sweep landed SW by day 10 with 27 tiles standing on day
+  12.
+- **The measured driver is what the zone does to wheat.** Standing wheat collapses from day 6
+  under LTS — 1-8 tiles against the shipped agent's 8-23 — because `wheat_tiles` subtracts
+  the whole reserved strawberry zone, and `_zone_fallthrough_tiles` returns idle zone ground
+  to wheat only beyond `2 × strawberry_plant_daily_cap`, which is 22 tiles at cap 11. Wheat
+  funds the early economy, so the zone starves the cash that buys SW and the animals, and the
+  seed line is a smaller part of the same squeeze.
+
+That formula is pinned by no test today, which is its own defect. A successor slice takes it
+as the first lever, on fresh bands ≥ 875000, against these same criteria.

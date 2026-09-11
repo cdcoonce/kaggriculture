@@ -1,0 +1,5931 @@
+{
+ "identity": {
+  "script": "tools/recon-scripts/early_cash_ledger.py",
+  "git_sha": "c7b2979eb714e4621f781f6abb85136dfc3789e3",
+  "packages_dirty": false,
+  "agent_imported_from": "/Users/cdcoonce/Developer/GitHub/kaggriculture/.claude/worktrees/swdiag/packages/agent/src/agent/__init__.py",
+  "engine": "1.32.7",
+  "opponent": "public:sokolovsky-v12",
+  "seeds": [
+   779000,
+   779001,
+   779002,
+   779003
+  ],
+  "arms": {
+   "LTS": {
+    "strawberry_tile_target": 36,
+    "strawberry_frame_quadrants": [
+     "NW",
+     "NE",
+     "SW"
+    ],
+    "strawberry_start_day": 3,
+    "strawberry_plant_daily_cap": 11,
+    "strawberry_plant_priority": 2,
+    "strawberry_fert_reserve": "planted",
+    "strawberry_seed_budget_share": 1.0,
+    "rescue_water": true
+   },
+   "LTS_sheep2": {
+    "strawberry_tile_target": 36,
+    "strawberry_frame_quadrants": [
+     "NW",
+     "NE",
+     "SW"
+    ],
+    "strawberry_start_day": 3,
+    "strawberry_plant_daily_cap": 11,
+    "strawberry_plant_priority": 2,
+    "strawberry_fert_reserve": "planted",
+    "strawberry_seed_budget_share": 1.0,
+    "rescue_water": true,
+    "sheep_target": 2
+   }
+  }
+ },
+ "games": {
+  "779000": {
+   "LTS": {
+    "rows": [
+     {
+      "day": 0,
+      "obs_day": 0,
+      "money": 3.0,
+      "wheat": 17,
+      "strawberry": 0,
+      "strawberry_by_quadrant": {},
+      "melon": 2,
+      "empty": 21,
+      "weed": 0,
+      "cow": 1,
+      "sheep": 0,
+      "goose": 1,
+      "quads": "NWNE",
+      "hands": 6,
+      "orders": {
+       "BUY_ANIMAL:COW": 2,
+       "BUY_ANIMAL:GOOSE": 1,
+       "BUY_LAND": 1,
+       "BUY_PRODUCT:WHEAT": 48,
+       "BUY_SEED:MELON": 6,
+       "BUY_SEED:WHEAT": 31,
+       "HIRE": 6
+      }
+     },
+     {
+      "day": 1,
+      "obs_day": 1,
+      "money": 6.0,
+      "wheat": 27,
+      "strawberry": 0,
+      "strawberry_by_quadrant": {},
+      "melon": 4,
+      "empty": 8,
+      "weed": 0,
+      "cow": 2,
+      "sheep": 0,
+      "goose": 1,
+      "quads": "NWNE",
+      "hands": 5,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 106,
+       "HIRE": 47
+      }
+     },
+     {
+      "day": 2,
+      "obs_day": 2,
+      "money": 64.0,
+      "wheat": 30,
+      "strawberry": 0,
+      "strawberry_by_quadrant": {},
+      "melon": 6,
+      "empty": 3,
+      "weed": 0,
+      "cow": 2,
+      "sheep": 0,
+      "goose": 1,
+      "quads": "NWNE",
+      "hands": 6,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 59,
+       "BUY_SEED:MELON": 1,
+       "HIRE": 13
+      }
+     },
+     {
+      "day": 3,
+      "obs_day": 3,
+      "money": 48.0,
+      "wheat": 30,
+      "strawberry": 0,
+      "strawberry_by_quadrant": {},
+      "melon": 6,
+      "empty": 3,
+      "weed": 0,
+      "cow": 2,
+      "sheep": 0,
+      "goose": 1,
+      "quads": "NWNE",
+      "hands": 6,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 6,
+       "HIRE": 6
+      }
+     },
+     {
+      "day": 4,
+      "obs_day": 4,
+      "money": 6.0,
+      "wheat": 13,
+      "strawberry": 3,
+      "strawberry_by_quadrant": {
+       "NE": 2,
+       "NW": 1
+      },
+      "melon": 6,
+      "empty": 17,
+      "weed": 0,
+      "cow": 2,
+      "sheep": 0,
+      "goose": 1,
+      "quads": "NWNE",
+      "hands": 6,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 3,
+       "BUY_SEED:MELON": 1,
+       "BUY_SEED:STRAWBERRY": 3,
+       "BUY_SEED:WHEAT": 4,
+       "HIRE": 6
+      }
+     },
+     {
+      "day": 5,
+      "obs_day": 5,
+      "money": 69.0,
+      "wheat": 3,
+      "strawberry": 11,
+      "strawberry_by_quadrant": {
+       "NE": 6,
+       "NW": 5
+      },
+      "melon": 6,
+      "empty": 19,
+      "weed": 0,
+      "cow": 3,
+      "sheep": 0,
+      "goose": 1,
+      "quads": "NWNE",
+      "hands": 6,
+      "orders": {
+       "BUY_ANIMAL:COW": 2,
+       "BUY_PRODUCT:WHEAT": 3,
+       "BUY_SEED:STRAWBERRY": 11,
+       "BUY_SEED:WHEAT": 4,
+       "HIRE": 6
+      }
+     },
+     {
+      "day": 6,
+      "obs_day": 6,
+      "money": 2.0,
+      "wheat": 1,
+      "strawberry": 14,
+      "strawberry_by_quadrant": {
+       "NE": 7,
+       "NW": 7
+      },
+      "melon": 7,
+      "empty": 17,
+      "weed": 0,
+      "cow": 6,
+      "sheep": 0,
+      "goose": 1,
+      "quads": "NWNE",
+      "hands": 6,
+      "orders": {
+       "BUY_ANIMAL:COW": 2,
+       "BUY_PRODUCT:WHEAT": 16,
+       "HIRE": 6
+      }
+     },
+     {
+      "day": 7,
+      "obs_day": 7,
+      "money": 5.0,
+      "wheat": 4,
+      "strawberry": 14,
+      "strawberry_by_quadrant": {
+       "NE": 7,
+       "NW": 7
+      },
+      "melon": 8,
+      "empty": 12,
+      "weed": 1,
+      "cow": 6,
+      "sheep": 0,
+      "goose": 1,
+      "quads": "NWNE",
+      "hands": 6,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 36,
+       "BUY_SEED:WHEAT": 3,
+       "HIRE": 6
+      }
+     },
+     {
+      "day": 8,
+      "obs_day": 8,
+      "money": 31.0,
+      "wheat": 4,
+      "strawberry": 15,
+      "strawberry_by_quadrant": {
+       "NE": 8,
+       "NW": 7
+      },
+      "melon": 8,
+      "empty": 11,
+      "weed": 1,
+      "cow": 6,
+      "sheep": 0,
+      "goose": 1,
+      "quads": "NWNE",
+      "hands": 6,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 19,
+       "BUY_SEED:STRAWBERRY": 1,
+       "HIRE": 6
+      }
+     },
+     {
+      "day": 9,
+      "obs_day": 9,
+      "money": 157.0,
+      "wheat": 4,
+      "strawberry": 19,
+      "strawberry_by_quadrant": {
+       "NE": 10,
+       "NW": 9
+      },
+      "melon": 8,
+      "empty": 7,
+      "weed": 1,
+      "cow": 6,
+      "sheep": 1,
+      "goose": 1,
+      "quads": "NWNE",
+      "hands": 6,
+      "orders": {
+       "BUY_ANIMAL:SHEEP": 2,
+       "BUY_PRODUCT:WHEAT": 7,
+       "BUY_SEED:STRAWBERRY": 4,
+       "HIRE": 6
+      }
+     },
+     {
+      "day": 10,
+      "obs_day": 10,
+      "money": 13.0,
+      "wheat": 4,
+      "strawberry": 19,
+      "strawberry_by_quadrant": {
+       "NE": 10,
+       "NW": 9
+      },
+      "melon": 6,
+      "empty": 9,
+      "weed": 1,
+      "cow": 6,
+      "sheep": 3,
+      "goose": 1,
+      "quads": "NWNE",
+      "hands": 7,
+      "orders": {
+       "BUY_ANIMAL:SHEEP": 2,
+       "BUY_PRODUCT:WHEAT": 12,
+       "BUY_SEED:MELON": 1,
+       "HIRE": 8
+      }
+     },
+     {
+      "day": 11,
+      "obs_day": 11,
+      "money": 37.0,
+      "wheat": 1,
+      "strawberry": 24,
+      "strawberry_by_quadrant": {
+       "NE": 10,
+       "NW": 9,
+       "SW": 5
+      },
+      "melon": 6,
+      "empty": 32,
+      "weed": 1,
+      "cow": 6,
+      "sheep": 4,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_LAND": 1,
+       "BUY_PRODUCT:WHEAT": 9,
+       "BUY_SEED:MELON": 3,
+       "BUY_SEED:STRAWBERRY": 14,
+       "BUY_SEED:WHEAT": 11,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 12,
+      "obs_day": 12,
+      "money": 3582.0,
+      "wheat": 0,
+      "strawberry": 26,
+      "strawberry_by_quadrant": {
+       "NE": 10,
+       "NW": 10,
+       "SW": 6
+      },
+      "melon": 3,
+      "empty": 34,
+      "weed": 1,
+      "cow": 6,
+      "sheep": 4,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 11,
+       "BUY_SEED:STRAWBERRY": 1,
+       "BUY_SEED:WHEAT": 1,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 13,
+      "obs_day": 13,
+      "money": 6851.0,
+      "wheat": 0,
+      "strawberry": 26,
+      "strawberry_by_quadrant": {
+       "NE": 10,
+       "NW": 10,
+       "SW": 6
+      },
+      "melon": 4,
+      "empty": 33,
+      "weed": 1,
+      "cow": 6,
+      "sheep": 4,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 11,
+       "BUY_SEED:MELON": 2,
+       "BUY_SEED:WHEAT": 8,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 14,
+      "obs_day": 14,
+      "money": 8705.0,
+      "wheat": 4,
+      "strawberry": 26,
+      "strawberry_by_quadrant": {
+       "NE": 10,
+       "NW": 10,
+       "SW": 6
+      },
+      "melon": 6,
+      "empty": 27,
+      "weed": 1,
+      "cow": 6,
+      "sheep": 4,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 10,
+       "BUY_SEED:MELON": 2,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 15,
+      "obs_day": 15,
+      "money": 14313.0,
+      "wheat": 4,
+      "strawberry": 26,
+      "strawberry_by_quadrant": {
+       "NE": 10,
+       "NW": 10,
+       "SW": 6
+      },
+      "melon": 8,
+      "empty": 25,
+      "weed": 1,
+      "cow": 6,
+      "sheep": 4,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 11,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 16,
+      "obs_day": 16,
+      "money": 16100.0,
+      "wheat": 6,
+      "strawberry": 26,
+      "strawberry_by_quadrant": {
+       "NE": 10,
+       "NW": 10,
+       "SW": 6
+      },
+      "melon": 7,
+      "empty": 24,
+      "weed": 1,
+      "cow": 6,
+      "sheep": 4,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 11,
+       "BUY_SEED:WHEAT": 1,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 17,
+      "obs_day": 17,
+      "money": 19745.0,
+      "wheat": 6,
+      "strawberry": 26,
+      "strawberry_by_quadrant": {
+       "NE": 10,
+       "NW": 10,
+       "SW": 6
+      },
+      "melon": 6,
+      "empty": 25,
+      "weed": 1,
+      "cow": 6,
+      "sheep": 4,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 11,
+       "BUY_SEED:WHEAT": 1,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 18,
+      "obs_day": 18,
+      "money": 26478.0,
+      "wheat": 4,
+      "strawberry": 26,
+      "strawberry_by_quadrant": {
+       "NE": 10,
+       "NW": 10,
+       "SW": 6
+      },
+      "melon": 6,
+      "empty": 27,
+      "weed": 1,
+      "cow": 6,
+      "sheep": 4,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 9,
+       "BUY_SEED:WHEAT": 2,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 19,
+      "obs_day": 19,
+      "money": 30596.0,
+      "wheat": 3,
+      "strawberry": 26,
+      "strawberry_by_quadrant": {
+       "NE": 10,
+       "NW": 10,
+       "SW": 6
+      },
+      "melon": 6,
+      "empty": 26,
+      "weed": 3,
+      "cow": 6,
+      "sheep": 4,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 11,
+       "BUY_SEED:WHEAT": 2,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 20,
+      "obs_day": 20,
+      "money": 31991.0,
+      "wheat": 3,
+      "strawberry": 26,
+      "strawberry_by_quadrant": {
+       "NE": 10,
+       "NW": 10,
+       "SW": 6
+      },
+      "melon": 6,
+      "empty": 27,
+      "weed": 2,
+      "cow": 6,
+      "sheep": 4,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 10,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 21,
+      "obs_day": 21,
+      "money": 37699.0,
+      "wheat": 1,
+      "strawberry": 23,
+      "strawberry_by_quadrant": {
+       "NE": 8,
+       "NW": 9,
+       "SW": 6
+      },
+      "melon": 6,
+      "empty": 28,
+      "weed": 6,
+      "cow": 6,
+      "sheep": 4,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 10,
+       "BUY_SEED:WHEAT": 3,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 22,
+      "obs_day": 22,
+      "money": 43992.0,
+      "wheat": 2,
+      "strawberry": 15,
+      "strawberry_by_quadrant": {
+       "NE": 4,
+       "NW": 5,
+       "SW": 6
+      },
+      "melon": 6,
+      "empty": 29,
+      "weed": 12,
+      "cow": 6,
+      "sheep": 4,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 11,
+       "BUY_SEED:WHEAT": 1,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 23,
+      "obs_day": 23,
+      "money": 47054.0,
+      "wheat": 6,
+      "strawberry": 12,
+      "strawberry_by_quadrant": {
+       "NE": 3,
+       "NW": 3,
+       "SW": 6
+      },
+      "melon": 4,
+      "empty": 33,
+      "weed": 9,
+      "cow": 6,
+      "sheep": 4,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 9,
+       "BUY_SEED:WHEAT": 5,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 24,
+      "obs_day": 24,
+      "money": 50154.0,
+      "wheat": 7,
+      "strawberry": 12,
+      "strawberry_by_quadrant": {
+       "NE": 3,
+       "NW": 3,
+       "SW": 6
+      },
+      "melon": 2,
+      "empty": 37,
+      "weed": 6,
+      "cow": 6,
+      "sheep": 4,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 10,
+       "BUY_SEED:WHEAT": 1,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 25,
+      "obs_day": 25,
+      "money": 53309.0,
+      "wheat": 10,
+      "strawberry": 11,
+      "strawberry_by_quadrant": {
+       "NE": 2,
+       "NW": 3,
+       "SW": 6
+      },
+      "melon": 0,
+      "empty": 39,
+      "weed": 4,
+      "cow": 6,
+      "sheep": 4,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 11,
+       "BUY_SEED:WHEAT": 3,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 26,
+      "obs_day": 26,
+      "money": 57158.0,
+      "wheat": 17,
+      "strawberry": 7,
+      "strawberry_by_quadrant": {
+       "NW": 1,
+       "SW": 6
+      },
+      "melon": 0,
+      "empty": 35,
+      "weed": 5,
+      "cow": 6,
+      "sheep": 4,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 12,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 27,
+      "obs_day": 27,
+      "money": 58518.0,
+      "wheat": 14,
+      "strawberry": 7,
+      "strawberry_by_quadrant": {
+       "NW": 1,
+       "SW": 6
+      },
+      "melon": 0,
+      "empty": 39,
+      "weed": 4,
+      "cow": 6,
+      "sheep": 4,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 10,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 28,
+      "obs_day": 28,
+      "money": 63103.0,
+      "wheat": 17,
+      "strawberry": 2,
+      "strawberry_by_quadrant": {
+       "NW": 1,
+       "SW": 1
+      },
+      "melon": 0,
+      "empty": 37,
+      "weed": 8,
+      "cow": 6,
+      "sheep": 4,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 29,
+      "obs_day": 29,
+      "money": 65463.0,
+      "wheat": 17,
+      "strawberry": 0,
+      "strawberry_by_quadrant": {},
+      "melon": 0,
+      "empty": 38,
+      "weed": 9,
+      "cow": 6,
+      "sheep": 4,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "HIRE": 10
+      }
+     }
+    ],
+    "final_money": 65463.0,
+    "opp_final_money": 122360.0,
+    "sw_day": 11,
+    "peak_strawberry": 26
+   },
+   "LTS_sheep2": {
+    "rows": [
+     {
+      "day": 0,
+      "obs_day": 0,
+      "money": 270.0,
+      "wheat": 25,
+      "strawberry": 0,
+      "strawberry_by_quadrant": {},
+      "melon": 2,
+      "empty": 14,
+      "weed": 0,
+      "cow": 1,
+      "sheep": 0,
+      "goose": 1,
+      "quads": "NWNE",
+      "hands": 6,
+      "orders": {
+       "BUY_ANIMAL:COW": 1,
+       "BUY_ANIMAL:GOOSE": 1,
+       "BUY_LAND": 1,
+       "BUY_PRODUCT:WHEAT": 7,
+       "BUY_SEED:MELON": 6,
+       "BUY_SEED:WHEAT": 33,
+       "HIRE": 6
+      }
+     },
+     {
+      "day": 1,
+      "obs_day": 1,
+      "money": 232.0,
+      "wheat": 33,
+      "strawberry": 0,
+      "strawberry_by_quadrant": {},
+      "melon": 4,
+      "empty": 4,
+      "weed": 0,
+      "cow": 1,
+      "sheep": 0,
+      "goose": 1,
+      "quads": "NWNE",
+      "hands": 6,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 2,
+       "BUY_SEED:MELON": 2,
+       "HIRE": 6
+      }
+     },
+     {
+      "day": 2,
+      "obs_day": 2,
+      "money": 251.0,
+      "wheat": 33,
+      "strawberry": 0,
+      "strawberry_by_quadrant": {},
+      "melon": 5,
+      "empty": 3,
+      "weed": 0,
+      "cow": 1,
+      "sheep": 0,
+      "goose": 1,
+      "quads": "NWNE",
+      "hands": 6,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 2,
+       "HIRE": 6
+      }
+     },
+     {
+      "day": 3,
+      "obs_day": 3,
+      "money": 366.0,
+      "wheat": 33,
+      "strawberry": 0,
+      "strawberry_by_quadrant": {},
+      "melon": 5,
+      "empty": 3,
+      "weed": 0,
+      "cow": 1,
+      "sheep": 0,
+      "goose": 1,
+      "quads": "NWNE",
+      "hands": 6,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 2,
+       "HIRE": 6
+      }
+     },
+     {
+      "day": 4,
+      "obs_day": 4,
+      "money": 3.0,
+      "wheat": 10,
+      "strawberry": 3,
+      "strawberry_by_quadrant": {
+       "NE": 2,
+       "NW": 1
+      },
+      "melon": 5,
+      "empty": 23,
+      "weed": 0,
+      "cow": 2,
+      "sheep": 0,
+      "goose": 1,
+      "quads": "NWNE",
+      "hands": 6,
+      "orders": {
+       "BUY_ANIMAL:COW": 1,
+       "BUY_PRODUCT:WHEAT": 5,
+       "BUY_SEED:STRAWBERRY": 3,
+       "BUY_SEED:WHEAT": 4,
+       "HIRE": 6
+      }
+     },
+     {
+      "day": 5,
+      "obs_day": 5,
+      "money": 30.0,
+      "wheat": 2,
+      "strawberry": 12,
+      "strawberry_by_quadrant": {
+       "NE": 6,
+       "NW": 6
+      },
+      "melon": 5,
+      "empty": 22,
+      "weed": 0,
+      "cow": 4,
+      "sheep": 0,
+      "goose": 1,
+      "quads": "NWNE",
+      "hands": 6,
+      "orders": {
+       "BUY_ANIMAL:COW": 2,
+       "BUY_PRODUCT:WHEAT": 3,
+       "BUY_SEED:STRAWBERRY": 16,
+       "BUY_SEED:WHEAT": 7,
+       "HIRE": 6
+      }
+     },
+     {
+      "day": 6,
+      "obs_day": 6,
+      "money": 10.0,
+      "wheat": 4,
+      "strawberry": 19,
+      "strawberry_by_quadrant": {
+       "NE": 10,
+       "NW": 9
+      },
+      "melon": 7,
+      "empty": 10,
+      "weed": 1,
+      "cow": 5,
+      "sheep": 0,
+      "goose": 1,
+      "quads": "NWNE",
+      "hands": 6,
+      "orders": {
+       "BUY_ANIMAL:COW": 1,
+       "BUY_PRODUCT:WHEAT": 17,
+       "BUY_SEED:WHEAT": 1,
+       "HIRE": 6
+      }
+     },
+     {
+      "day": 7,
+      "obs_day": 7,
+      "money": 6.0,
+      "wheat": 6,
+      "strawberry": 19,
+      "strawberry_by_quadrant": {
+       "NE": 10,
+       "NW": 9
+      },
+      "melon": 7,
+      "empty": 9,
+      "weed": 0,
+      "cow": 5,
+      "sheep": 0,
+      "goose": 1,
+      "quads": "NWNE",
+      "hands": 6,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 60,
+       "HIRE": 20
+      }
+     },
+     {
+      "day": 8,
+      "obs_day": 8,
+      "money": 6.0,
+      "wheat": 6,
+      "strawberry": 19,
+      "strawberry_by_quadrant": {
+       "NE": 10,
+       "NW": 9
+      },
+      "melon": 7,
+      "empty": 9,
+      "weed": 0,
+      "cow": 5,
+      "sheep": 0,
+      "goose": 1,
+      "quads": "NWNE",
+      "hands": 5,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 91,
+       "HIRE": 42
+      }
+     },
+     {
+      "day": 9,
+      "obs_day": 9,
+      "money": 6.0,
+      "wheat": 6,
+      "strawberry": 19,
+      "strawberry_by_quadrant": {
+       "NE": 10,
+       "NW": 9
+      },
+      "melon": 7,
+      "empty": 9,
+      "weed": 0,
+      "cow": 5,
+      "sheep": 0,
+      "goose": 1,
+      "quads": "NWNE",
+      "hands": 5,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 135,
+       "HIRE": 43
+      }
+     },
+     {
+      "day": 10,
+      "obs_day": 10,
+      "money": 492.0,
+      "wheat": 3,
+      "strawberry": 19,
+      "strawberry_by_quadrant": {
+       "NE": 10,
+       "NW": 9
+      },
+      "melon": 7,
+      "empty": 11,
+      "weed": 1,
+      "cow": 5,
+      "sheep": 1,
+      "goose": 1,
+      "quads": "NWNE",
+      "hands": 6,
+      "orders": {
+       "BUY_ANIMAL:SHEEP": 2,
+       "BUY_PRODUCT:WHEAT": 23,
+       "BUY_SEED:STRAWBERRY": 2,
+       "BUY_SEED:WHEAT": 3,
+       "HIRE": 7
+      }
+     },
+     {
+      "day": 11,
+      "obs_day": 11,
+      "money": 2084.0,
+      "wheat": 0,
+      "strawberry": 20,
+      "strawberry_by_quadrant": {
+       "NE": 11,
+       "NW": 9
+      },
+      "melon": 5,
+      "empty": 14,
+      "weed": 2,
+      "cow": 5,
+      "sheep": 2,
+      "goose": 1,
+      "quads": "NWNE",
+      "hands": 7,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 7,
+       "BUY_SEED:MELON": 2,
+       "BUY_SEED:WHEAT": 3,
+       "HIRE": 7
+      }
+     },
+     {
+      "day": 12,
+      "obs_day": 12,
+      "money": 362.0,
+      "wheat": 0,
+      "strawberry": 24,
+      "strawberry_by_quadrant": {
+       "NE": 11,
+       "NW": 10,
+       "SW": 3
+      },
+      "melon": 3,
+      "empty": 37,
+      "weed": 2,
+      "cow": 5,
+      "sheep": 2,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_LAND": 1,
+       "BUY_PRODUCT:WHEAT": 7,
+       "BUY_SEED:MELON": 1,
+       "BUY_SEED:STRAWBERRY": 13,
+       "BUY_SEED:WHEAT": 10,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 13,
+      "obs_day": 13,
+      "money": 4671.0,
+      "wheat": 7,
+      "strawberry": 24,
+      "strawberry_by_quadrant": {
+       "NE": 11,
+       "NW": 10,
+       "SW": 3
+      },
+      "melon": 4,
+      "empty": 29,
+      "weed": 2,
+      "cow": 5,
+      "sheep": 2,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 9,
+       "BUY_SEED:MELON": 2,
+       "BUY_SEED:WHEAT": 11,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 14,
+      "obs_day": 14,
+      "money": 8748.0,
+      "wheat": 8,
+      "strawberry": 24,
+      "strawberry_by_quadrant": {
+       "NE": 11,
+       "NW": 10,
+       "SW": 3
+      },
+      "melon": 6,
+      "empty": 26,
+      "weed": 2,
+      "cow": 5,
+      "sheep": 2,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 8,
+       "BUY_SEED:MELON": 1,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 15,
+      "obs_day": 15,
+      "money": 11583.0,
+      "wheat": 10,
+      "strawberry": 24,
+      "strawberry_by_quadrant": {
+       "NE": 11,
+       "NW": 10,
+       "SW": 3
+      },
+      "melon": 7,
+      "empty": 23,
+      "weed": 2,
+      "cow": 5,
+      "sheep": 2,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 8,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 16,
+      "obs_day": 16,
+      "money": 12087.0,
+      "wheat": 11,
+      "strawberry": 24,
+      "strawberry_by_quadrant": {
+       "NE": 11,
+       "NW": 10,
+       "SW": 3
+      },
+      "melon": 5,
+      "empty": 25,
+      "weed": 1,
+      "cow": 5,
+      "sheep": 2,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 8,
+       "BUY_SEED:MELON": 1,
+       "BUY_SEED:WHEAT": 1,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 17,
+      "obs_day": 17,
+      "money": 20507.0,
+      "wheat": 9,
+      "strawberry": 24,
+      "strawberry_by_quadrant": {
+       "NE": 11,
+       "NW": 10,
+       "SW": 3
+      },
+      "melon": 6,
+      "empty": 26,
+      "weed": 1,
+      "cow": 5,
+      "sheep": 2,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 8,
+       "BUY_SEED:WHEAT": 4,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 18,
+      "obs_day": 18,
+      "money": 26257.0,
+      "wheat": 7,
+      "strawberry": 24,
+      "strawberry_by_quadrant": {
+       "NE": 11,
+       "NW": 10,
+       "SW": 3
+      },
+      "melon": 6,
+      "empty": 25,
+      "weed": 4,
+      "cow": 5,
+      "sheep": 2,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 8,
+       "BUY_SEED:WHEAT": 4,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 19,
+      "obs_day": 19,
+      "money": 32861.0,
+      "wheat": 6,
+      "strawberry": 24,
+      "strawberry_by_quadrant": {
+       "NE": 11,
+       "NW": 10,
+       "SW": 3
+      },
+      "melon": 6,
+      "empty": 25,
+      "weed": 5,
+      "cow": 5,
+      "sheep": 2,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 8,
+       "BUY_SEED:WHEAT": 1,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 20,
+      "obs_day": 20,
+      "money": 37170.0,
+      "wheat": 6,
+      "strawberry": 24,
+      "strawberry_by_quadrant": {
+       "NE": 11,
+       "NW": 10,
+       "SW": 3
+      },
+      "melon": 6,
+      "empty": 26,
+      "weed": 4,
+      "cow": 5,
+      "sheep": 2,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 8,
+       "BUY_SEED:WHEAT": 2,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 21,
+      "obs_day": 21,
+      "money": 41130.0,
+      "wheat": 4,
+      "strawberry": 21,
+      "strawberry_by_quadrant": {
+       "NE": 9,
+       "NW": 9,
+       "SW": 3
+      },
+      "melon": 6,
+      "empty": 29,
+      "weed": 6,
+      "cow": 5,
+      "sheep": 2,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 8,
+       "BUY_SEED:WHEAT": 2,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 22,
+      "obs_day": 22,
+      "money": 50600.0,
+      "wheat": 8,
+      "strawberry": 12,
+      "strawberry_by_quadrant": {
+       "NE": 5,
+       "NW": 4,
+       "SW": 3
+      },
+      "melon": 6,
+      "empty": 28,
+      "weed": 12,
+      "cow": 5,
+      "sheep": 2,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 8,
+       "BUY_SEED:WHEAT": 6,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 23,
+      "obs_day": 23,
+      "money": 58096.0,
+      "wheat": 21,
+      "strawberry": 5,
+      "strawberry_by_quadrant": {
+       "NE": 1,
+       "NW": 1,
+       "SW": 3
+      },
+      "melon": 4,
+      "empty": 27,
+      "weed": 9,
+      "cow": 5,
+      "sheep": 2,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 8,
+       "BUY_SEED:WHEAT": 13,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 24,
+      "obs_day": 24,
+      "money": 62587.0,
+      "wheat": 27,
+      "strawberry": 5,
+      "strawberry_by_quadrant": {
+       "NE": 1,
+       "NW": 1,
+       "SW": 3
+      },
+      "melon": 2,
+      "empty": 24,
+      "weed": 8,
+      "cow": 5,
+      "sheep": 2,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 7,
+       "BUY_SEED:WHEAT": 4,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 25,
+      "obs_day": 25,
+      "money": 65860.0,
+      "wheat": 28,
+      "strawberry": 5,
+      "strawberry_by_quadrant": {
+       "NE": 1,
+       "NW": 1,
+       "SW": 3
+      },
+      "melon": 2,
+      "empty": 24,
+      "weed": 7,
+      "cow": 5,
+      "sheep": 2,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 8,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 26,
+      "obs_day": 26,
+      "money": 67587.0,
+      "wheat": 23,
+      "strawberry": 5,
+      "strawberry_by_quadrant": {
+       "NE": 1,
+       "NW": 1,
+       "SW": 3
+      },
+      "melon": 1,
+      "empty": 32,
+      "weed": 5,
+      "cow": 5,
+      "sheep": 2,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 7,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 27,
+      "obs_day": 27,
+      "money": 73181.0,
+      "wheat": 19,
+      "strawberry": 5,
+      "strawberry_by_quadrant": {
+       "NE": 1,
+       "NW": 1,
+       "SW": 3
+      },
+      "melon": 0,
+      "empty": 37,
+      "weed": 5,
+      "cow": 5,
+      "sheep": 2,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 5,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 28,
+      "obs_day": 28,
+      "money": 77153.0,
+      "wheat": 21,
+      "strawberry": 4,
+      "strawberry_by_quadrant": {
+       "NW": 1,
+       "SW": 3
+      },
+      "melon": 0,
+      "empty": 37,
+      "weed": 4,
+      "cow": 5,
+      "sheep": 2,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 29,
+      "obs_day": 29,
+      "money": 83784.0,
+      "wheat": 24,
+      "strawberry": 0,
+      "strawberry_by_quadrant": {},
+      "melon": 0,
+      "empty": 35,
+      "weed": 7,
+      "cow": 5,
+      "sheep": 2,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "HIRE": 10
+      }
+     }
+    ],
+    "final_money": 83784.0,
+    "opp_final_money": 147936.0,
+    "sw_day": 12,
+    "peak_strawberry": 24,
+    "first_divergence_vs_ref": {
+     "step": 1,
+     "day": 0,
+     "hour": 0,
+     "seat": 0,
+     "ref_action": "{\"farmer\": [\"WEST\"], \"hands\": [], \"market\": [[\"BUY_ANIMAL\", \"GOOSE\", 1], [\"BUY_LAND\"], [\"BUY_SEED\", \"MELON\", 4], [\"BUY_SEED\", \"WHEAT\", 15], [\"BUY_PRODUCT\", \"WHEAT\", 3], [\"HIRE\"], [\"HIRE\"], [\"HIRE\"]]}",
+     "arm_action": "{\"farmer\": [\"WEST\"], \"hands\": [], \"market\": [[\"BUY_ANIMAL\", \"GOOSE\", 1], [\"BUY_LAND\"], [\"BUY_SEED\", \"MELON\", 4], [\"BUY_SEED\", \"WHEAT\", 16], [\"BUY_PRODUCT\", \"WHEAT\", 3], [\"HIRE\"], [\"HIRE\"], [\"HIRE\"]]}"
+    }
+   }
+  },
+  "779001": {
+   "LTS": {
+    "rows": [
+     {
+      "day": 0,
+      "obs_day": 0,
+      "money": 3.0,
+      "wheat": 17,
+      "strawberry": 0,
+      "strawberry_by_quadrant": {},
+      "melon": 2,
+      "empty": 21,
+      "weed": 0,
+      "cow": 1,
+      "sheep": 0,
+      "goose": 1,
+      "quads": "NWNE",
+      "hands": 6,
+      "orders": {
+       "BUY_ANIMAL:COW": 2,
+       "BUY_ANIMAL:GOOSE": 1,
+       "BUY_LAND": 1,
+       "BUY_PRODUCT:WHEAT": 48,
+       "BUY_SEED:MELON": 6,
+       "BUY_SEED:WHEAT": 31,
+       "HIRE": 6
+      }
+     },
+     {
+      "day": 1,
+      "obs_day": 1,
+      "money": 6.0,
+      "wheat": 27,
+      "strawberry": 0,
+      "strawberry_by_quadrant": {},
+      "melon": 4,
+      "empty": 8,
+      "weed": 0,
+      "cow": 2,
+      "sheep": 0,
+      "goose": 1,
+      "quads": "NWNE",
+      "hands": 5,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 106,
+       "HIRE": 47
+      }
+     },
+     {
+      "day": 2,
+      "obs_day": 2,
+      "money": 64.0,
+      "wheat": 30,
+      "strawberry": 0,
+      "strawberry_by_quadrant": {},
+      "melon": 6,
+      "empty": 3,
+      "weed": 0,
+      "cow": 2,
+      "sheep": 0,
+      "goose": 1,
+      "quads": "NWNE",
+      "hands": 6,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 59,
+       "BUY_SEED:MELON": 1,
+       "HIRE": 13
+      }
+     },
+     {
+      "day": 3,
+      "obs_day": 3,
+      "money": 48.0,
+      "wheat": 30,
+      "strawberry": 0,
+      "strawberry_by_quadrant": {},
+      "melon": 6,
+      "empty": 3,
+      "weed": 0,
+      "cow": 2,
+      "sheep": 0,
+      "goose": 1,
+      "quads": "NWNE",
+      "hands": 6,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 6,
+       "HIRE": 6
+      }
+     },
+     {
+      "day": 4,
+      "obs_day": 4,
+      "money": 2.0,
+      "wheat": 13,
+      "strawberry": 3,
+      "strawberry_by_quadrant": {
+       "NE": 2,
+       "NW": 1
+      },
+      "melon": 6,
+      "empty": 17,
+      "weed": 0,
+      "cow": 2,
+      "sheep": 0,
+      "goose": 1,
+      "quads": "NWNE",
+      "hands": 6,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 3,
+       "BUY_SEED:MELON": 1,
+       "BUY_SEED:STRAWBERRY": 3,
+       "BUY_SEED:WHEAT": 4,
+       "HIRE": 6
+      }
+     },
+     {
+      "day": 5,
+      "obs_day": 5,
+      "money": 54.0,
+      "wheat": 3,
+      "strawberry": 11,
+      "strawberry_by_quadrant": {
+       "NE": 6,
+       "NW": 5
+      },
+      "melon": 6,
+      "empty": 19,
+      "weed": 0,
+      "cow": 3,
+      "sheep": 0,
+      "goose": 1,
+      "quads": "NWNE",
+      "hands": 6,
+      "orders": {
+       "BUY_ANIMAL:COW": 2,
+       "BUY_PRODUCT:WHEAT": 3,
+       "BUY_SEED:STRAWBERRY": 10,
+       "BUY_SEED:WHEAT": 4,
+       "HIRE": 6
+      }
+     },
+     {
+      "day": 6,
+      "obs_day": 6,
+      "money": 12.0,
+      "wheat": 3,
+      "strawberry": 16,
+      "strawberry_by_quadrant": {
+       "NE": 8,
+       "NW": 8
+      },
+      "melon": 6,
+      "empty": 14,
+      "weed": 0,
+      "cow": 5,
+      "sheep": 0,
+      "goose": 1,
+      "quads": "NWNE",
+      "hands": 6,
+      "orders": {
+       "BUY_ANIMAL:COW": 1,
+       "BUY_PRODUCT:WHEAT": 7,
+       "BUY_SEED:STRAWBERRY": 3,
+       "BUY_SEED:WHEAT": 2,
+       "HIRE": 6
+      }
+     },
+     {
+      "day": 7,
+      "obs_day": 7,
+      "money": 47.0,
+      "wheat": 6,
+      "strawberry": 17,
+      "strawberry_by_quadrant": {
+       "NE": 9,
+       "NW": 8
+      },
+      "melon": 8,
+      "empty": 8,
+      "weed": 0,
+      "cow": 5,
+      "sheep": 0,
+      "goose": 1,
+      "quads": "NWNE",
+      "hands": 6,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 6,
+       "BUY_SEED:STRAWBERRY": 1,
+       "BUY_SEED:WHEAT": 1,
+       "HIRE": 6
+      }
+     },
+     {
+      "day": 8,
+      "obs_day": 8,
+      "money": 10.0,
+      "wheat": 7,
+      "strawberry": 17,
+      "strawberry_by_quadrant": {
+       "NE": 9,
+       "NW": 8
+      },
+      "melon": 8,
+      "empty": 7,
+      "weed": 0,
+      "cow": 5,
+      "sheep": 0,
+      "goose": 1,
+      "quads": "NWNE",
+      "hands": 6,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 10,
+       "HIRE": 6
+      }
+     },
+     {
+      "day": 9,
+      "obs_day": 9,
+      "money": 378.0,
+      "wheat": 7,
+      "strawberry": 19,
+      "strawberry_by_quadrant": {
+       "NE": 10,
+       "NW": 9
+      },
+      "melon": 8,
+      "empty": 5,
+      "weed": 0,
+      "cow": 5,
+      "sheep": 1,
+      "goose": 1,
+      "quads": "NWNE",
+      "hands": 6,
+      "orders": {
+       "BUY_ANIMAL:COW": 1,
+       "BUY_ANIMAL:SHEEP": 1,
+       "BUY_PRODUCT:WHEAT": 8,
+       "BUY_SEED:STRAWBERRY": 2,
+       "HIRE": 6
+      }
+     },
+     {
+      "day": 10,
+      "obs_day": 10,
+      "money": 135.0,
+      "wheat": 4,
+      "strawberry": 19,
+      "strawberry_by_quadrant": {
+       "NE": 10,
+       "NW": 9
+      },
+      "melon": 6,
+      "empty": 10,
+      "weed": 0,
+      "cow": 6,
+      "sheep": 4,
+      "goose": 1,
+      "quads": "NWNE",
+      "hands": 7,
+      "orders": {
+       "BUY_ANIMAL:SHEEP": 3,
+       "BUY_PRODUCT:WHEAT": 9,
+       "BUY_SEED:MELON": 1,
+       "BUY_SEED:WHEAT": 3,
+       "HIRE": 7
+      }
+     },
+     {
+      "day": 11,
+      "obs_day": 11,
+      "money": 427.0,
+      "wheat": 1,
+      "strawberry": 22,
+      "strawberry_by_quadrant": {
+       "NE": 10,
+       "NW": 9,
+       "SW": 3
+      },
+      "melon": 4,
+      "empty": 37,
+      "weed": 0,
+      "cow": 6,
+      "sheep": 4,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_LAND": 1,
+       "BUY_PRODUCT:WHEAT": 35,
+       "BUY_SEED:MELON": 3,
+       "BUY_SEED:STRAWBERRY": 14,
+       "BUY_SEED:WHEAT": 11,
+       "HIRE": 23
+      }
+     },
+     {
+      "day": 12,
+      "obs_day": 12,
+      "money": 4005.0,
+      "wheat": 0,
+      "strawberry": 25,
+      "strawberry_by_quadrant": {
+       "NE": 9,
+       "NW": 9,
+       "SW": 7
+      },
+      "melon": 4,
+      "empty": 33,
+      "weed": 2,
+      "cow": 6,
+      "sheep": 4,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 10,
+       "BUY_SEED:STRAWBERRY": 1,
+       "BUY_SEED:WHEAT": 1,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 13,
+      "obs_day": 13,
+      "money": 4668.0,
+      "wheat": 1,
+      "strawberry": 25,
+      "strawberry_by_quadrant": {
+       "NE": 9,
+       "NW": 9,
+       "SW": 7
+      },
+      "melon": 3,
+      "empty": 33,
+      "weed": 2,
+      "cow": 6,
+      "sheep": 4,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 11,
+       "BUY_SEED:MELON": 1,
+       "BUY_SEED:WHEAT": 9,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 14,
+      "obs_day": 14,
+      "money": 9141.0,
+      "wheat": 2,
+      "strawberry": 25,
+      "strawberry_by_quadrant": {
+       "NE": 9,
+       "NW": 9,
+       "SW": 7
+      },
+      "melon": 3,
+      "empty": 33,
+      "weed": 1,
+      "cow": 6,
+      "sheep": 4,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 11,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 15,
+      "obs_day": 15,
+      "money": 12188.0,
+      "wheat": 2,
+      "strawberry": 25,
+      "strawberry_by_quadrant": {
+       "NE": 9,
+       "NW": 9,
+       "SW": 7
+      },
+      "melon": 4,
+      "empty": 32,
+      "weed": 1,
+      "cow": 6,
+      "sheep": 4,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 11,
+       "BUY_SEED:MELON": 1,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 16,
+      "obs_day": 16,
+      "money": 14722.0,
+      "wheat": 2,
+      "strawberry": 25,
+      "strawberry_by_quadrant": {
+       "NE": 9,
+       "NW": 9,
+       "SW": 7
+      },
+      "melon": 4,
+      "empty": 32,
+      "weed": 1,
+      "cow": 6,
+      "sheep": 4,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 10,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 17,
+      "obs_day": 17,
+      "money": 19380.0,
+      "wheat": 3,
+      "strawberry": 25,
+      "strawberry_by_quadrant": {
+       "NE": 9,
+       "NW": 9,
+       "SW": 7
+      },
+      "melon": 2,
+      "empty": 33,
+      "weed": 1,
+      "cow": 6,
+      "sheep": 4,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 11,
+       "BUY_SEED:WHEAT": 3,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 18,
+      "obs_day": 18,
+      "money": 29169.0,
+      "wheat": 3,
+      "strawberry": 25,
+      "strawberry_by_quadrant": {
+       "NE": 9,
+       "NW": 9,
+       "SW": 7
+      },
+      "melon": 2,
+      "empty": 33,
+      "weed": 1,
+      "cow": 6,
+      "sheep": 4,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 10,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 19,
+      "obs_day": 19,
+      "money": 32987.0,
+      "wheat": 2,
+      "strawberry": 25,
+      "strawberry_by_quadrant": {
+       "NE": 9,
+       "NW": 9,
+       "SW": 7
+      },
+      "melon": 2,
+      "empty": 33,
+      "weed": 2,
+      "cow": 6,
+      "sheep": 4,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 11,
+       "BUY_SEED:WHEAT": 1,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 20,
+      "obs_day": 20,
+      "money": 38419.0,
+      "wheat": 2,
+      "strawberry": 25,
+      "strawberry_by_quadrant": {
+       "NE": 9,
+       "NW": 9,
+       "SW": 7
+      },
+      "melon": 2,
+      "empty": 33,
+      "weed": 2,
+      "cow": 6,
+      "sheep": 4,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 10,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 21,
+      "obs_day": 21,
+      "money": 42069.0,
+      "wheat": 0,
+      "strawberry": 22,
+      "strawberry_by_quadrant": {
+       "NE": 7,
+       "NW": 8,
+       "SW": 7
+      },
+      "melon": 2,
+      "empty": 35,
+      "weed": 5,
+      "cow": 6,
+      "sheep": 4,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 11,
+       "BUY_SEED:WHEAT": 1,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 22,
+      "obs_day": 22,
+      "money": 46907.0,
+      "wheat": 5,
+      "strawberry": 15,
+      "strawberry_by_quadrant": {
+       "NE": 4,
+       "NW": 4,
+       "SW": 7
+      },
+      "melon": 2,
+      "empty": 32,
+      "weed": 10,
+      "cow": 6,
+      "sheep": 4,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 11,
+       "BUY_SEED:WHEAT": 5,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 23,
+      "obs_day": 23,
+      "money": 51945.0,
+      "wheat": 14,
+      "strawberry": 10,
+      "strawberry_by_quadrant": {
+       "NE": 2,
+       "NW": 1,
+       "SW": 7
+      },
+      "melon": 1,
+      "empty": 30,
+      "weed": 9,
+      "cow": 6,
+      "sheep": 4,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 11,
+       "BUY_SEED:WHEAT": 9,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 24,
+      "obs_day": 24,
+      "money": 53506.0,
+      "wheat": 18,
+      "strawberry": 9,
+      "strawberry_by_quadrant": {
+       "NE": 1,
+       "NW": 1,
+       "SW": 7
+      },
+      "melon": 1,
+      "empty": 29,
+      "weed": 7,
+      "cow": 6,
+      "sheep": 4,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 10,
+       "BUY_SEED:WHEAT": 3,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 25,
+      "obs_day": 25,
+      "money": 56274.0,
+      "wheat": 20,
+      "strawberry": 9,
+      "strawberry_by_quadrant": {
+       "NE": 1,
+       "NW": 1,
+       "SW": 7
+      },
+      "melon": 0,
+      "empty": 31,
+      "weed": 4,
+      "cow": 6,
+      "sheep": 4,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 11,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 26,
+      "obs_day": 26,
+      "money": 60088.0,
+      "wheat": 19,
+      "strawberry": 7,
+      "strawberry_by_quadrant": {
+       "SW": 7
+      },
+      "melon": 0,
+      "empty": 32,
+      "weed": 6,
+      "cow": 6,
+      "sheep": 4,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 10,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 27,
+      "obs_day": 27,
+      "money": 62784.0,
+      "wheat": 17,
+      "strawberry": 7,
+      "strawberry_by_quadrant": {
+       "SW": 7
+      },
+      "melon": 0,
+      "empty": 34,
+      "weed": 6,
+      "cow": 6,
+      "sheep": 4,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 10,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 28,
+      "obs_day": 28,
+      "money": 67955.0,
+      "wheat": 21,
+      "strawberry": 4,
+      "strawberry_by_quadrant": {
+       "SW": 4
+      },
+      "melon": 0,
+      "empty": 31,
+      "weed": 8,
+      "cow": 6,
+      "sheep": 3,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 29,
+      "obs_day": 29,
+      "money": 73186.0,
+      "wheat": 20,
+      "strawberry": 0,
+      "strawberry_by_quadrant": {},
+      "melon": 0,
+      "empty": 33,
+      "weed": 11,
+      "cow": 6,
+      "sheep": 3,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "HIRE": 10
+      }
+     }
+    ],
+    "final_money": 73186.0,
+    "opp_final_money": 125399.0,
+    "sw_day": 11,
+    "peak_strawberry": 25
+   },
+   "LTS_sheep2": {
+    "rows": [
+     {
+      "day": 0,
+      "obs_day": 0,
+      "money": 270.0,
+      "wheat": 25,
+      "strawberry": 0,
+      "strawberry_by_quadrant": {},
+      "melon": 2,
+      "empty": 14,
+      "weed": 0,
+      "cow": 1,
+      "sheep": 0,
+      "goose": 1,
+      "quads": "NWNE",
+      "hands": 6,
+      "orders": {
+       "BUY_ANIMAL:COW": 1,
+       "BUY_ANIMAL:GOOSE": 1,
+       "BUY_LAND": 1,
+       "BUY_PRODUCT:WHEAT": 7,
+       "BUY_SEED:MELON": 6,
+       "BUY_SEED:WHEAT": 33,
+       "HIRE": 6
+      }
+     },
+     {
+      "day": 1,
+      "obs_day": 1,
+      "money": 232.0,
+      "wheat": 33,
+      "strawberry": 0,
+      "strawberry_by_quadrant": {},
+      "melon": 4,
+      "empty": 4,
+      "weed": 0,
+      "cow": 1,
+      "sheep": 0,
+      "goose": 1,
+      "quads": "NWNE",
+      "hands": 6,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 2,
+       "BUY_SEED:MELON": 2,
+       "HIRE": 6
+      }
+     },
+     {
+      "day": 2,
+      "obs_day": 2,
+      "money": 251.0,
+      "wheat": 33,
+      "strawberry": 0,
+      "strawberry_by_quadrant": {},
+      "melon": 5,
+      "empty": 3,
+      "weed": 0,
+      "cow": 1,
+      "sheep": 0,
+      "goose": 1,
+      "quads": "NWNE",
+      "hands": 6,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 2,
+       "HIRE": 6
+      }
+     },
+     {
+      "day": 3,
+      "obs_day": 3,
+      "money": 366.0,
+      "wheat": 33,
+      "strawberry": 0,
+      "strawberry_by_quadrant": {},
+      "melon": 5,
+      "empty": 3,
+      "weed": 0,
+      "cow": 1,
+      "sheep": 0,
+      "goose": 1,
+      "quads": "NWNE",
+      "hands": 6,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 2,
+       "HIRE": 6
+      }
+     },
+     {
+      "day": 4,
+      "obs_day": 4,
+      "money": 9.0,
+      "wheat": 10,
+      "strawberry": 3,
+      "strawberry_by_quadrant": {
+       "NE": 2,
+       "NW": 1
+      },
+      "melon": 5,
+      "empty": 23,
+      "weed": 0,
+      "cow": 2,
+      "sheep": 0,
+      "goose": 1,
+      "quads": "NWNE",
+      "hands": 6,
+      "orders": {
+       "BUY_ANIMAL:COW": 1,
+       "BUY_PRODUCT:WHEAT": 5,
+       "BUY_SEED:STRAWBERRY": 3,
+       "BUY_SEED:WHEAT": 3,
+       "HIRE": 6
+      }
+     },
+     {
+      "day": 5,
+      "obs_day": 5,
+      "money": 6.0,
+      "wheat": 2,
+      "strawberry": 12,
+      "strawberry_by_quadrant": {
+       "NE": 6,
+       "NW": 6
+      },
+      "melon": 5,
+      "empty": 22,
+      "weed": 0,
+      "cow": 4,
+      "sheep": 0,
+      "goose": 1,
+      "quads": "NWNE",
+      "hands": 6,
+      "orders": {
+       "BUY_ANIMAL:COW": 2,
+       "BUY_PRODUCT:WHEAT": 3,
+       "BUY_SEED:STRAWBERRY": 15,
+       "BUY_SEED:WHEAT": 8,
+       "HIRE": 6
+      }
+     },
+     {
+      "day": 6,
+      "obs_day": 6,
+      "money": 10.0,
+      "wheat": 5,
+      "strawberry": 18,
+      "strawberry_by_quadrant": {
+       "NE": 10,
+       "NW": 8
+      },
+      "melon": 7,
+      "empty": 10,
+      "weed": 1,
+      "cow": 5,
+      "sheep": 0,
+      "goose": 1,
+      "quads": "NWNE",
+      "hands": 6,
+      "orders": {
+       "BUY_ANIMAL:COW": 1,
+       "BUY_PRODUCT:WHEAT": 36,
+       "BUY_SEED:WHEAT": 1,
+       "HIRE": 6
+      }
+     },
+     {
+      "day": 7,
+      "obs_day": 7,
+      "money": 1.0,
+      "wheat": 5,
+      "strawberry": 18,
+      "strawberry_by_quadrant": {
+       "NE": 10,
+       "NW": 8
+      },
+      "melon": 8,
+      "empty": 9,
+      "weed": 1,
+      "cow": 5,
+      "sheep": 0,
+      "goose": 1,
+      "quads": "NWNE",
+      "hands": 6,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 84,
+       "HIRE": 20
+      }
+     },
+     {
+      "day": 8,
+      "obs_day": 8,
+      "money": 3.0,
+      "wheat": 5,
+      "strawberry": 18,
+      "strawberry_by_quadrant": {
+       "NE": 10,
+       "NW": 8
+      },
+      "melon": 8,
+      "empty": 9,
+      "weed": 1,
+      "cow": 5,
+      "sheep": 0,
+      "goose": 1,
+      "quads": "NWNE",
+      "hands": 4,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 98,
+       "HIRE": 64
+      }
+     },
+     {
+      "day": 9,
+      "obs_day": 9,
+      "money": 2.0,
+      "wheat": 5,
+      "strawberry": 17,
+      "strawberry_by_quadrant": {
+       "NE": 9,
+       "NW": 8
+      },
+      "melon": 8,
+      "empty": 9,
+      "weed": 2,
+      "cow": 5,
+      "sheep": 0,
+      "goose": 1,
+      "quads": "NWNE",
+      "hands": 5,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 124,
+       "HIRE": 52
+      }
+     },
+     {
+      "day": 10,
+      "obs_day": 10,
+      "money": 36.0,
+      "wheat": 0,
+      "strawberry": 18,
+      "strawberry_by_quadrant": {
+       "NE": 10,
+       "NW": 8
+      },
+      "melon": 8,
+      "empty": 12,
+      "weed": 3,
+      "cow": 5,
+      "sheep": 0,
+      "goose": 1,
+      "quads": "NWNE",
+      "hands": 6,
+      "orders": {
+       "BUY_ANIMAL:SHEEP": 2,
+       "BUY_PRODUCT:WHEAT": 17,
+       "BUY_SEED:STRAWBERRY": 5,
+       "BUY_SEED:WHEAT": 5,
+       "HIRE": 7
+      }
+     },
+     {
+      "day": 11,
+      "obs_day": 11,
+      "money": 323.0,
+      "wheat": 0,
+      "strawberry": 19,
+      "strawberry_by_quadrant": {
+       "NE": 10,
+       "NW": 9
+      },
+      "melon": 7,
+      "empty": 14,
+      "weed": 1,
+      "cow": 5,
+      "sheep": 2,
+      "goose": 1,
+      "quads": "NWNE",
+      "hands": 7,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 8,
+       "BUY_SEED:MELON": 2,
+       "HIRE": 7
+      }
+     },
+     {
+      "day": 12,
+      "obs_day": 12,
+      "money": 392.0,
+      "wheat": 0,
+      "strawberry": 23,
+      "strawberry_by_quadrant": {
+       "NE": 10,
+       "NW": 10,
+       "SW": 3
+      },
+      "melon": 4,
+      "empty": 39,
+      "weed": 0,
+      "cow": 5,
+      "sheep": 2,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_LAND": 1,
+       "BUY_PRODUCT:WHEAT": 45,
+       "BUY_SEED:MELON": 3,
+       "BUY_SEED:STRAWBERRY": 11,
+       "BUY_SEED:WHEAT": 10,
+       "HIRE": 16
+      }
+     },
+     {
+      "day": 13,
+      "obs_day": 13,
+      "money": 4865.0,
+      "wheat": 5,
+      "strawberry": 23,
+      "strawberry_by_quadrant": {
+       "NE": 10,
+       "NW": 10,
+       "SW": 3
+      },
+      "melon": 6,
+      "empty": 32,
+      "weed": 0,
+      "cow": 5,
+      "sheep": 2,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 8,
+       "BUY_SEED:MELON": 2,
+       "BUY_SEED:STRAWBERRY": 2,
+       "BUY_SEED:WHEAT": 11,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 14,
+      "obs_day": 14,
+      "money": 6310.0,
+      "wheat": 6,
+      "strawberry": 23,
+      "strawberry_by_quadrant": {
+       "NE": 10,
+       "NW": 10,
+       "SW": 3
+      },
+      "melon": 8,
+      "empty": 29,
+      "weed": 0,
+      "cow": 5,
+      "sheep": 2,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 8,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 15,
+      "obs_day": 15,
+      "money": 7252.0,
+      "wheat": 11,
+      "strawberry": 23,
+      "strawberry_by_quadrant": {
+       "NE": 10,
+       "NW": 10,
+       "SW": 3
+      },
+      "melon": 9,
+      "empty": 23,
+      "weed": 0,
+      "cow": 5,
+      "sheep": 2,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 8,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 16,
+      "obs_day": 16,
+      "money": 8060.0,
+      "wheat": 14,
+      "strawberry": 23,
+      "strawberry_by_quadrant": {
+       "NE": 10,
+       "NW": 10,
+       "SW": 3
+      },
+      "melon": 8,
+      "empty": 21,
+      "weed": 0,
+      "cow": 5,
+      "sheep": 2,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 8,
+       "BUY_SEED:MELON": 1,
+       "BUY_SEED:WHEAT": 1,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 17,
+      "obs_day": 17,
+      "money": 12543.0,
+      "wheat": 12,
+      "strawberry": 23,
+      "strawberry_by_quadrant": {
+       "NE": 10,
+       "NW": 10,
+       "SW": 3
+      },
+      "melon": 7,
+      "empty": 24,
+      "weed": 0,
+      "cow": 5,
+      "sheep": 2,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 8,
+       "BUY_SEED:WHEAT": 5,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 18,
+      "obs_day": 18,
+      "money": 19904.0,
+      "wheat": 10,
+      "strawberry": 23,
+      "strawberry_by_quadrant": {
+       "NE": 10,
+       "NW": 10,
+       "SW": 3
+      },
+      "melon": 7,
+      "empty": 25,
+      "weed": 1,
+      "cow": 5,
+      "sheep": 2,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 8,
+       "BUY_SEED:WHEAT": 2,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 19,
+      "obs_day": 19,
+      "money": 22078.0,
+      "wheat": 7,
+      "strawberry": 23,
+      "strawberry_by_quadrant": {
+       "NE": 10,
+       "NW": 10,
+       "SW": 3
+      },
+      "melon": 7,
+      "empty": 28,
+      "weed": 1,
+      "cow": 5,
+      "sheep": 2,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 8,
+       "BUY_SEED:WHEAT": 3,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 20,
+      "obs_day": 20,
+      "money": 24004.0,
+      "wheat": 5,
+      "strawberry": 23,
+      "strawberry_by_quadrant": {
+       "NE": 10,
+       "NW": 10,
+       "SW": 3
+      },
+      "melon": 7,
+      "empty": 30,
+      "weed": 1,
+      "cow": 5,
+      "sheep": 2,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 7,
+       "BUY_SEED:WHEAT": 4,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 21,
+      "obs_day": 21,
+      "money": 28708.0,
+      "wheat": 4,
+      "strawberry": 20,
+      "strawberry_by_quadrant": {
+       "NE": 8,
+       "NW": 9,
+       "SW": 3
+      },
+      "melon": 6,
+      "empty": 33,
+      "weed": 3,
+      "cow": 5,
+      "sheep": 2,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 8,
+       "BUY_SEED:WHEAT": 1,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 22,
+      "obs_day": 22,
+      "money": 30330.0,
+      "wheat": 11,
+      "strawberry": 12,
+      "strawberry_by_quadrant": {
+       "NE": 4,
+       "NW": 5,
+       "SW": 3
+      },
+      "melon": 6,
+      "empty": 27,
+      "weed": 10,
+      "cow": 5,
+      "sheep": 2,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 8,
+       "BUY_SEED:WHEAT": 8,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 23,
+      "obs_day": 23,
+      "money": 30817.0,
+      "wheat": 18,
+      "strawberry": 7,
+      "strawberry_by_quadrant": {
+       "NE": 1,
+       "NW": 3,
+       "SW": 3
+      },
+      "melon": 4,
+      "empty": 26,
+      "weed": 11,
+      "cow": 5,
+      "sheep": 2,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 6,
+       "BUY_SEED:WHEAT": 8,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 24,
+      "obs_day": 24,
+      "money": 33423.0,
+      "wheat": 26,
+      "strawberry": 7,
+      "strawberry_by_quadrant": {
+       "NE": 1,
+       "NW": 3,
+       "SW": 3
+      },
+      "melon": 2,
+      "empty": 24,
+      "weed": 7,
+      "cow": 5,
+      "sheep": 2,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 8,
+       "BUY_SEED:WHEAT": 4,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 25,
+      "obs_day": 25,
+      "money": 33953.0,
+      "wheat": 28,
+      "strawberry": 7,
+      "strawberry_by_quadrant": {
+       "NE": 1,
+       "NW": 3,
+       "SW": 3
+      },
+      "melon": 1,
+      "empty": 25,
+      "weed": 5,
+      "cow": 5,
+      "sheep": 2,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 8,
+       "BUY_SEED:WHEAT": 1,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 26,
+      "obs_day": 26,
+      "money": 34321.0,
+      "wheat": 21,
+      "strawberry": 7,
+      "strawberry_by_quadrant": {
+       "NE": 1,
+       "NW": 3,
+       "SW": 3
+      },
+      "melon": 0,
+      "empty": 34,
+      "weed": 4,
+      "cow": 5,
+      "sheep": 2,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 8,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 27,
+      "obs_day": 27,
+      "money": 37635.0,
+      "wheat": 19,
+      "strawberry": 5,
+      "strawberry_by_quadrant": {
+       "NW": 2,
+       "SW": 3
+      },
+      "melon": 0,
+      "empty": 37,
+      "weed": 5,
+      "cow": 5,
+      "sheep": 2,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 7,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 28,
+      "obs_day": 28,
+      "money": 39206.0,
+      "wheat": 19,
+      "strawberry": 4,
+      "strawberry_by_quadrant": {
+       "NW": 1,
+       "SW": 3
+      },
+      "melon": 0,
+      "empty": 38,
+      "weed": 5,
+      "cow": 5,
+      "sheep": 2,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 29,
+      "obs_day": 29,
+      "money": 41875.0,
+      "wheat": 17,
+      "strawberry": 0,
+      "strawberry_by_quadrant": {},
+      "melon": 0,
+      "empty": 41,
+      "weed": 8,
+      "cow": 5,
+      "sheep": 2,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "HIRE": 10
+      }
+     }
+    ],
+    "final_money": 41875.0,
+    "opp_final_money": 85645.0,
+    "sw_day": 12,
+    "peak_strawberry": 23,
+    "first_divergence_vs_ref": {
+     "step": 1,
+     "day": 0,
+     "hour": 0,
+     "seat": 0,
+     "ref_action": "{\"farmer\": [\"WEST\"], \"hands\": [], \"market\": [[\"BUY_ANIMAL\", \"GOOSE\", 1], [\"BUY_LAND\"], [\"BUY_SEED\", \"MELON\", 4], [\"BUY_SEED\", \"WHEAT\", 15], [\"BUY_PRODUCT\", \"WHEAT\", 3], [\"HIRE\"], [\"HIRE\"], [\"HIRE\"]]}",
+     "arm_action": "{\"farmer\": [\"WEST\"], \"hands\": [], \"market\": [[\"BUY_ANIMAL\", \"GOOSE\", 1], [\"BUY_LAND\"], [\"BUY_SEED\", \"MELON\", 4], [\"BUY_SEED\", \"WHEAT\", 16], [\"BUY_PRODUCT\", \"WHEAT\", 3], [\"HIRE\"], [\"HIRE\"], [\"HIRE\"]]}"
+    }
+   }
+  },
+  "779002": {
+   "LTS": {
+    "rows": [
+     {
+      "day": 0,
+      "obs_day": 0,
+      "money": 3.0,
+      "wheat": 17,
+      "strawberry": 0,
+      "strawberry_by_quadrant": {},
+      "melon": 2,
+      "empty": 21,
+      "weed": 0,
+      "cow": 1,
+      "sheep": 0,
+      "goose": 1,
+      "quads": "NWNE",
+      "hands": 6,
+      "orders": {
+       "BUY_ANIMAL:COW": 2,
+       "BUY_ANIMAL:GOOSE": 1,
+       "BUY_LAND": 1,
+       "BUY_PRODUCT:WHEAT": 48,
+       "BUY_SEED:MELON": 6,
+       "BUY_SEED:WHEAT": 31,
+       "HIRE": 6
+      }
+     },
+     {
+      "day": 1,
+      "obs_day": 1,
+      "money": 6.0,
+      "wheat": 27,
+      "strawberry": 0,
+      "strawberry_by_quadrant": {},
+      "melon": 4,
+      "empty": 8,
+      "weed": 0,
+      "cow": 2,
+      "sheep": 0,
+      "goose": 1,
+      "quads": "NWNE",
+      "hands": 5,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 106,
+       "HIRE": 47
+      }
+     },
+     {
+      "day": 2,
+      "obs_day": 2,
+      "money": 64.0,
+      "wheat": 30,
+      "strawberry": 0,
+      "strawberry_by_quadrant": {},
+      "melon": 6,
+      "empty": 3,
+      "weed": 0,
+      "cow": 2,
+      "sheep": 0,
+      "goose": 1,
+      "quads": "NWNE",
+      "hands": 6,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 59,
+       "BUY_SEED:MELON": 1,
+       "HIRE": 13
+      }
+     },
+     {
+      "day": 3,
+      "obs_day": 3,
+      "money": 48.0,
+      "wheat": 30,
+      "strawberry": 0,
+      "strawberry_by_quadrant": {},
+      "melon": 6,
+      "empty": 3,
+      "weed": 0,
+      "cow": 2,
+      "sheep": 0,
+      "goose": 1,
+      "quads": "NWNE",
+      "hands": 6,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 6,
+       "HIRE": 6
+      }
+     },
+     {
+      "day": 4,
+      "obs_day": 4,
+      "money": 2.0,
+      "wheat": 13,
+      "strawberry": 3,
+      "strawberry_by_quadrant": {
+       "NE": 2,
+       "NW": 1
+      },
+      "melon": 6,
+      "empty": 17,
+      "weed": 0,
+      "cow": 2,
+      "sheep": 0,
+      "goose": 1,
+      "quads": "NWNE",
+      "hands": 6,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 3,
+       "BUY_SEED:MELON": 1,
+       "BUY_SEED:STRAWBERRY": 3,
+       "BUY_SEED:WHEAT": 4,
+       "HIRE": 6
+      }
+     },
+     {
+      "day": 5,
+      "obs_day": 5,
+      "money": 54.0,
+      "wheat": 3,
+      "strawberry": 11,
+      "strawberry_by_quadrant": {
+       "NE": 6,
+       "NW": 5
+      },
+      "melon": 6,
+      "empty": 19,
+      "weed": 0,
+      "cow": 3,
+      "sheep": 0,
+      "goose": 1,
+      "quads": "NWNE",
+      "hands": 6,
+      "orders": {
+       "BUY_ANIMAL:COW": 2,
+       "BUY_PRODUCT:WHEAT": 3,
+       "BUY_SEED:STRAWBERRY": 10,
+       "BUY_SEED:WHEAT": 4,
+       "HIRE": 6
+      }
+     },
+     {
+      "day": 6,
+      "obs_day": 6,
+      "money": 12.0,
+      "wheat": 3,
+      "strawberry": 16,
+      "strawberry_by_quadrant": {
+       "NE": 8,
+       "NW": 8
+      },
+      "melon": 6,
+      "empty": 14,
+      "weed": 0,
+      "cow": 5,
+      "sheep": 0,
+      "goose": 1,
+      "quads": "NWNE",
+      "hands": 6,
+      "orders": {
+       "BUY_ANIMAL:COW": 1,
+       "BUY_PRODUCT:WHEAT": 7,
+       "BUY_SEED:STRAWBERRY": 3,
+       "BUY_SEED:WHEAT": 2,
+       "HIRE": 6
+      }
+     },
+     {
+      "day": 7,
+      "obs_day": 7,
+      "money": 47.0,
+      "wheat": 6,
+      "strawberry": 17,
+      "strawberry_by_quadrant": {
+       "NE": 9,
+       "NW": 8
+      },
+      "melon": 8,
+      "empty": 8,
+      "weed": 0,
+      "cow": 5,
+      "sheep": 0,
+      "goose": 1,
+      "quads": "NWNE",
+      "hands": 6,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 6,
+       "BUY_SEED:STRAWBERRY": 1,
+       "BUY_SEED:WHEAT": 1,
+       "HIRE": 6
+      }
+     },
+     {
+      "day": 8,
+      "obs_day": 8,
+      "money": 14.0,
+      "wheat": 7,
+      "strawberry": 17,
+      "strawberry_by_quadrant": {
+       "NE": 9,
+       "NW": 8
+      },
+      "melon": 8,
+      "empty": 7,
+      "weed": 0,
+      "cow": 5,
+      "sheep": 0,
+      "goose": 1,
+      "quads": "NWNE",
+      "hands": 6,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 10,
+       "HIRE": 6
+      }
+     },
+     {
+      "day": 9,
+      "obs_day": 9,
+      "money": 268.0,
+      "wheat": 7,
+      "strawberry": 19,
+      "strawberry_by_quadrant": {
+       "NE": 10,
+       "NW": 9
+      },
+      "melon": 8,
+      "empty": 5,
+      "weed": 0,
+      "cow": 5,
+      "sheep": 1,
+      "goose": 1,
+      "quads": "NWNE",
+      "hands": 6,
+      "orders": {
+       "BUY_ANIMAL:COW": 1,
+       "BUY_ANIMAL:SHEEP": 1,
+       "BUY_PRODUCT:WHEAT": 8,
+       "BUY_SEED:STRAWBERRY": 2,
+       "HIRE": 6
+      }
+     },
+     {
+      "day": 10,
+      "obs_day": 10,
+      "money": 347.0,
+      "wheat": 4,
+      "strawberry": 19,
+      "strawberry_by_quadrant": {
+       "NE": 10,
+       "NW": 9
+      },
+      "melon": 6,
+      "empty": 10,
+      "weed": 0,
+      "cow": 6,
+      "sheep": 3,
+      "goose": 1,
+      "quads": "NWNE",
+      "hands": 7,
+      "orders": {
+       "BUY_ANIMAL:SHEEP": 2,
+       "BUY_PRODUCT:WHEAT": 9,
+       "BUY_SEED:MELON": 2,
+       "BUY_SEED:WHEAT": 3,
+       "HIRE": 7
+      }
+     },
+     {
+      "day": 11,
+      "obs_day": 11,
+      "money": 173.0,
+      "wheat": 2,
+      "strawberry": 19,
+      "strawberry_by_quadrant": {
+       "NE": 10,
+       "NW": 9
+      },
+      "melon": 4,
+      "empty": 38,
+      "weed": 1,
+      "cow": 6,
+      "sheep": 3,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_ANIMAL:SHEEP": 1,
+       "BUY_LAND": 1,
+       "BUY_PRODUCT:WHEAT": 8,
+       "BUY_SEED:MELON": 2,
+       "BUY_SEED:STRAWBERRY": 14,
+       "BUY_SEED:WHEAT": 10,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 12,
+      "obs_day": 12,
+      "money": 4205.0,
+      "wheat": 0,
+      "strawberry": 21,
+      "strawberry_by_quadrant": {
+       "NE": 10,
+       "NW": 9,
+       "SW": 2
+      },
+      "melon": 3,
+      "empty": 38,
+      "weed": 2,
+      "cow": 6,
+      "sheep": 3,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 8,
+       "BUY_SEED:WHEAT": 2,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 13,
+      "obs_day": 13,
+      "money": 6494.0,
+      "wheat": 1,
+      "strawberry": 21,
+      "strawberry_by_quadrant": {
+       "NE": 10,
+       "NW": 9,
+       "SW": 2
+      },
+      "melon": 2,
+      "empty": 38,
+      "weed": 2,
+      "cow": 6,
+      "sheep": 3,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 10,
+       "BUY_SEED:WHEAT": 11,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 14,
+      "obs_day": 14,
+      "money": 9266.0,
+      "wheat": 2,
+      "strawberry": 21,
+      "strawberry_by_quadrant": {
+       "NE": 10,
+       "NW": 9,
+       "SW": 2
+      },
+      "melon": 3,
+      "empty": 36,
+      "weed": 2,
+      "cow": 6,
+      "sheep": 4,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 11,
+       "BUY_SEED:MELON": 1,
+       "BUY_SEED:WHEAT": 1,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 15,
+      "obs_day": 15,
+      "money": 13280.0,
+      "wheat": 2,
+      "strawberry": 21,
+      "strawberry_by_quadrant": {
+       "NE": 10,
+       "NW": 9,
+       "SW": 2
+      },
+      "melon": 4,
+      "empty": 35,
+      "weed": 2,
+      "cow": 6,
+      "sheep": 4,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 10,
+       "BUY_SEED:MELON": 1,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 16,
+      "obs_day": 16,
+      "money": 13389.0,
+      "wheat": 5,
+      "strawberry": 21,
+      "strawberry_by_quadrant": {
+       "NE": 10,
+       "NW": 9,
+       "SW": 2
+      },
+      "melon": 5,
+      "empty": 31,
+      "weed": 2,
+      "cow": 6,
+      "sheep": 4,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 10,
+       "BUY_SEED:MELON": 1,
+       "BUY_SEED:WHEAT": 1,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 17,
+      "obs_day": 17,
+      "money": 16799.0,
+      "wheat": 7,
+      "strawberry": 21,
+      "strawberry_by_quadrant": {
+       "NE": 10,
+       "NW": 9,
+       "SW": 2
+      },
+      "melon": 3,
+      "empty": 31,
+      "weed": 2,
+      "cow": 6,
+      "sheep": 4,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 11,
+       "BUY_SEED:WHEAT": 3,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 18,
+      "obs_day": 18,
+      "money": 21164.0,
+      "wheat": 6,
+      "strawberry": 21,
+      "strawberry_by_quadrant": {
+       "NE": 10,
+       "NW": 9,
+       "SW": 2
+      },
+      "melon": 3,
+      "empty": 32,
+      "weed": 2,
+      "cow": 6,
+      "sheep": 4,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 8,
+       "BUY_SEED:WHEAT": 1,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 19,
+      "obs_day": 19,
+      "money": 22867.0,
+      "wheat": 6,
+      "strawberry": 21,
+      "strawberry_by_quadrant": {
+       "NE": 10,
+       "NW": 9,
+       "SW": 2
+      },
+      "melon": 3,
+      "empty": 32,
+      "weed": 2,
+      "cow": 6,
+      "sheep": 4,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 10,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 20,
+      "obs_day": 20,
+      "money": 24314.0,
+      "wheat": 4,
+      "strawberry": 21,
+      "strawberry_by_quadrant": {
+       "NE": 10,
+       "NW": 9,
+       "SW": 2
+      },
+      "melon": 3,
+      "empty": 34,
+      "weed": 2,
+      "cow": 6,
+      "sheep": 4,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 8,
+       "BUY_SEED:WHEAT": 1,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 21,
+      "obs_day": 21,
+      "money": 26823.0,
+      "wheat": 1,
+      "strawberry": 18,
+      "strawberry_by_quadrant": {
+       "NE": 8,
+       "NW": 8,
+       "SW": 2
+      },
+      "melon": 3,
+      "empty": 36,
+      "weed": 6,
+      "cow": 6,
+      "sheep": 4,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 8,
+       "BUY_SEED:WHEAT": 1,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 22,
+      "obs_day": 22,
+      "money": 28542.0,
+      "wheat": 5,
+      "strawberry": 10,
+      "strawberry_by_quadrant": {
+       "NE": 4,
+       "NW": 4,
+       "SW": 2
+      },
+      "melon": 3,
+      "empty": 34,
+      "weed": 12,
+      "cow": 6,
+      "sheep": 4,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 11,
+       "BUY_SEED:WHEAT": 4,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 23,
+      "obs_day": 23,
+      "money": 30594.0,
+      "wheat": 17,
+      "strawberry": 5,
+      "strawberry_by_quadrant": {
+       "NE": 2,
+       "NW": 1,
+       "SW": 2
+      },
+      "melon": 3,
+      "empty": 28,
+      "weed": 11,
+      "cow": 6,
+      "sheep": 4,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 11,
+       "BUY_SEED:WHEAT": 12,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 24,
+      "obs_day": 24,
+      "money": 31481.0,
+      "wheat": 25,
+      "strawberry": 4,
+      "strawberry_by_quadrant": {
+       "NE": 1,
+       "NW": 1,
+       "SW": 2
+      },
+      "melon": 2,
+      "empty": 24,
+      "weed": 9,
+      "cow": 6,
+      "sheep": 4,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 11,
+       "BUY_SEED:WHEAT": 5,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 25,
+      "obs_day": 25,
+      "money": 33042.0,
+      "wheat": 24,
+      "strawberry": 4,
+      "strawberry_by_quadrant": {
+       "NE": 1,
+       "NW": 1,
+       "SW": 2
+      },
+      "melon": 1,
+      "empty": 29,
+      "weed": 6,
+      "cow": 6,
+      "sheep": 4,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 10,
+       "BUY_SEED:WHEAT": 1,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 26,
+      "obs_day": 26,
+      "money": 34715.0,
+      "wheat": 22,
+      "strawberry": 2,
+      "strawberry_by_quadrant": {
+       "SW": 2
+      },
+      "melon": 0,
+      "empty": 32,
+      "weed": 8,
+      "cow": 6,
+      "sheep": 4,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 11,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 27,
+      "obs_day": 27,
+      "money": 37662.0,
+      "wheat": 19,
+      "strawberry": 2,
+      "strawberry_by_quadrant": {
+       "SW": 2
+      },
+      "melon": 0,
+      "empty": 37,
+      "weed": 6,
+      "cow": 6,
+      "sheep": 4,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 10,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 28,
+      "obs_day": 28,
+      "money": 40920.0,
+      "wheat": 20,
+      "strawberry": 2,
+      "strawberry_by_quadrant": {
+       "SW": 2
+      },
+      "melon": 0,
+      "empty": 36,
+      "weed": 6,
+      "cow": 6,
+      "sheep": 4,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 29,
+      "obs_day": 29,
+      "money": 44351.0,
+      "wheat": 20,
+      "strawberry": 0,
+      "strawberry_by_quadrant": {},
+      "melon": 0,
+      "empty": 38,
+      "weed": 6,
+      "cow": 6,
+      "sheep": 4,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "HIRE": 10
+      }
+     }
+    ],
+    "final_money": 44351.0,
+    "opp_final_money": 76977.0,
+    "sw_day": 11,
+    "peak_strawberry": 21
+   },
+   "LTS_sheep2": {
+    "rows": [
+     {
+      "day": 0,
+      "obs_day": 0,
+      "money": 270.0,
+      "wheat": 25,
+      "strawberry": 0,
+      "strawberry_by_quadrant": {},
+      "melon": 2,
+      "empty": 14,
+      "weed": 0,
+      "cow": 1,
+      "sheep": 0,
+      "goose": 1,
+      "quads": "NWNE",
+      "hands": 6,
+      "orders": {
+       "BUY_ANIMAL:COW": 1,
+       "BUY_ANIMAL:GOOSE": 1,
+       "BUY_LAND": 1,
+       "BUY_PRODUCT:WHEAT": 7,
+       "BUY_SEED:MELON": 6,
+       "BUY_SEED:WHEAT": 33,
+       "HIRE": 6
+      }
+     },
+     {
+      "day": 1,
+      "obs_day": 1,
+      "money": 232.0,
+      "wheat": 33,
+      "strawberry": 0,
+      "strawberry_by_quadrant": {},
+      "melon": 4,
+      "empty": 4,
+      "weed": 0,
+      "cow": 1,
+      "sheep": 0,
+      "goose": 1,
+      "quads": "NWNE",
+      "hands": 6,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 2,
+       "BUY_SEED:MELON": 2,
+       "HIRE": 6
+      }
+     },
+     {
+      "day": 2,
+      "obs_day": 2,
+      "money": 251.0,
+      "wheat": 33,
+      "strawberry": 0,
+      "strawberry_by_quadrant": {},
+      "melon": 5,
+      "empty": 3,
+      "weed": 0,
+      "cow": 1,
+      "sheep": 0,
+      "goose": 1,
+      "quads": "NWNE",
+      "hands": 6,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 2,
+       "HIRE": 6
+      }
+     },
+     {
+      "day": 3,
+      "obs_day": 3,
+      "money": 366.0,
+      "wheat": 33,
+      "strawberry": 0,
+      "strawberry_by_quadrant": {},
+      "melon": 5,
+      "empty": 3,
+      "weed": 0,
+      "cow": 1,
+      "sheep": 0,
+      "goose": 1,
+      "quads": "NWNE",
+      "hands": 6,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 2,
+       "HIRE": 6
+      }
+     },
+     {
+      "day": 4,
+      "obs_day": 4,
+      "money": 9.0,
+      "wheat": 10,
+      "strawberry": 3,
+      "strawberry_by_quadrant": {
+       "NE": 2,
+       "NW": 1
+      },
+      "melon": 5,
+      "empty": 23,
+      "weed": 0,
+      "cow": 2,
+      "sheep": 0,
+      "goose": 1,
+      "quads": "NWNE",
+      "hands": 6,
+      "orders": {
+       "BUY_ANIMAL:COW": 1,
+       "BUY_PRODUCT:WHEAT": 5,
+       "BUY_SEED:STRAWBERRY": 3,
+       "BUY_SEED:WHEAT": 3,
+       "HIRE": 6
+      }
+     },
+     {
+      "day": 5,
+      "obs_day": 5,
+      "money": 6.0,
+      "wheat": 2,
+      "strawberry": 12,
+      "strawberry_by_quadrant": {
+       "NE": 6,
+       "NW": 6
+      },
+      "melon": 5,
+      "empty": 22,
+      "weed": 0,
+      "cow": 4,
+      "sheep": 0,
+      "goose": 1,
+      "quads": "NWNE",
+      "hands": 6,
+      "orders": {
+       "BUY_ANIMAL:COW": 2,
+       "BUY_PRODUCT:WHEAT": 3,
+       "BUY_SEED:STRAWBERRY": 15,
+       "BUY_SEED:WHEAT": 8,
+       "HIRE": 6
+      }
+     },
+     {
+      "day": 6,
+      "obs_day": 6,
+      "money": 10.0,
+      "wheat": 5,
+      "strawberry": 18,
+      "strawberry_by_quadrant": {
+       "NE": 10,
+       "NW": 8
+      },
+      "melon": 7,
+      "empty": 10,
+      "weed": 1,
+      "cow": 5,
+      "sheep": 0,
+      "goose": 1,
+      "quads": "NWNE",
+      "hands": 6,
+      "orders": {
+       "BUY_ANIMAL:COW": 1,
+       "BUY_PRODUCT:WHEAT": 36,
+       "BUY_SEED:WHEAT": 1,
+       "HIRE": 6
+      }
+     },
+     {
+      "day": 7,
+      "obs_day": 7,
+      "money": 2.0,
+      "wheat": 5,
+      "strawberry": 18,
+      "strawberry_by_quadrant": {
+       "NE": 10,
+       "NW": 8
+      },
+      "melon": 8,
+      "empty": 9,
+      "weed": 1,
+      "cow": 5,
+      "sheep": 0,
+      "goose": 1,
+      "quads": "NWNE",
+      "hands": 6,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 84,
+       "HIRE": 20
+      }
+     },
+     {
+      "day": 8,
+      "obs_day": 8,
+      "money": 4.0,
+      "wheat": 5,
+      "strawberry": 18,
+      "strawberry_by_quadrant": {
+       "NE": 10,
+       "NW": 8
+      },
+      "melon": 8,
+      "empty": 9,
+      "weed": 1,
+      "cow": 5,
+      "sheep": 0,
+      "goose": 1,
+      "quads": "NWNE",
+      "hands": 5,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 109,
+       "HIRE": 50
+      }
+     },
+     {
+      "day": 9,
+      "obs_day": 9,
+      "money": 6.0,
+      "wheat": 4,
+      "strawberry": 18,
+      "strawberry_by_quadrant": {
+       "NE": 10,
+       "NW": 8
+      },
+      "melon": 8,
+      "empty": 9,
+      "weed": 2,
+      "cow": 5,
+      "sheep": 0,
+      "goose": 1,
+      "quads": "NWNE",
+      "hands": 5,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 147,
+       "HIRE": 43
+      }
+     },
+     {
+      "day": 10,
+      "obs_day": 10,
+      "money": 8.0,
+      "wheat": 0,
+      "strawberry": 20,
+      "strawberry_by_quadrant": {
+       "NE": 11,
+       "NW": 9
+      },
+      "melon": 8,
+      "empty": 11,
+      "weed": 2,
+      "cow": 5,
+      "sheep": 0,
+      "goose": 1,
+      "quads": "NWNE",
+      "hands": 6,
+      "orders": {
+       "BUY_ANIMAL:SHEEP": 2,
+       "BUY_PRODUCT:WHEAT": 13,
+       "BUY_SEED:STRAWBERRY": 3,
+       "BUY_SEED:WHEAT": 5,
+       "HIRE": 7
+      }
+     },
+     {
+      "day": 11,
+      "obs_day": 11,
+      "money": 254.0,
+      "wheat": 0,
+      "strawberry": 21,
+      "strawberry_by_quadrant": {
+       "NE": 11,
+       "NW": 10
+      },
+      "melon": 7,
+      "empty": 10,
+      "weed": 3,
+      "cow": 5,
+      "sheep": 1,
+      "goose": 1,
+      "quads": "NWNE",
+      "hands": 6,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 7,
+       "BUY_SEED:MELON": 2,
+       "HIRE": 6
+      }
+     },
+     {
+      "day": 12,
+      "obs_day": 12,
+      "money": 51.0,
+      "wheat": 0,
+      "strawberry": 22,
+      "strawberry_by_quadrant": {
+       "NE": 11,
+       "NW": 11
+      },
+      "melon": 4,
+      "empty": 37,
+      "weed": 3,
+      "cow": 5,
+      "sheep": 1,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 9,
+      "orders": {
+       "BUY_LAND": 1,
+       "BUY_PRODUCT:WHEAT": 28,
+       "BUY_SEED:MELON": 3,
+       "BUY_SEED:STRAWBERRY": 11,
+       "BUY_SEED:WHEAT": 10,
+       "HIRE": 15
+      }
+     },
+     {
+      "day": 13,
+      "obs_day": 13,
+      "money": 5022.0,
+      "wheat": 6,
+      "strawberry": 22,
+      "strawberry_by_quadrant": {
+       "NE": 11,
+       "NW": 11
+      },
+      "melon": 6,
+      "empty": 29,
+      "weed": 3,
+      "cow": 5,
+      "sheep": 2,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 8,
+       "BUY_SEED:MELON": 2,
+       "BUY_SEED:WHEAT": 12,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 14,
+      "obs_day": 14,
+      "money": 6279.0,
+      "wheat": 7,
+      "strawberry": 22,
+      "strawberry_by_quadrant": {
+       "NE": 11,
+       "NW": 11
+      },
+      "melon": 8,
+      "empty": 27,
+      "weed": 2,
+      "cow": 5,
+      "sheep": 2,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 8,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 15,
+      "obs_day": 15,
+      "money": 7673.0,
+      "wheat": 11,
+      "strawberry": 22,
+      "strawberry_by_quadrant": {
+       "NE": 11,
+       "NW": 11
+      },
+      "melon": 9,
+      "empty": 22,
+      "weed": 2,
+      "cow": 5,
+      "sheep": 2,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 8,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 16,
+      "obs_day": 16,
+      "money": 8926.0,
+      "wheat": 12,
+      "strawberry": 22,
+      "strawberry_by_quadrant": {
+       "NE": 11,
+       "NW": 11
+      },
+      "melon": 7,
+      "empty": 24,
+      "weed": 1,
+      "cow": 5,
+      "sheep": 2,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 8,
+       "BUY_SEED:MELON": 1,
+       "BUY_SEED:WHEAT": 1,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 17,
+      "obs_day": 17,
+      "money": 12003.0,
+      "wheat": 9,
+      "strawberry": 22,
+      "strawberry_by_quadrant": {
+       "NE": 11,
+       "NW": 11
+      },
+      "melon": 7,
+      "empty": 27,
+      "weed": 1,
+      "cow": 5,
+      "sheep": 2,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 6,
+       "BUY_SEED:WHEAT": 5,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 18,
+      "obs_day": 18,
+      "money": 17505.0,
+      "wheat": 7,
+      "strawberry": 22,
+      "strawberry_by_quadrant": {
+       "NE": 11,
+       "NW": 11
+      },
+      "melon": 7,
+      "empty": 29,
+      "weed": 1,
+      "cow": 5,
+      "sheep": 2,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 8,
+       "BUY_SEED:WHEAT": 3,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 19,
+      "obs_day": 19,
+      "money": 22463.0,
+      "wheat": 6,
+      "strawberry": 22,
+      "strawberry_by_quadrant": {
+       "NE": 11,
+       "NW": 11
+      },
+      "melon": 7,
+      "empty": 31,
+      "weed": 0,
+      "cow": 5,
+      "sheep": 2,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 8,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 20,
+      "obs_day": 20,
+      "money": 24899.0,
+      "wheat": 5,
+      "strawberry": 22,
+      "strawberry_by_quadrant": {
+       "NE": 11,
+       "NW": 11
+      },
+      "melon": 7,
+      "empty": 30,
+      "weed": 2,
+      "cow": 5,
+      "sheep": 2,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 7,
+       "BUY_SEED:WHEAT": 4,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 21,
+      "obs_day": 21,
+      "money": 28069.0,
+      "wheat": 5,
+      "strawberry": 19,
+      "strawberry_by_quadrant": {
+       "NE": 9,
+       "NW": 10
+      },
+      "melon": 6,
+      "empty": 31,
+      "weed": 5,
+      "cow": 5,
+      "sheep": 2,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 8,
+       "BUY_SEED:WHEAT": 1,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 22,
+      "obs_day": 22,
+      "money": 30113.0,
+      "wheat": 10,
+      "strawberry": 10,
+      "strawberry_by_quadrant": {
+       "NE": 5,
+       "NW": 5
+      },
+      "melon": 6,
+      "empty": 28,
+      "weed": 12,
+      "cow": 5,
+      "sheep": 2,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 8,
+       "BUY_SEED:WHEAT": 6,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 23,
+      "obs_day": 23,
+      "money": 31716.0,
+      "wheat": 21,
+      "strawberry": 4,
+      "strawberry_by_quadrant": {
+       "NE": 1,
+       "NW": 3
+      },
+      "melon": 4,
+      "empty": 23,
+      "weed": 14,
+      "cow": 5,
+      "sheep": 2,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 8,
+       "BUY_SEED:WHEAT": 11,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 24,
+      "obs_day": 24,
+      "money": 33403.0,
+      "wheat": 26,
+      "strawberry": 4,
+      "strawberry_by_quadrant": {
+       "NE": 1,
+       "NW": 3
+      },
+      "melon": 2,
+      "empty": 25,
+      "weed": 9,
+      "cow": 5,
+      "sheep": 2,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 7,
+       "BUY_SEED:WHEAT": 6,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 25,
+      "obs_day": 25,
+      "money": 34182.0,
+      "wheat": 28,
+      "strawberry": 4,
+      "strawberry_by_quadrant": {
+       "NE": 1,
+       "NW": 3
+      },
+      "melon": 1,
+      "empty": 28,
+      "weed": 5,
+      "cow": 5,
+      "sheep": 2,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 7,
+       "BUY_SEED:WHEAT": 1,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 26,
+      "obs_day": 26,
+      "money": 35418.0,
+      "wheat": 27,
+      "strawberry": 4,
+      "strawberry_by_quadrant": {
+       "NE": 1,
+       "NW": 3
+      },
+      "melon": 1,
+      "empty": 31,
+      "weed": 3,
+      "cow": 5,
+      "sheep": 2,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 7,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 27,
+      "obs_day": 27,
+      "money": 37615.0,
+      "wheat": 24,
+      "strawberry": 2,
+      "strawberry_by_quadrant": {
+       "NW": 2
+      },
+      "melon": 0,
+      "empty": 35,
+      "weed": 5,
+      "cow": 5,
+      "sheep": 2,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 7,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 28,
+      "obs_day": 28,
+      "money": 39575.0,
+      "wheat": 25,
+      "strawberry": 1,
+      "strawberry_by_quadrant": {
+       "NW": 1
+      },
+      "melon": 0,
+      "empty": 38,
+      "weed": 2,
+      "cow": 5,
+      "sheep": 2,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 29,
+      "obs_day": 29,
+      "money": 42435.0,
+      "wheat": 23,
+      "strawberry": 0,
+      "strawberry_by_quadrant": {},
+      "melon": 0,
+      "empty": 40,
+      "weed": 3,
+      "cow": 5,
+      "sheep": 2,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "HIRE": 10
+      }
+     }
+    ],
+    "final_money": 42435.0,
+    "opp_final_money": 83120.0,
+    "sw_day": 12,
+    "peak_strawberry": 22,
+    "first_divergence_vs_ref": {
+     "step": 1,
+     "day": 0,
+     "hour": 0,
+     "seat": 0,
+     "ref_action": "{\"farmer\": [\"WEST\"], \"hands\": [], \"market\": [[\"BUY_ANIMAL\", \"GOOSE\", 1], [\"BUY_LAND\"], [\"BUY_SEED\", \"MELON\", 4], [\"BUY_SEED\", \"WHEAT\", 15], [\"BUY_PRODUCT\", \"WHEAT\", 3], [\"HIRE\"], [\"HIRE\"], [\"HIRE\"]]}",
+     "arm_action": "{\"farmer\": [\"WEST\"], \"hands\": [], \"market\": [[\"BUY_ANIMAL\", \"GOOSE\", 1], [\"BUY_LAND\"], [\"BUY_SEED\", \"MELON\", 4], [\"BUY_SEED\", \"WHEAT\", 16], [\"BUY_PRODUCT\", \"WHEAT\", 3], [\"HIRE\"], [\"HIRE\"], [\"HIRE\"]]}"
+    }
+   }
+  },
+  "779003": {
+   "LTS": {
+    "rows": [
+     {
+      "day": 0,
+      "obs_day": 0,
+      "money": 3.0,
+      "wheat": 17,
+      "strawberry": 0,
+      "strawberry_by_quadrant": {},
+      "melon": 2,
+      "empty": 21,
+      "weed": 0,
+      "cow": 1,
+      "sheep": 0,
+      "goose": 1,
+      "quads": "NWNE",
+      "hands": 6,
+      "orders": {
+       "BUY_ANIMAL:COW": 2,
+       "BUY_ANIMAL:GOOSE": 1,
+       "BUY_LAND": 1,
+       "BUY_PRODUCT:WHEAT": 48,
+       "BUY_SEED:MELON": 6,
+       "BUY_SEED:WHEAT": 31,
+       "HIRE": 6
+      }
+     },
+     {
+      "day": 1,
+      "obs_day": 1,
+      "money": 6.0,
+      "wheat": 27,
+      "strawberry": 0,
+      "strawberry_by_quadrant": {},
+      "melon": 4,
+      "empty": 8,
+      "weed": 0,
+      "cow": 2,
+      "sheep": 0,
+      "goose": 1,
+      "quads": "NWNE",
+      "hands": 5,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 106,
+       "HIRE": 47
+      }
+     },
+     {
+      "day": 2,
+      "obs_day": 2,
+      "money": 64.0,
+      "wheat": 30,
+      "strawberry": 0,
+      "strawberry_by_quadrant": {},
+      "melon": 6,
+      "empty": 3,
+      "weed": 0,
+      "cow": 2,
+      "sheep": 0,
+      "goose": 1,
+      "quads": "NWNE",
+      "hands": 6,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 59,
+       "BUY_SEED:MELON": 1,
+       "HIRE": 13
+      }
+     },
+     {
+      "day": 3,
+      "obs_day": 3,
+      "money": 48.0,
+      "wheat": 30,
+      "strawberry": 0,
+      "strawberry_by_quadrant": {},
+      "melon": 6,
+      "empty": 3,
+      "weed": 0,
+      "cow": 2,
+      "sheep": 0,
+      "goose": 1,
+      "quads": "NWNE",
+      "hands": 6,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 6,
+       "HIRE": 6
+      }
+     },
+     {
+      "day": 4,
+      "obs_day": 4,
+      "money": 2.0,
+      "wheat": 13,
+      "strawberry": 3,
+      "strawberry_by_quadrant": {
+       "NE": 2,
+       "NW": 1
+      },
+      "melon": 6,
+      "empty": 17,
+      "weed": 0,
+      "cow": 2,
+      "sheep": 0,
+      "goose": 1,
+      "quads": "NWNE",
+      "hands": 6,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 3,
+       "BUY_SEED:MELON": 1,
+       "BUY_SEED:STRAWBERRY": 3,
+       "BUY_SEED:WHEAT": 4,
+       "HIRE": 6
+      }
+     },
+     {
+      "day": 5,
+      "obs_day": 5,
+      "money": 54.0,
+      "wheat": 3,
+      "strawberry": 11,
+      "strawberry_by_quadrant": {
+       "NE": 6,
+       "NW": 5
+      },
+      "melon": 6,
+      "empty": 18,
+      "weed": 1,
+      "cow": 3,
+      "sheep": 0,
+      "goose": 1,
+      "quads": "NWNE",
+      "hands": 6,
+      "orders": {
+       "BUY_ANIMAL:COW": 2,
+       "BUY_PRODUCT:WHEAT": 3,
+       "BUY_SEED:STRAWBERRY": 10,
+       "BUY_SEED:WHEAT": 4,
+       "HIRE": 6
+      }
+     },
+     {
+      "day": 6,
+      "obs_day": 6,
+      "money": 12.0,
+      "wheat": 3,
+      "strawberry": 16,
+      "strawberry_by_quadrant": {
+       "NE": 8,
+       "NW": 8
+      },
+      "melon": 6,
+      "empty": 13,
+      "weed": 1,
+      "cow": 5,
+      "sheep": 0,
+      "goose": 1,
+      "quads": "NWNE",
+      "hands": 6,
+      "orders": {
+       "BUY_ANIMAL:COW": 1,
+       "BUY_PRODUCT:WHEAT": 7,
+       "BUY_SEED:STRAWBERRY": 3,
+       "BUY_SEED:WHEAT": 2,
+       "HIRE": 6
+      }
+     },
+     {
+      "day": 7,
+      "obs_day": 7,
+      "money": 47.0,
+      "wheat": 6,
+      "strawberry": 17,
+      "strawberry_by_quadrant": {
+       "NE": 9,
+       "NW": 8
+      },
+      "melon": 7,
+      "empty": 8,
+      "weed": 1,
+      "cow": 5,
+      "sheep": 0,
+      "goose": 1,
+      "quads": "NWNE",
+      "hands": 6,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 6,
+       "BUY_SEED:STRAWBERRY": 1,
+       "BUY_SEED:WHEAT": 1,
+       "HIRE": 6
+      }
+     },
+     {
+      "day": 8,
+      "obs_day": 8,
+      "money": 14.0,
+      "wheat": 7,
+      "strawberry": 17,
+      "strawberry_by_quadrant": {
+       "NE": 9,
+       "NW": 8
+      },
+      "melon": 7,
+      "empty": 8,
+      "weed": 0,
+      "cow": 5,
+      "sheep": 0,
+      "goose": 1,
+      "quads": "NWNE",
+      "hands": 6,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 10,
+       "HIRE": 6
+      }
+     },
+     {
+      "day": 9,
+      "obs_day": 9,
+      "money": 439.0,
+      "wheat": 7,
+      "strawberry": 19,
+      "strawberry_by_quadrant": {
+       "NE": 10,
+       "NW": 9
+      },
+      "melon": 7,
+      "empty": 6,
+      "weed": 0,
+      "cow": 6,
+      "sheep": 1,
+      "goose": 1,
+      "quads": "NWNE",
+      "hands": 7,
+      "orders": {
+       "BUY_ANIMAL:COW": 1,
+       "BUY_ANIMAL:SHEEP": 1,
+       "BUY_PRODUCT:WHEAT": 9,
+       "BUY_SEED:STRAWBERRY": 2,
+       "HIRE": 7
+      }
+     },
+     {
+      "day": 10,
+      "obs_day": 10,
+      "money": 355.0,
+      "wheat": 5,
+      "strawberry": 19,
+      "strawberry_by_quadrant": {
+       "NE": 10,
+       "NW": 9
+      },
+      "melon": 6,
+      "empty": 9,
+      "weed": 0,
+      "cow": 6,
+      "sheep": 1,
+      "goose": 1,
+      "quads": "NWNE",
+      "hands": 7,
+      "orders": {
+       "BUY_ANIMAL:SHEEP": 3,
+       "BUY_PRODUCT:WHEAT": 8,
+       "BUY_SEED:WHEAT": 2,
+       "HIRE": 7
+      }
+     },
+     {
+      "day": 11,
+      "obs_day": 11,
+      "money": 484.0,
+      "wheat": 1,
+      "strawberry": 21,
+      "strawberry_by_quadrant": {
+       "NE": 10,
+       "NW": 9,
+       "SW": 2
+      },
+      "melon": 3,
+      "empty": 38,
+      "weed": 1,
+      "cow": 6,
+      "sheep": 2,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_LAND": 1,
+       "BUY_PRODUCT:WHEAT": 19,
+       "BUY_SEED:MELON": 3,
+       "BUY_SEED:STRAWBERRY": 15,
+       "BUY_SEED:WHEAT": 12,
+       "HIRE": 32
+      }
+     },
+     {
+      "day": 12,
+      "obs_day": 12,
+      "money": 4060.0,
+      "wheat": 0,
+      "strawberry": 26,
+      "strawberry_by_quadrant": {
+       "NE": 10,
+       "NW": 10,
+       "SW": 6
+      },
+      "melon": 3,
+      "empty": 34,
+      "weed": 1,
+      "cow": 6,
+      "sheep": 3,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 10,
+       "BUY_SEED:WHEAT": 1,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 13,
+      "obs_day": 13,
+      "money": 4763.0,
+      "wheat": 2,
+      "strawberry": 26,
+      "strawberry_by_quadrant": {
+       "NE": 10,
+       "NW": 10,
+       "SW": 6
+      },
+      "melon": 2,
+      "empty": 33,
+      "weed": 1,
+      "cow": 6,
+      "sheep": 4,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 11,
+       "BUY_SEED:MELON": 1,
+       "BUY_SEED:WHEAT": 9,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 14,
+      "obs_day": 14,
+      "money": 9232.0,
+      "wheat": 3,
+      "strawberry": 26,
+      "strawberry_by_quadrant": {
+       "NE": 10,
+       "NW": 10,
+       "SW": 6
+      },
+      "melon": 2,
+      "empty": 32,
+      "weed": 1,
+      "cow": 6,
+      "sheep": 4,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 11,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 15,
+      "obs_day": 15,
+      "money": 12285.0,
+      "wheat": 3,
+      "strawberry": 26,
+      "strawberry_by_quadrant": {
+       "NE": 10,
+       "NW": 10,
+       "SW": 6
+      },
+      "melon": 2,
+      "empty": 32,
+      "weed": 1,
+      "cow": 6,
+      "sheep": 4,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 10,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 16,
+      "obs_day": 16,
+      "money": 13982.0,
+      "wheat": 3,
+      "strawberry": 26,
+      "strawberry_by_quadrant": {
+       "NE": 10,
+       "NW": 10,
+       "SW": 6
+      },
+      "melon": 3,
+      "empty": 31,
+      "weed": 1,
+      "cow": 6,
+      "sheep": 4,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 11,
+       "BUY_SEED:MELON": 1,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 17,
+      "obs_day": 17,
+      "money": 15409.0,
+      "wheat": 2,
+      "strawberry": 26,
+      "strawberry_by_quadrant": {
+       "NE": 10,
+       "NW": 10,
+       "SW": 6
+      },
+      "melon": 2,
+      "empty": 33,
+      "weed": 1,
+      "cow": 6,
+      "sheep": 4,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 10,
+       "BUY_SEED:WHEAT": 3,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 18,
+      "obs_day": 18,
+      "money": 22873.0,
+      "wheat": 1,
+      "strawberry": 26,
+      "strawberry_by_quadrant": {
+       "NE": 10,
+       "NW": 10,
+       "SW": 6
+      },
+      "melon": 2,
+      "empty": 34,
+      "weed": 1,
+      "cow": 6,
+      "sheep": 4,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 11,
+       "BUY_SEED:WHEAT": 1,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 19,
+      "obs_day": 19,
+      "money": 30247.0,
+      "wheat": 1,
+      "strawberry": 26,
+      "strawberry_by_quadrant": {
+       "NE": 10,
+       "NW": 10,
+       "SW": 6
+      },
+      "melon": 2,
+      "empty": 34,
+      "weed": 1,
+      "cow": 6,
+      "sheep": 4,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 9,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 20,
+      "obs_day": 20,
+      "money": 32885.0,
+      "wheat": 1,
+      "strawberry": 24,
+      "strawberry_by_quadrant": {
+       "NE": 9,
+       "NW": 9,
+       "SW": 6
+      },
+      "melon": 2,
+      "empty": 34,
+      "weed": 3,
+      "cow": 6,
+      "sheep": 4,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 11,
+       "BUY_SEED:WHEAT": 1,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 21,
+      "obs_day": 21,
+      "money": 34658.0,
+      "wheat": 0,
+      "strawberry": 21,
+      "strawberry_by_quadrant": {
+       "NE": 7,
+       "NW": 8,
+       "SW": 6
+      },
+      "melon": 2,
+      "empty": 36,
+      "weed": 5,
+      "cow": 6,
+      "sheep": 4,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 9,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 22,
+      "obs_day": 22,
+      "money": 36635.0,
+      "wheat": 4,
+      "strawberry": 14,
+      "strawberry_by_quadrant": {
+       "NE": 3,
+       "NW": 5,
+       "SW": 6
+      },
+      "melon": 2,
+      "empty": 35,
+      "weed": 9,
+      "cow": 6,
+      "sheep": 4,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 11,
+       "BUY_SEED:WHEAT": 4,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 23,
+      "obs_day": 23,
+      "money": 37721.0,
+      "wheat": 12,
+      "strawberry": 9,
+      "strawberry_by_quadrant": {
+       "NE": 2,
+       "NW": 2,
+       "SW": 5
+      },
+      "melon": 1,
+      "empty": 35,
+      "weed": 7,
+      "cow": 6,
+      "sheep": 4,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 10,
+       "BUY_SEED:WHEAT": 8,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 24,
+      "obs_day": 24,
+      "money": 39402.0,
+      "wheat": 16,
+      "strawberry": 8,
+      "strawberry_by_quadrant": {
+       "NE": 1,
+       "NW": 2,
+       "SW": 5
+      },
+      "melon": 1,
+      "empty": 33,
+      "weed": 6,
+      "cow": 6,
+      "sheep": 4,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 12,
+       "BUY_SEED:WHEAT": 4,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 25,
+      "obs_day": 25,
+      "money": 41319.0,
+      "wheat": 16,
+      "strawberry": 8,
+      "strawberry_by_quadrant": {
+       "NE": 1,
+       "NW": 2,
+       "SW": 5
+      },
+      "melon": 1,
+      "empty": 37,
+      "weed": 2,
+      "cow": 6,
+      "sheep": 4,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 11,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 26,
+      "obs_day": 26,
+      "money": 42460.0,
+      "wheat": 19,
+      "strawberry": 6,
+      "strawberry_by_quadrant": {
+       "NW": 1,
+       "SW": 5
+      },
+      "melon": 0,
+      "empty": 36,
+      "weed": 3,
+      "cow": 6,
+      "sheep": 4,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 9,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 27,
+      "obs_day": 27,
+      "money": 45314.0,
+      "wheat": 20,
+      "strawberry": 6,
+      "strawberry_by_quadrant": {
+       "NW": 1,
+       "SW": 5
+      },
+      "melon": 0,
+      "empty": 35,
+      "weed": 3,
+      "cow": 6,
+      "sheep": 4,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 10,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 28,
+      "obs_day": 28,
+      "money": 47897.0,
+      "wheat": 25,
+      "strawberry": 4,
+      "strawberry_by_quadrant": {
+       "NW": 1,
+       "SW": 3
+      },
+      "melon": 0,
+      "empty": 29,
+      "weed": 6,
+      "cow": 6,
+      "sheep": 4,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 29,
+      "obs_day": 29,
+      "money": 49974.0,
+      "wheat": 24,
+      "strawberry": 0,
+      "strawberry_by_quadrant": {},
+      "melon": 0,
+      "empty": 29,
+      "weed": 11,
+      "cow": 6,
+      "sheep": 4,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "HIRE": 10
+      }
+     }
+    ],
+    "final_money": 49974.0,
+    "opp_final_money": 95459.0,
+    "sw_day": 11,
+    "peak_strawberry": 26
+   },
+   "LTS_sheep2": {
+    "rows": [
+     {
+      "day": 0,
+      "obs_day": 0,
+      "money": 270.0,
+      "wheat": 25,
+      "strawberry": 0,
+      "strawberry_by_quadrant": {},
+      "melon": 2,
+      "empty": 14,
+      "weed": 0,
+      "cow": 1,
+      "sheep": 0,
+      "goose": 1,
+      "quads": "NWNE",
+      "hands": 6,
+      "orders": {
+       "BUY_ANIMAL:COW": 1,
+       "BUY_ANIMAL:GOOSE": 1,
+       "BUY_LAND": 1,
+       "BUY_PRODUCT:WHEAT": 7,
+       "BUY_SEED:MELON": 6,
+       "BUY_SEED:WHEAT": 33,
+       "HIRE": 6
+      }
+     },
+     {
+      "day": 1,
+      "obs_day": 1,
+      "money": 232.0,
+      "wheat": 33,
+      "strawberry": 0,
+      "strawberry_by_quadrant": {},
+      "melon": 4,
+      "empty": 4,
+      "weed": 0,
+      "cow": 1,
+      "sheep": 0,
+      "goose": 1,
+      "quads": "NWNE",
+      "hands": 6,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 2,
+       "BUY_SEED:MELON": 2,
+       "HIRE": 6
+      }
+     },
+     {
+      "day": 2,
+      "obs_day": 2,
+      "money": 251.0,
+      "wheat": 33,
+      "strawberry": 0,
+      "strawberry_by_quadrant": {},
+      "melon": 5,
+      "empty": 3,
+      "weed": 0,
+      "cow": 1,
+      "sheep": 0,
+      "goose": 1,
+      "quads": "NWNE",
+      "hands": 6,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 2,
+       "HIRE": 6
+      }
+     },
+     {
+      "day": 3,
+      "obs_day": 3,
+      "money": 366.0,
+      "wheat": 33,
+      "strawberry": 0,
+      "strawberry_by_quadrant": {},
+      "melon": 5,
+      "empty": 3,
+      "weed": 0,
+      "cow": 1,
+      "sheep": 0,
+      "goose": 1,
+      "quads": "NWNE",
+      "hands": 6,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 2,
+       "HIRE": 6
+      }
+     },
+     {
+      "day": 4,
+      "obs_day": 4,
+      "money": 9.0,
+      "wheat": 10,
+      "strawberry": 3,
+      "strawberry_by_quadrant": {
+       "NE": 2,
+       "NW": 1
+      },
+      "melon": 5,
+      "empty": 23,
+      "weed": 0,
+      "cow": 2,
+      "sheep": 0,
+      "goose": 1,
+      "quads": "NWNE",
+      "hands": 6,
+      "orders": {
+       "BUY_ANIMAL:COW": 1,
+       "BUY_PRODUCT:WHEAT": 5,
+       "BUY_SEED:STRAWBERRY": 3,
+       "BUY_SEED:WHEAT": 3,
+       "HIRE": 6
+      }
+     },
+     {
+      "day": 5,
+      "obs_day": 5,
+      "money": 6.0,
+      "wheat": 2,
+      "strawberry": 11,
+      "strawberry_by_quadrant": {
+       "NE": 6,
+       "NW": 5
+      },
+      "melon": 5,
+      "empty": 22,
+      "weed": 1,
+      "cow": 4,
+      "sheep": 0,
+      "goose": 1,
+      "quads": "NWNE",
+      "hands": 6,
+      "orders": {
+       "BUY_ANIMAL:COW": 2,
+       "BUY_PRODUCT:WHEAT": 3,
+       "BUY_SEED:STRAWBERRY": 15,
+       "BUY_SEED:WHEAT": 8,
+       "HIRE": 6
+      }
+     },
+     {
+      "day": 6,
+      "obs_day": 6,
+      "money": 10.0,
+      "wheat": 4,
+      "strawberry": 18,
+      "strawberry_by_quadrant": {
+       "NE": 10,
+       "NW": 8
+      },
+      "melon": 7,
+      "empty": 11,
+      "weed": 1,
+      "cow": 5,
+      "sheep": 0,
+      "goose": 1,
+      "quads": "NWNE",
+      "hands": 6,
+      "orders": {
+       "BUY_ANIMAL:COW": 1,
+       "BUY_PRODUCT:WHEAT": 36,
+       "BUY_SEED:WHEAT": 1,
+       "HIRE": 6
+      }
+     },
+     {
+      "day": 7,
+      "obs_day": 7,
+      "money": 1.0,
+      "wheat": 7,
+      "strawberry": 18,
+      "strawberry_by_quadrant": {
+       "NE": 10,
+       "NW": 8
+      },
+      "melon": 8,
+      "empty": 8,
+      "weed": 0,
+      "cow": 5,
+      "sheep": 0,
+      "goose": 1,
+      "quads": "NWNE",
+      "hands": 6,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 80,
+       "HIRE": 20
+      }
+     },
+     {
+      "day": 8,
+      "obs_day": 8,
+      "money": 3.0,
+      "wheat": 7,
+      "strawberry": 18,
+      "strawberry_by_quadrant": {
+       "NE": 10,
+       "NW": 8
+      },
+      "melon": 8,
+      "empty": 8,
+      "weed": 0,
+      "cow": 5,
+      "sheep": 0,
+      "goose": 1,
+      "quads": "NWNE",
+      "hands": 4,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 98,
+       "HIRE": 64
+      }
+     },
+     {
+      "day": 9,
+      "obs_day": 9,
+      "money": 2.0,
+      "wheat": 6,
+      "strawberry": 17,
+      "strawberry_by_quadrant": {
+       "NE": 9,
+       "NW": 8
+      },
+      "melon": 8,
+      "empty": 8,
+      "weed": 2,
+      "cow": 5,
+      "sheep": 0,
+      "goose": 1,
+      "quads": "NWNE",
+      "hands": 5,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 124,
+       "HIRE": 52
+      }
+     },
+     {
+      "day": 10,
+      "obs_day": 10,
+      "money": 10.0,
+      "wheat": 4,
+      "strawberry": 17,
+      "strawberry_by_quadrant": {
+       "NE": 9,
+       "NW": 8
+      },
+      "melon": 8,
+      "empty": 9,
+      "weed": 3,
+      "cow": 5,
+      "sheep": 0,
+      "goose": 1,
+      "quads": "NWNE",
+      "hands": 6,
+      "orders": {
+       "BUY_ANIMAL:SHEEP": 2,
+       "BUY_PRODUCT:WHEAT": 35,
+       "BUY_SEED:STRAWBERRY": 4,
+       "BUY_SEED:WHEAT": 3,
+       "HIRE": 7
+      }
+     },
+     {
+      "day": 11,
+      "obs_day": 11,
+      "money": 412.0,
+      "wheat": 0,
+      "strawberry": 19,
+      "strawberry_by_quadrant": {
+       "NE": 9,
+       "NW": 10
+      },
+      "melon": 6,
+      "empty": 10,
+      "weed": 6,
+      "cow": 5,
+      "sheep": 2,
+      "goose": 1,
+      "quads": "NWNE",
+      "hands": 7,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 6,
+       "BUY_SEED:MELON": 2,
+       "BUY_SEED:STRAWBERRY": 1,
+       "BUY_SEED:WHEAT": 4,
+       "HIRE": 7
+      }
+     },
+     {
+      "day": 12,
+      "obs_day": 12,
+      "money": 0.0,
+      "wheat": 0,
+      "strawberry": 24,
+      "strawberry_by_quadrant": {
+       "NE": 9,
+       "NW": 10,
+       "SW": 5
+      },
+      "melon": 4,
+      "empty": 32,
+      "weed": 6,
+      "cow": 5,
+      "sheep": 2,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_LAND": 1,
+       "BUY_PRODUCT:WHEAT": 25,
+       "BUY_SEED:MELON": 2,
+       "BUY_SEED:STRAWBERRY": 11,
+       "BUY_SEED:WHEAT": 10,
+       "HIRE": 16
+      }
+     },
+     {
+      "day": 13,
+      "obs_day": 13,
+      "money": 4295.0,
+      "wheat": 4,
+      "strawberry": 24,
+      "strawberry_by_quadrant": {
+       "NE": 9,
+       "NW": 10,
+       "SW": 5
+      },
+      "melon": 5,
+      "empty": 29,
+      "weed": 4,
+      "cow": 5,
+      "sheep": 2,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 9,
+       "BUY_SEED:MELON": 2,
+       "BUY_SEED:WHEAT": 10,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 14,
+      "obs_day": 14,
+      "money": 8672.0,
+      "wheat": 5,
+      "strawberry": 23,
+      "strawberry_by_quadrant": {
+       "NE": 9,
+       "NW": 9,
+       "SW": 5
+      },
+      "melon": 7,
+      "empty": 27,
+      "weed": 4,
+      "cow": 5,
+      "sheep": 2,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 8,
+       "BUY_SEED:MELON": 1,
+       "BUY_SEED:WHEAT": 1,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 15,
+      "obs_day": 15,
+      "money": 11013.0,
+      "wheat": 8,
+      "strawberry": 23,
+      "strawberry_by_quadrant": {
+       "NE": 9,
+       "NW": 9,
+       "SW": 5
+      },
+      "melon": 8,
+      "empty": 22,
+      "weed": 5,
+      "cow": 5,
+      "sheep": 2,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 8,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 16,
+      "obs_day": 16,
+      "money": 13205.0,
+      "wheat": 11,
+      "strawberry": 23,
+      "strawberry_by_quadrant": {
+       "NE": 9,
+       "NW": 9,
+       "SW": 5
+      },
+      "melon": 8,
+      "empty": 21,
+      "weed": 3,
+      "cow": 5,
+      "sheep": 2,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 8,
+       "BUY_SEED:MELON": 1,
+       "BUY_SEED:WHEAT": 1,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 17,
+      "obs_day": 17,
+      "money": 17611.0,
+      "wheat": 9,
+      "strawberry": 23,
+      "strawberry_by_quadrant": {
+       "NE": 9,
+       "NW": 9,
+       "SW": 5
+      },
+      "melon": 7,
+      "empty": 23,
+      "weed": 4,
+      "cow": 5,
+      "sheep": 2,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 8,
+       "BUY_SEED:WHEAT": 3,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 18,
+      "obs_day": 18,
+      "money": 26597.0,
+      "wheat": 7,
+      "strawberry": 23,
+      "strawberry_by_quadrant": {
+       "NE": 9,
+       "NW": 9,
+       "SW": 5
+      },
+      "melon": 7,
+      "empty": 24,
+      "weed": 5,
+      "cow": 5,
+      "sheep": 2,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 7,
+       "BUY_SEED:WHEAT": 2,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 19,
+      "obs_day": 19,
+      "money": 33063.0,
+      "wheat": 5,
+      "strawberry": 23,
+      "strawberry_by_quadrant": {
+       "NE": 9,
+       "NW": 9,
+       "SW": 5
+      },
+      "melon": 7,
+      "empty": 26,
+      "weed": 5,
+      "cow": 5,
+      "sheep": 2,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 7,
+       "BUY_SEED:WHEAT": 4,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 20,
+      "obs_day": 20,
+      "money": 35007.0,
+      "wheat": 4,
+      "strawberry": 23,
+      "strawberry_by_quadrant": {
+       "NE": 9,
+       "NW": 9,
+       "SW": 5
+      },
+      "melon": 7,
+      "empty": 29,
+      "weed": 3,
+      "cow": 5,
+      "sheep": 2,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 4,
+       "BUY_SEED:WHEAT": 2,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 21,
+      "obs_day": 21,
+      "money": 40309.0,
+      "wheat": 4,
+      "strawberry": 20,
+      "strawberry_by_quadrant": {
+       "NE": 8,
+       "NW": 7,
+       "SW": 5
+      },
+      "melon": 7,
+      "empty": 29,
+      "weed": 6,
+      "cow": 5,
+      "sheep": 2,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 8,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 22,
+      "obs_day": 22,
+      "money": 46724.0,
+      "wheat": 10,
+      "strawberry": 14,
+      "strawberry_by_quadrant": {
+       "NE": 4,
+       "NW": 5,
+       "SW": 5
+      },
+      "melon": 7,
+      "empty": 24,
+      "weed": 11,
+      "cow": 5,
+      "sheep": 2,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 8,
+       "BUY_SEED:WHEAT": 6,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 23,
+      "obs_day": 23,
+      "money": 52209.0,
+      "wheat": 21,
+      "strawberry": 8,
+      "strawberry_by_quadrant": {
+       "NE": 1,
+       "NW": 2,
+       "SW": 5
+      },
+      "melon": 5,
+      "empty": 25,
+      "weed": 7,
+      "cow": 5,
+      "sheep": 2,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 8,
+       "BUY_SEED:WHEAT": 12,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 24,
+      "obs_day": 24,
+      "money": 56465.0,
+      "wheat": 26,
+      "strawberry": 8,
+      "strawberry_by_quadrant": {
+       "NE": 1,
+       "NW": 2,
+       "SW": 5
+      },
+      "melon": 3,
+      "empty": 25,
+      "weed": 4,
+      "cow": 5,
+      "sheep": 2,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 8,
+       "BUY_SEED:WHEAT": 2,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 25,
+      "obs_day": 25,
+      "money": 61351.0,
+      "wheat": 26,
+      "strawberry": 8,
+      "strawberry_by_quadrant": {
+       "NE": 1,
+       "NW": 2,
+       "SW": 5
+      },
+      "melon": 2,
+      "empty": 26,
+      "weed": 4,
+      "cow": 5,
+      "sheep": 2,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 8,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 26,
+      "obs_day": 26,
+      "money": 64072.0,
+      "wheat": 23,
+      "strawberry": 8,
+      "strawberry_by_quadrant": {
+       "NE": 1,
+       "NW": 2,
+       "SW": 5
+      },
+      "melon": 0,
+      "empty": 32,
+      "weed": 3,
+      "cow": 5,
+      "sheep": 2,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 7,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 27,
+      "obs_day": 27,
+      "money": 68089.0,
+      "wheat": 18,
+      "strawberry": 8,
+      "strawberry_by_quadrant": {
+       "NE": 1,
+       "NW": 2,
+       "SW": 5
+      },
+      "melon": 0,
+      "empty": 38,
+      "weed": 2,
+      "cow": 5,
+      "sheep": 2,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "BUY_PRODUCT:WHEAT": 7,
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 28,
+      "obs_day": 28,
+      "money": 73216.0,
+      "wheat": 23,
+      "strawberry": 5,
+      "strawberry_by_quadrant": {
+       "SW": 5
+      },
+      "melon": 0,
+      "empty": 36,
+      "weed": 2,
+      "cow": 5,
+      "sheep": 2,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "HIRE": 10
+      }
+     },
+     {
+      "day": 29,
+      "obs_day": 29,
+      "money": 79943.0,
+      "wheat": 24,
+      "strawberry": 0,
+      "strawberry_by_quadrant": {},
+      "melon": 0,
+      "empty": 40,
+      "weed": 2,
+      "cow": 5,
+      "sheep": 2,
+      "goose": 1,
+      "quads": "NWNESW",
+      "hands": 10,
+      "orders": {
+       "HIRE": 10
+      }
+     }
+    ],
+    "final_money": 79943.0,
+    "opp_final_money": 139939.0,
+    "sw_day": 12,
+    "peak_strawberry": 24,
+    "first_divergence_vs_ref": {
+     "step": 1,
+     "day": 0,
+     "hour": 0,
+     "seat": 0,
+     "ref_action": "{\"farmer\": [\"WEST\"], \"hands\": [], \"market\": [[\"BUY_ANIMAL\", \"GOOSE\", 1], [\"BUY_LAND\"], [\"BUY_SEED\", \"MELON\", 4], [\"BUY_SEED\", \"WHEAT\", 15], [\"BUY_PRODUCT\", \"WHEAT\", 3], [\"HIRE\"], [\"HIRE\"], [\"HIRE\"]]}",
+     "arm_action": "{\"farmer\": [\"WEST\"], \"hands\": [], \"market\": [[\"BUY_ANIMAL\", \"GOOSE\", 1], [\"BUY_LAND\"], [\"BUY_SEED\", \"MELON\", 4], [\"BUY_SEED\", \"WHEAT\", 16], [\"BUY_PRODUCT\", \"WHEAT\", 3], [\"HIRE\"], [\"HIRE\"], [\"HIRE\"]]}"
+    }
+   }
+  }
+ }
+}
