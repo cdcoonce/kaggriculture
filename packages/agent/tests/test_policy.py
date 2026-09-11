@@ -5,7 +5,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from agent import policy
+import pytest
+from agent import dispatch, policy
 from agent.constants import (
     LAND_ORDER,
     PASTURE_REFERENCE_QUADRANTS,
@@ -1067,3 +1068,116 @@ def test_default_config_keeps_the_strawberry_start_day_at_zero() -> None:
     config = PolicyConfig()
     assert config.strawberry_start_day == 0
     assert config.strawberry_start_day == policy.STRAWBERRY_START_DAY
+
+
+# --- strawberry_plant_priority / strawberry_fert_reserve: fill the zone ---
+#
+# Diagnosis 2026-09-10 (SW-framed zone, target 25, strawberry_plant_daily_cap
+# 10, start day 9; seeds 855000-855001 vs public:sokolovsky-v12): the zone
+# plants only ~5 of its 25 tiles by the day-12 cutoff. Two independent
+# causes. (1) dispatch.py's PLANT STRAWBERRY task shares PLANT WHEAT/MELON's
+# priority tier, so for hours 2-15 of every day, 17-27 nearer NW/NE
+# wheat/melon tasks in that same tier claim every idle unit first; the few
+# strawberry claims that DO land arrive too late and are deleted by the
+# hour-20 cutoff (funnel on days 10-12: 606 tasks generated, 61 claimed, 3
+# executed). (2) policy.py sizes build_orders' fert_reserve off
+# strawberry_tile_target from strawberry_start_day, withholding up to 25
+# FERTILIZER units from sale before a single strawberry tile exists -- day-9
+# FERTILIZER sales fall to 0 (shipped: 10-12 units), delaying the SW
+# purchase a day past its $2,500 threshold. See test_dispatch.py's
+# test_strawberry_plant_priority_is_tunable_not_just_the_module_constant for
+# the dispatch-level half of (1).
+
+
+def test_strawberry_plant_priority_default_is_dispatchs_own_constant() -> None:
+    # The only thing standing between this knob and a silent change to the
+    # shipped agent is this default -- every existing PolicyConfig() must
+    # keep resolving to exactly today's tier. Compared against dispatch's OWN
+    # constant, not a literal 3, so an edit to dispatch's hardcoded tier can
+    # never drift silently out of sync with this default.
+    assert PolicyConfig().strawberry_plant_priority == dispatch.STRAWBERRY_PLANT_PRIORITY
+
+
+def test_default_config_keeps_the_strawberry_fert_reserve_at_target() -> None:
+    assert PolicyConfig().strawberry_fert_reserve == "target"
+
+
+def test_strawberry_plant_priority_rejects_a_value_outside_dispatchs_five_tiers() -> None:
+    # dispatch()'s own priority-class dict is keyed 0..4
+    # (tasks_by_priority = {p: [] for p in range(5)}); a priority outside
+    # that range would KeyError deep inside a turn the moment a
+    # strawberry-zone tile needed planting, instead of failing loudly here
+    # at construction.
+    with pytest.raises(ValueError, match="strawberry_plant_priority"):
+        PolicyConfig(strawberry_plant_priority=5)
+    with pytest.raises(ValueError, match="strawberry_plant_priority"):
+        PolicyConfig(strawberry_plant_priority=-1)
+
+
+def test_strawberry_fert_reserve_rejects_an_unknown_value() -> None:
+    with pytest.raises(ValueError, match="strawberry_fert_reserve"):
+        PolicyConfig(strawberry_fert_reserve="planted_tiles")
+
+
+def _captured_fert_reserve(config: PolicyConfig, obs: dict[str, Any]) -> int:
+    """The exact ``fert_reserve`` value ``decide()`` handed ``build_orders``
+    this turn, read off a spy rather than inferred from a sell quantity --
+    price/floor/valve-tier gating would otherwise confound the assertion."""
+    captured: dict[str, object] = {}
+    real = policy.build_orders
+
+    def spy(**kwargs: object) -> list[list[object]]:
+        captured["fert_reserve"] = kwargs["fert_reserve"]
+        return real(**kwargs)  # type: ignore[arg-type]
+
+    policy.build_orders = spy  # type: ignore[assignment]
+    try:
+        make_policy(policy_config=config)(obs, None)
+    finally:
+        policy.build_orders = real  # type: ignore[assignment]
+    reserve = captured["fert_reserve"]
+    assert isinstance(reserve, int)
+    return reserve
+
+
+def test_strawberry_fert_reserve_target_matches_todays_formula() -> None:
+    # "target" is not a new behavior -- it IS today's formula, reserve =
+    # strawberry_tile_target, unconditionally (even with zero tiles planted).
+    obs = raw_obs(step=10 * 24, unlocked_quadrants=("NW", "NE"))
+    config = PolicyConfig(strawberry_tile_target=25, strawberry_fert_reserve="target")
+    assert _captured_fert_reserve(config, obs) == 25
+
+
+def test_strawberry_fert_reserve_planted_counts_standing_strawberry_tiles() -> None:
+    obs = raw_obs(step=10 * 24, unlocked_quadrants=("NW", "NE"))
+    tiles = obs["farms"][0]["tiles"]
+    for x, y in ((0, 0), (1, 0), (2, 0)):
+        tiles[y][x] = {
+            "kind": "PLANT",
+            "crop": "STRAWBERRY",
+            "planted_day": 0,
+            "watered_today": True,
+            "yield_units": 0,
+            "fertilized_until_day": -1,
+        }
+    config = PolicyConfig(strawberry_tile_target=25, strawberry_fert_reserve="planted")
+    assert _captured_fert_reserve(config, obs) == 3
+
+
+def test_strawberry_fert_reserve_planted_sells_like_strawberry_off_before_anything_is_planted() -> (
+    None
+):
+    # The behavioral claim, not just the internal number: a shed holding
+    # fertilizer with zero standing strawberry plants must sell it exactly
+    # like an agent with the mechanic off altogether -- "planted" only ever
+    # withholds units a real tile can actually spend.
+    obs = raw_obs(step=10 * 24, unlocked_quadrants=("NW", "NE"), money=50_000.0)
+    obs["private"]["shed"] = {"FERTILIZER": 20}
+    obs["market"]["prices"]["FERTILIZER"] = 150.0
+
+    off = make_policy(policy_config=PolicyConfig(strawberry_tile_target=0))(obs, None)
+    planted_mode = make_policy(
+        policy_config=PolicyConfig(strawberry_tile_target=25, strawberry_fert_reserve="planted")
+    )(obs, None)
+
+    assert _sells(planted_mode).get("FERTILIZER") == _sells(off).get("FERTILIZER")
