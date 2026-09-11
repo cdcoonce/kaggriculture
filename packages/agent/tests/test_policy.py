@@ -1433,3 +1433,53 @@ def test_animal_buy_order_threads_from_policy_config_to_the_market_list() -> Non
     )
     assert ["BUY_ANIMAL", "SHEEP", 2] in overridden_action["market"]
     assert not any(o[:2] == ["BUY_ANIMAL", "COW"] for o in overridden_action["market"])
+
+
+# --- goose_min_day: defer the goose to keep the pre-NE pasture slots
+# (kaggriculture, 2026-09-11) --------------------------------------------------
+#
+# Observed strongest public bots (game replays): they never buy a goose and
+# keep the 5 NW pasture slots for 4 sheep + 1 cow before NE is bought -- our
+# goose takes one of those slots, so a sheep-first opening stalls at 3 sheep.
+# DEFAULT-NEUTRAL, the same reasoning as ne_land_min_day above: the goose
+# branch never had an earliest-day gate before this knob existed (it buys the
+# instant cash allows, including turn 0), so 0 reproduces that exactly. An
+# eval run sets this to the NE day (e.g. 6) to defer the goose.
+
+
+def test_goose_min_day_default_pins_todays_behavior() -> None:
+    # Compared against plan.py's OWN constant, the same pattern
+    # test_opening_knob_defaults_pin_todays_behavior above uses, so an edit to
+    # the hardcoded value can never drift silently out of sync with this
+    # default.
+    config = PolicyConfig()
+    assert config.goose_min_day == 0
+    assert config.goose_min_day == plan.GOOSE_MIN_DAY
+
+
+def test_goose_min_day_rejects_out_of_range_values() -> None:
+    # 0-29: the valid range of view.day across the 30-day game -- the same
+    # bound and "loud at construction" reasoning ne_land_min_day uses above.
+    with pytest.raises(ValueError, match="goose_min_day"):
+        PolicyConfig(goose_min_day=-1)
+    with pytest.raises(ValueError, match="goose_min_day"):
+        PolicyConfig(goose_min_day=30)
+
+
+def test_goose_min_day_threads_from_policy_config_and_delays_the_buy_goose() -> None:
+    """The knob has to reach the emitted market orders, not just plan_day
+    (test_plan.py's test_goose_waits_for_goose_min_day_then_buys_on_time
+    covers the formula itself) -- mirrors test_ne_land_min_day_threads_
+    from_policy_config_and_delays_the_buy_land above.
+    """
+    obs = raw_obs(money=3000.0)  # day 0 by default (step=0)
+
+    default_action = make_policy()(obs, None)
+    assert default_action["market"].count(["BUY_ANIMAL", "GOOSE", 1]) == 1
+
+    delayed_action = make_policy(policy_config=PolicyConfig(goose_min_day=6))(obs, None)
+    assert ["BUY_ANIMAL", "GOOSE", 1] not in delayed_action["market"]
+
+    on_time_obs = raw_obs(step=6 * 24, money=3000.0)
+    on_time_action = make_policy(policy_config=PolicyConfig(goose_min_day=6))(on_time_obs, None)
+    assert on_time_action["market"].count(["BUY_ANIMAL", "GOOSE", 1]) == 1

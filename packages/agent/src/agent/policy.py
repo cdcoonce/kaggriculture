@@ -52,6 +52,7 @@ from agent.market import (
 from agent.plan import (
     ANIMAL_BUY_ORDER,
     FEED_RESERVE,
+    GOOSE_MIN_DAY,
     MAX_HIRES_PER_TURN,
     NE_LAND_MIN_DAY,
     STRAWBERRY_SEED_BUDGET_SHARE,
@@ -162,6 +163,13 @@ _MAX_EXTRA_HANDS = 5
 _MIN_NE_LAND_MIN_DAY = 0
 _MAX_NE_LAND_MIN_DAY = 29
 
+#: goose_min_day: the same valid range of view.day as ne_land_min_day above
+#: (see plan.GOOSE_LAST_BUY_DAY == 14 for the corresponding *latest* day -- a
+#: value past that makes the purchase unreachable but is not itself an
+#: invalid day, so it is not rejected here).
+_MIN_GOOSE_MIN_DAY = 0
+_MAX_GOOSE_MIN_DAY = 29
+
 #: animal_buy_order: must be a permutation of plan.ANIMAL_BUY_ORDER itself --
 #: checked by sorted-list equality (not a set) so a duplicate (e.g. ("COW",
 #: "COW")) is rejected too, not just an unknown species. Anything else would
@@ -252,6 +260,23 @@ class PolicyConfig:
     # anything outside 0-29, the valid range of view.day across the 30-day
     # game -- see _MAX_NE_LAND_MIN_DAY.
     ne_land_min_day: int = NE_LAND_MIN_DAY
+
+    # Earliest day the goose purchase may fire, the same day >= *_min_day
+    # mechanism ne_land_min_day above uses for NE land. The goose branch
+    # never had an earliest-day gate before this knob existed -- it buys the
+    # instant cash allows, including turn 0 -- so 0 is DEFAULT-NEUTRAL:
+    # day >= 0 is always true and every existing game is bit-for-bit
+    # unchanged.
+    #
+    # Diagnosis (observed strongest public bots, game replays, 2026-09-11):
+    # the strongest public bots never buy a goose at all and keep the 5 NW
+    # pasture slots for 4 sheep + 1 cow before NE is bought -- our goose
+    # takes one of those slots, so a sheep-first opening stalls at 3 sheep.
+    # An eval run sets this to the NE day (e.g. 6, ne_land_min_day's own eval
+    # value) to defer the goose while that opening plays out. __post_init__
+    # rejects anything outside 0-29, the valid range of view.day across the
+    # 30-day game -- see _MAX_GOOSE_MIN_DAY.
+    goose_min_day: int = GOOSE_MIN_DAY
 
     # Crew size. plan.py's plan_day(), threaded through decide() the same way
     # every other planner knob is. Defaults to plan.MAX_HIRES_PER_TURN (4),
@@ -433,6 +458,10 @@ class PolicyConfig:
         checked here for the same "loud at construction" reason as every
         other field above.
 
+        goose_min_day must land inside 0-29 (the valid range of view.day),
+        checked here for the same "loud at construction" reason as every
+        other field above.
+
         animal_buy_order gets the same list-to-tuple coercion as
         strawberry_frame_quadrants above (JSON has no tuple type, so a CLI
         --agent-config override arrives as a list -- unhashable, and never
@@ -493,6 +522,12 @@ class PolicyConfig:
             raise ValueError(
                 f"ne_land_min_day must be within {_MIN_NE_LAND_MIN_DAY}-"
                 f"{_MAX_NE_LAND_MIN_DAY}, got {self.ne_land_min_day!r}"
+            )
+
+        if not (_MIN_GOOSE_MIN_DAY <= self.goose_min_day <= _MAX_GOOSE_MIN_DAY):
+            raise ValueError(
+                f"goose_min_day must be within {_MIN_GOOSE_MIN_DAY}-"
+                f"{_MAX_GOOSE_MIN_DAY}, got {self.goose_min_day!r}"
             )
 
         animal_order = tuple(self.animal_buy_order)
@@ -782,6 +817,7 @@ def make_policy(
             strawberry_seed_budget_share=cfg.strawberry_seed_budget_share,
             wheat_on_hand=_wheat_on_hand(view),
             goose_owned=goose,
+            goose_min_day=cfg.goose_min_day,
             hires_today=view.hires_today,
             unlocked_quadrants=view.unlocked_quadrants,
             active_tiles=len(tiles),
