@@ -63,7 +63,44 @@ their strawberry yields, and finish at $102-109k against our $66k.
 it unlocks, ahead of wheat) fills and keeps a leader-sized cohort, and banks more against
 the leaders than the shipped wheat farm does.
 
-ARMS-AND-PREDICTIONS-PLACEHOLDER
+## Registered arms
+
+Every arm sets `rescue_water` (#140), whose build measured missed-water deaths falling from
+29 a game to 1 in this configuration. An arm that lets its own crop die is not playing the
+tape — the leaders hold weeds at 0.0-0.5 through day 15 — and C5 below makes that explicit.
+
+| arm | what it adds to the shipped agent |
+|---|---|
+| **LTS** | the leaders' strawberry calendar: 36 tiles across NW, NE and SW, from day 3, at most 11 a day, planted ahead of wheat, the fertilizer reserve counted on planted tiles only, and the whole seed budget available for strawberry seed |
+| **LTS_HALF** | the same calendar at the shipped seed-budget split, which keeps more early cash for the herd |
+| **LTF** | LTS plus the leaders' opening: NE bought on day 6, sheep before cows, and the goose deferred to day 7 (the goose build's probe showed a day-6 goose spending the cash NE needs that day) |
+
+Configs, verbatim — the runner refuses to launch unless each appears in this document:
+
+- LTS: `{"strawberry_tile_target": 36, "strawberry_frame_quadrants": ["NW","NE","SW"], "strawberry_start_day": 3, "strawberry_plant_daily_cap": 11, "strawberry_plant_priority": 2, "strawberry_fert_reserve": "planted", "strawberry_seed_budget_share": 1.0, "rescue_water": true}`
+- LTS_HALF: `{"strawberry_tile_target": 36, "strawberry_frame_quadrants": ["NW","NE","SW"], "strawberry_start_day": 3, "strawberry_plant_daily_cap": 11, "strawberry_plant_priority": 2, "strawberry_fert_reserve": "planted", "rescue_water": true}`
+- LTF: `{"strawberry_tile_target": 36, "strawberry_frame_quadrants": ["NW","NE","SW"], "strawberry_start_day": 3, "strawberry_plant_daily_cap": 11, "strawberry_plant_priority": 2, "strawberry_fert_reserve": "planted", "strawberry_seed_budget_share": 1.0, "rescue_water": true, "ne_land_min_day": 6, "animal_buy_order": ["SHEEP","COW"], "goose_min_day": 7}`
+
+## Registered predictions
+
+- **Expression check.** All three arms clear C5: rescue watering takes missed-water deaths
+  to about 1 a game against a bar near 18-24. LTS and LTF clear C3 and C4. **LTS_HALF fails
+  C3's day-9 bar** — it measured 14.5 NW+NE tiles against the required 15 on dev seeds — and
+  is dropped before any run. LTF clears C2, with NE on day 6 or 7.
+- **LTS has the highest point estimate, +$2k to +$12k.** That is below the +$19.9k its
+  design probe showed on four dev seeds, for two reasons: rescue watering spends trips
+  (−$4k and −$7k on the build's two probe seeds), and a 4-seed shared-baseline probe is one
+  draw, not an estimate.
+- **LTF lands below LTS, −$5k to +$6k.** Delaying NE costs our wheat economy more than the
+  leaders' herd start returns: the opening-knob probe measured NE-on-day-6 alone at −$13k to
+  −$39k without strawberry.
+- **At least one arm advances: about 40%.** The mechanism is worth $49-54k a game to the
+  leaders, but our dispatcher fills ~30 of 36 tiles and our late game leaves the freed land
+  idle where theirs surges back into wheat.
+- **If no arm advances**, the leaders' strawberry economics do not transfer at our labor
+  level, and this line closes alongside the strawberry and labor lines. The recorded next
+  suspects are the late-game land conversion (their wheat goes to 40-57 tiles as the cohort
+  ages out; ours does not) and burst-day hiring (14 hands on the SW day against our 10).
 
 ## Expression check (pre-launch recon; a precondition)
 
