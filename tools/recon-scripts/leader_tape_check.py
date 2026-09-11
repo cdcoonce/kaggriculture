@@ -1,9 +1,11 @@
 """Registered expression check for the leader-tape slice.
 
 Registration: eval/prereg/2026-09-11-leader-tape-slice1.md. Reads an early-cash ledger
-record (tools/recon-scripts/early_cash_ledger.py --out; the FIRST arm must be the shipped
-reference, config {}) and asks whether each other arm plays the public leaders' opening
-tape closely enough for a money gate to test it.
+record (tools/recon-scripts/early_cash_ledger.py --out) plus a weed-provenance record
+(tools/recon-scripts/weed_provenance.py --out) over the same arms, seeds and build -- in
+both, the FIRST arm must be the shipped reference, config {} -- and asks whether each
+other arm plays the public leaders' opening tape closely enough for a money gate to test
+it.
 
 Every threshold comes from the leaders' measured tape (32 instrumented games, behavior
 only; the leaders' source was not read) and was committed before any expression-check
@@ -22,11 +24,19 @@ it, and tight enough that the shipped opening fails it:
 - C4 survival (every arm): mean strawberry tiles at the end of day 16 >= 0.9 x the day-12
   mean. Strawberry credits yield at ages 9, 11, 13 and 15 and is swept at 16, so a tile
   planted on day 3 or later still stands at the end of day 16 unless it died.
-- C5 weed guardrail (every arm): mean weed tile-days (end-of-day weed tiles summed over
-  every recorded day) <= 1.5 x the reference's, as in both labor slices.
+- C5 watering guardrail (every arm): mean plant deaths from missed watering per game
+  <= 1.5 x the reference's. A death is a tile the engine turns into a WEED under its
+  two-consecutive-unwatered-days rule, counted by weed_provenance.py from the engine's
+  own condition.
+
+C5 was re-specified (from total weed tile-days to deaths from missed watering) before any
+expression-check data existed; see the registration's amendment history for the engine
+rule that made the original measure unmeetable by construction. Both numbers are printed,
+so the retired measure stays visible.
 
 Usage:
-    uv run python tools/recon-scripts/leader_tape_check.py LEDGER.json [--out RECORD.json]
+    uv run python tools/recon-scripts/leader_tape_check.py LEDGER.json --weeds SCAN.json \
+        [--out RECORD.json]
 """
 
 import argparse
@@ -45,7 +55,8 @@ FILL_DAY = 12
 FILL_MIN = 27.0
 SURVIVAL_DAY = 16
 SURVIVAL_MIN_RATIO = 0.9
-WEED_RATIO_MAX = 1.5
+NEGLECT_RATIO_MAX = 1.5
+NEGLECT_CATEGORIES = ("established_unwatered", "fresh_planting_unwatered")
 
 
 def quadrants(row):
@@ -66,12 +77,15 @@ def end_of_day(rows, day):
     return rows[day]
 
 
-def measure(rows):
+def measure(rows, scan):
     if any("weed" not in r for r in rows):
         raise ValueError(
             "ledger rows lack 'weed': regenerate with early_cash_ledger.py at or after the"
             " commit that added this checker"
         )
+    odd = [c for c in scan["births_by_category"] if c.startswith(("UNEXPECTED", "OTHER"))]
+    if odd:
+        raise ValueError(f"weed scan has unexplained births {odd}: the classification is not validated here")
     by_quadrant = end_of_day(rows, NWNE_DAY)["strawberry_by_quadrant"]
     return {
         "sheep": end_of_day(rows, SHEEP_DAY)["sheep"],
@@ -81,6 +95,7 @@ def measure(rows):
         "fill": end_of_day(rows, FILL_DAY)["strawberry"],
         "survival": end_of_day(rows, SURVIVAL_DAY)["strawberry"],
         "weed_tile_days": sum(r["weed"] for r in rows),
+        "neglect_deaths": sum(scan["births_by_category"].get(c, 0) for c in NEGLECT_CATEGORIES),
     }
 
 
@@ -129,13 +144,13 @@ def check(cfg, seeds, ref_seeds):
             f" {SURVIVAL_MIN_RATIO * fill:.1f})",
         )
     )
-    weeds, ref_weeds = mean("weed_tile_days"), mean("weed_tile_days", ref_seeds)
+    deaths, ref_deaths = mean("neglect_deaths"), mean("neglect_deaths", ref_seeds)
     out.append(
         (
-            "C5_weed_guardrail",
-            weeds <= WEED_RATIO_MAX * ref_weeds,
-            f"weed tile-days {weeds:.1f} (needs <= {WEED_RATIO_MAX} x {ref_weeds:.1f} ="
-            f" {WEED_RATIO_MAX * ref_weeds:.1f})",
+            "C5_watering_guardrail",
+            deaths <= NEGLECT_RATIO_MAX * ref_deaths,
+            f"missed-water deaths {deaths:.1f}/game (needs <= {NEGLECT_RATIO_MAX} x {ref_deaths:.1f} ="
+            f" {NEGLECT_RATIO_MAX * ref_deaths:.1f})",
         )
     )
     return out
@@ -144,41 +159,54 @@ def check(cfg, seeds, ref_seeds):
 def main():
     ap = argparse.ArgumentParser(description="leader-tape expression check")
     ap.add_argument("ledger", help="an early_cash_ledger.py --out record")
+    ap.add_argument("--weeds", required=True, help="a weed_provenance.py --out record over the same arms and seeds")
     ap.add_argument("--out", help="write the verdict record here")
     a = ap.parse_args()
     with open(a.ledger) as fh:
         record = json.load(fh)
-    ident = record["identity"]
+    with open(a.weeds) as fh:
+        weeds = json.load(fh)
+    ident, wident = record["identity"], weeds["identity"]
     if ident["engine"] != ENGINE:
         raise SystemExit(f"ABORT: engine {ident['engine']}; the check requires {ENGINE}")
-    if ident["packages_dirty"]:
-        raise SystemExit("ABORT: the ledger ran on a dirty packages/ tree")
+    if ident["packages_dirty"] or wident["packages_dirty"]:
+        raise SystemExit("ABORT: a record ran on a dirty packages/ tree")
+    for field in ("git_sha", "engine", "opponent", "arms", "seeds"):
+        if ident[field] != wident[field]:
+            raise SystemExit(f"ABORT: the ledger and the weed scan disagree on {field}")
     arms = ident["arms"]
     ref = next(iter(arms))
     if arms[ref] != {}:
         raise SystemExit(f"ABORT: the first arm ({ref}) must be the shipped reference, config {{}}")
-    games = record["games"]
+    games, wgames = record["games"], weeds["games"]
     seeds = sorted(games)
-    measures = {arm: [measure(games[s][arm]["rows"]) for s in seeds] for arm in arms}
+    if sorted(wgames) != seeds:
+        raise SystemExit("ABORT: the ledger and the weed scan cover different seeds")
+    measures = {arm: [measure(games[s][arm]["rows"], wgames[s][arm]) for s in seeds] for arm in arms}
 
     print(
         f"{len(seeds)} seeds {seeds[0]}..{seeds[-1]} vs {ident['opponent']};"
         f" tree {ident['git_sha'][:7]}; reference {ref}"
     )
-    print(f"{'arm':<14}{'sheep@2':>8}{'NE day':>14}{'SW day':>14}{'NW+NE@9':>8}{'@12':>6}{'@16':>6}{'weeds':>7}")
+    print(
+        f"{'arm':<14}{'sheep@2':>8}{'NE day':>14}{'SW day':>14}{'NW+NE@9':>8}{'@12':>6}{'@16':>6}"
+        f"{'deaths':>8}{'weed t-d':>9}"
+    )
     for arm in arms:
         m = measures[arm]
 
-        def days(key):
-            vals = [s[key] for s in m]
-            return f"{min(vals, key=lambda d: 99 if d is None else d)}-{max(vals, key=lambda d: 99 if d is None else d)}"
+        def days(key, rows=m):
+            vals = [99 if s[key] is None else s[key] for s in rows]
+            return f"{min(vals)}-{max(vals)}"
 
         print(
             f"{arm:<14}{statistics.fmean(s['sheep'] for s in m):>8.2f}{days('ne_unlock_day'):>14}"
             f"{days('sw_unlock_day'):>14}{statistics.fmean(s['nw_ne_strawberry'] for s in m):>8.1f}"
             f"{statistics.fmean(s['fill'] for s in m):>6.1f}{statistics.fmean(s['survival'] for s in m):>6.1f}"
-            f"{statistics.fmean(s['weed_tile_days'] for s in m):>7.1f}"
+            f"{statistics.fmean(s['neglect_deaths'] for s in m):>8.1f}"
+            f"{statistics.fmean(s['weed_tile_days'] for s in m):>9.1f}"
         )
+    print("(weed t-d = total weed tile-days, the retired C5 measure: reported, not gating)")
 
     print("\nEXPRESSION CHECK (registered criteria):")
     verdicts = {}
@@ -200,7 +228,12 @@ def main():
         with open(a.out, "w") as fh:
             json.dump(
                 {
-                    "identity": {**ident, "checker": "tools/recon-scripts/leader_tape_check.py", "ledger": a.ledger},
+                    "identity": {
+                        **ident,
+                        "checker": "tools/recon-scripts/leader_tape_check.py",
+                        "ledger": a.ledger,
+                        "weed_scan": a.weeds,
+                    },
                     "measures": {arm: dict(zip(seeds, measures[arm])) for arm in arms},
                     "verdicts": verdicts,
                 },
