@@ -130,6 +130,10 @@ class TestResolveAgent:
         with pytest.raises(ValueError, match="champion"):
             resolve_agent("zoo:starter", {"soft_budget_seconds": 0.0})
 
+    def test_agent_config_raises_for_public_spec(self) -> None:
+        with pytest.raises(ValueError, match="champion"):
+            resolve_agent("public:kaito-v4", {"soft_budget_seconds": 0.0})
+
     def test_frozen_spec_accepts_an_agent_config(self) -> None:
         """A frozen incumbent is tunable, because an A/B on a CODE change has
         to be run at the same knob setting on both arms.

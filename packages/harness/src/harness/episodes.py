@@ -125,6 +125,16 @@ def resolve_agent(spec: str, agent_config: dict[str, Any] | None = None) -> Any:
                 f"That build predates the knob; it cannot be gated at this arm."
             ) from exc
         return shell.wrap(policy.make_policy(policy_config=policy_config))
+    if spec.startswith("public:"):
+        # Pre-registered public-leader opponent panel (eval/prereg/
+        # 2026-09-08-demand-aware-seasonal-controller.md): SHA-256-verified
+        # against eval/opponents/public-leaders/panel.json and re-executed
+        # into a brand-new namespace on every resolution, since these files
+        # keep mutable module-level globals and worker processes are reused
+        # across games. See harness.public_leaders for why and how.
+        from harness.public_leaders import resolve_public_leader
+
+        return resolve_public_leader(spec.removeprefix("public:"))
     raise ValueError(f"unknown agent spec: {spec!r}")
 
 
