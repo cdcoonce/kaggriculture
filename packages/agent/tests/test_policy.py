@@ -1337,3 +1337,99 @@ def test_extra_hands_threads_from_policy_config_to_the_market_list() -> None:
         policy_config=PolicyConfig(max_hires_per_turn=10, extra_hands=2)
     )(obs, None)
     assert overridden_action["market"] == [["HIRE"]] * 5  # hands_target 3+2=5
+
+
+# --- ne_land_min_day / animal_buy_order: opening knobs (kaggriculture,
+# 2026-09-11) -----------------------------------------------------------------
+#
+# Observed strongest public bots (game replays): they own only NW until
+# buying NE around day 6, buy about 4 sheep and 1 cow on day 0, and run only
+# 0-4 hands early. Both knobs are DEFAULT-NEUTRAL -- plan.py's NE branch
+# never had an earliest-day gate (SE already does: SE_LAND_MIN_DAY), and the
+# cow-before-sheep order was a hardcoded sequence, not a parameter -- so an
+# eval run opts into either arm explicitly.
+
+
+def test_opening_knob_defaults_pin_todays_behavior() -> None:
+    # Compared against the modules' OWN constants, the same pattern
+    # test_labor_knob_defaults_pin_todays_constants uses above, so an edit to
+    # either hardcoded value can never drift silently out of sync with these
+    # defaults.
+    config = PolicyConfig()
+    assert config.ne_land_min_day == 0
+    assert config.ne_land_min_day == plan.NE_LAND_MIN_DAY
+    assert config.animal_buy_order == ("COW", "SHEEP")
+    assert config.animal_buy_order == plan.ANIMAL_BUY_ORDER
+
+
+def test_ne_land_min_day_rejects_out_of_range_values() -> None:
+    # 0-29: the valid range of view.day across the 30-day game -- the same
+    # "loud at construction, not a silent no-op or a crash deep inside a
+    # turn" reasoning as every other bound in this class.
+    with pytest.raises(ValueError, match="ne_land_min_day"):
+        PolicyConfig(ne_land_min_day=-1)
+    with pytest.raises(ValueError, match="ne_land_min_day"):
+        PolicyConfig(ne_land_min_day=30)
+
+
+def test_animal_buy_order_rejects_a_non_permutation() -> None:
+    with pytest.raises(ValueError, match="animal_buy_order"):
+        PolicyConfig(animal_buy_order=("COW", "COW"))
+    with pytest.raises(ValueError, match="animal_buy_order"):
+        PolicyConfig(animal_buy_order=("COW",))
+    with pytest.raises(ValueError, match="animal_buy_order"):
+        PolicyConfig(animal_buy_order=("COW", "GOAT"))
+
+
+def test_animal_buy_order_coerces_a_json_list_to_a_tuple() -> None:
+    # JSON has no tuple type, so a CLI --agent-config
+    # '{"animal_buy_order": ["SHEEP", "COW"]}' arrives here as a Python list.
+    # Mirrors test_agent_config_coerces_a_strawberry_frame_list_to_a_tuple in
+    # test_episodes.py, but proved directly at the PolicyConfig constructor.
+    config = PolicyConfig(animal_buy_order=["SHEEP", "COW"])  # type: ignore[arg-type]
+    assert config.animal_buy_order == ("SHEEP", "COW")
+    assert isinstance(config.animal_buy_order, tuple)
+    hash(config)  # must not raise TypeError: unhashable type: 'list'
+
+
+def test_ne_land_min_day_threads_from_policy_config_and_delays_the_buy_land() -> None:
+    """The knob has to reach the emitted market orders, not just plan_day
+    (test_plan.py's test_ne_land_waits_for_ne_land_min_day_then_buys_on_time
+    covers the formula itself) -- mirrors test_max_owned_quadrants_threads_
+    from_policy_config_to_the_land_order above.
+    """
+    obs = raw_obs(money=3000.0)  # day 0 by default (step=0)
+
+    default_action = make_policy()(obs, None)
+    assert default_action["market"].count(["BUY_LAND"]) == 1
+
+    delayed_action = make_policy(policy_config=PolicyConfig(ne_land_min_day=6))(obs, None)
+    assert ["BUY_LAND"] not in delayed_action["market"]
+
+    on_time_obs = raw_obs(step=6 * 24, money=3000.0)
+    on_time_action = make_policy(policy_config=PolicyConfig(ne_land_min_day=6))(on_time_obs, None)
+    assert on_time_action["market"].count(["BUY_LAND"]) == 1
+
+
+def test_animal_buy_order_threads_from_policy_config_to_the_market_list() -> None:
+    """animal_buy_order has to reach the emitted market orders through
+    decide()'s plan_day call, not just plan_day in isolation
+    (test_plan.py's test_animal_buy_order_reorders_sheep_before_cows covers
+    the formula itself) -- mirrors test_max_owned_quadrants_threads_from_
+    policy_config_to_the_land_order above.
+    """
+    unlocked = ("NW", "NE")
+    obs = raw_obs(step=3 * 24, money=10000.0, unlocked_quadrants=unlocked)
+    zone = pasture_tiles(unlocked)
+    for x, y in zone[:2]:  # 2 empty built pastures -- matches ANIMAL_BUY_CAP_PER_TURN
+        obs["farms"][0]["tiles"][y][x] = built_pasture()
+
+    default_action = make_policy()(obs, None)
+    assert ["BUY_ANIMAL", "COW", 2] in default_action["market"]
+    assert not any(o[:2] == ["BUY_ANIMAL", "SHEEP"] for o in default_action["market"])
+
+    overridden_action = make_policy(policy_config=PolicyConfig(animal_buy_order=("SHEEP", "COW")))(
+        obs, None
+    )
+    assert ["BUY_ANIMAL", "SHEEP", 2] in overridden_action["market"]
+    assert not any(o[:2] == ["BUY_ANIMAL", "COW"] for o in overridden_action["market"])

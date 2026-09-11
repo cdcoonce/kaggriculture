@@ -9,8 +9,10 @@ is in the shared farm dict), so re-running it never double-buys.
 from __future__ import annotations
 
 from agent.plan import (
+    ANIMAL_BUY_ORDER,
     MAX_HIRES_PER_TURN,
     MELON_SEED_PRICE,
+    NE_LAND_MIN_DAY,
     SEED_PRICE,
     STRAWBERRY_SEED_PRICE,
     plan_day,
@@ -124,6 +126,39 @@ def test_land_buy_fires_at_reserve_boundary() -> None:
         active_tiles=24,
     )
     assert ["BUY_LAND"] in affordable.buys
+
+
+def test_ne_land_min_day_default_is_zero_so_shipped_behavior_is_unchanged() -> None:
+    # DEFAULT-NEUTRAL by construction: the NE branch never had an
+    # earliest-day gate before this knob existed (it buys the instant cash
+    # allows, including turn 0), so 0 reproduces that exactly -- day >= 0 is
+    # always true. Pinned against the module constant so an edit can never
+    # drift silently out of sync with plan_day's own default.
+    assert NE_LAND_MIN_DAY == 0
+
+
+def test_ne_land_waits_for_ne_land_min_day_then_buys_on_time() -> None:
+    # Mirrors test_se_land_not_bought_before_day_twelve_even_with_ample_budget:
+    # SE already has an earliest-day gate (SE_LAND_MIN_DAY); this is the same
+    # mechanism for NE, which never had one. Ample cash throughout so the
+    # gate under test is the day check, not affordability.
+    kwargs = dict(
+        money=10000.0,
+        wheat_seeds=0,
+        plantable_target_tiles=24,
+        wheat_on_hand=0,
+        goose_owned=True,
+        hires_today=0,
+        unlocked_quadrants=("NW",),
+        active_tiles=24,
+        ne_land_min_day=6,
+    )
+    for day in (0, 3, 5):
+        too_early = plan_day(day=day, **kwargs)  # type: ignore[arg-type]
+        assert ["BUY_LAND"] not in too_early.buys, day
+
+    on_time = plan_day(day=6, **kwargs)  # type: ignore[arg-type]
+    assert ["BUY_LAND"] in on_time.buys
 
 
 def test_land_order_uses_next_missing_quadrants_cutoff_not_an_earlier_one() -> None:
@@ -439,6 +474,39 @@ def test_animals_buy_cows_before_sheep_until_targets() -> None:
     animal_buys = [b for b in plan.buys if b[0] == "BUY_ANIMAL"]
     # The shared 2/turn cap is exhausted by cows before sheep gets a look-in.
     assert animal_buys == [["BUY_ANIMAL", "COW", 2]]
+
+
+def test_animal_buy_order_default_is_cows_before_sheep() -> None:
+    # Pinned against the module constant, the same pattern as
+    # test_ne_land_min_day_default_is_zero_so_shipped_behavior_is_unchanged --
+    # test_animals_buy_cows_before_sheep_until_targets above already proves
+    # this behaviorally; this pins the literal default value itself.
+    assert ANIMAL_BUY_ORDER == ("COW", "SHEEP")
+
+
+def test_animal_buy_order_reorders_sheep_before_cows() -> None:
+    # Same scenario as test_animals_buy_cows_before_sheep_until_targets --
+    # the shared 2/turn cap is the binding constraint -- just with
+    # animal_buy_order flipped, so sheep claims the cap before cow gets a
+    # look-in. Every guard/cap/target math is untouched; only the order the
+    # loop visits the two species changes.
+    plan = plan_day(
+        day=3,
+        money=10000.0,
+        wheat_seeds=50,
+        plantable_target_tiles=0,
+        wheat_on_hand=50,
+        goose_owned=True,
+        hires_today=0,
+        unlocked_quadrants=("NW", "NE", "SW", "SE"),
+        active_tiles=99,
+        cows_owned=0,
+        sheep_owned=0,
+        empty_pastures=15,
+        animal_buy_order=("SHEEP", "COW"),
+    )
+    animal_buys = [b for b in plan.buys if b[0] == "BUY_ANIMAL"]
+    assert animal_buys == [["BUY_ANIMAL", "SHEEP", 2]]
 
 
 def test_animals_buy_sheep_once_cow_target_is_met() -> None:

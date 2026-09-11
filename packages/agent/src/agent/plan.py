@@ -62,6 +62,23 @@ PLANT_CUTOFF_DAY = 25  # last profitable wheat planting day (4 growth days + sal
 
 LAND_RESERVE = 500  # cash floor kept in hand after any land purchase
 LAND_LAST_BUY_DAY = {"NE": 24, "SW": 23, "SE": 20}  # later buys don't pay back land's own cost
+# NE_LAND_MIN_DAY (PolicyConfig.ne_land_min_day): earliest day the NE
+# purchase may fire, the same mechanism SE_LAND_MIN_DAY below already gates
+# SE with. The NE branch never had an earliest-day gate before this knob
+# existed -- it buys NE the instant it is the next quadrant and cash allows,
+# including turn 0 -- so 0 is DEFAULT-NEUTRAL: day >= 0 is always true, and
+# every existing game is bit-for-bit unchanged. Single source of truth for
+# PolicyConfig.ne_land_min_day's own default (threaded policy.py ->
+# plan_day(), the same pattern MAX_HIRES_PER_TURN below uses), so the knob's
+# default can never drift out of sync with what this module does when the
+# knob is left alone.
+#
+# Diagnosis (observed strongest public bots, game replays, 2026-09-11): they
+# own only NW until buying NE around day 6, spending the opening budget on
+# the day-0 herd instead. An eval run raises this to hold NE off while that
+# opening plays out; SW's and SE's own gates (including SE_LAND_MIN_DAY) and
+# the fixed NE -> SW -> SE unlock order (constants.LAND_ORDER) are untouched.
+NE_LAND_MIN_DAY = 0
 SE_LAND_MIN_DAY = 12  # demoted: SE never pays back if the animal pipeline is still ramping
 SE_LAND_RESERVE = 2000  # demoted further: a bigger cash cushion than NE/SW's flat LAND_RESERVE
 
@@ -129,6 +146,25 @@ COW_LAST_BUY_DAY = 9
 SHEEP_LAST_BUY_DAY = 11
 ANIMAL_BUY_CAP_PER_TURN = 2  # shared across cow+sheep: paces the shed->pasture placement pipeline
 
+# Per-species purchase parameters, keyed for the animal_buy_order loop in
+# plan_day() below -- single source of truth, so the loop can never drift out
+# of sync with the species constants just above.
+_ANIMAL_PRICE: dict[str, int] = {"COW": COW_PRICE, "SHEEP": SHEEP_PRICE}
+_ANIMAL_LAST_BUY_DAY: dict[str, int] = {"COW": COW_LAST_BUY_DAY, "SHEEP": SHEEP_LAST_BUY_DAY}
+
+# ANIMAL_BUY_ORDER (PolicyConfig.animal_buy_order): the order the shared
+# per-turn cap/room is offered to cow vs sheep. Cows-before-sheep was a
+# hardcoded sequence, not a parameter, before this knob existed, so
+# ("COW", "SHEEP") is DEFAULT-NEUTRAL -- every existing game buys in exactly
+# this order already. Single source of truth for PolicyConfig.
+# animal_buy_order's own default, the same pattern NE_LAND_MIN_DAY above and
+# MAX_HIRES_PER_TURN below use.
+#
+# Diagnosis (observed strongest public bots, game replays, 2026-09-11): they
+# buy about 4 sheep and 1 cow on day 0 -- sheep-first, not cow-first -- so an
+# eval run flips this to measure that ordering.
+ANIMAL_BUY_ORDER: tuple[str, ...] = ("COW", "SHEEP")
+
 
 @dataclass(frozen=True)
 class DayPlan:
@@ -176,6 +212,7 @@ def plan_day(
     unlocked_quadrants: tuple[str, ...],
     active_tiles: int,
     max_owned_quadrants: int = MAX_OWNED_QUADRANTS,
+    ne_land_min_day: int = NE_LAND_MIN_DAY,
     cows_owned: int = 0,
     sheep_owned: int = 0,
     empty_pastures: int = 0,
@@ -183,6 +220,7 @@ def plan_day(
     feed_reserve: int = FEED_RESERVE,
     cow_target: int = COW_TARGET,
     sheep_target: int = SHEEP_TARGET,
+    animal_buy_order: tuple[str, ...] = ANIMAL_BUY_ORDER,
     max_hires_per_turn: int = MAX_HIRES_PER_TURN,
     extra_hands: int = 0,
 ) -> DayPlan:
@@ -195,6 +233,7 @@ def plan_day(
 
     if (
         _next_quadrant(unlocked_quadrants, max_owned_quadrants) == "NE"
+        and day >= ne_land_min_day
         and day <= LAND_LAST_BUY_DAY["NE"]
     ):
         price = LAND_PRICES["NE"]
@@ -215,31 +254,27 @@ def plan_day(
             buys.append(["BUY_SEED", "MELON", n])
             budget -= n * MELON_SEED_PRICE
 
-    # Animals: cows before sheep, at most ANIMAL_BUY_CAP_PER_TURN total, never
-    # more than the empty-built-pasture count observed this turn (trap: a
-    # bought animal that can't be placed is dead capital sitting in the shed
-    # — it can never be sold), and only inside each species' own breakeven
-    # purchase window.
+    # Animals: bought in animal_buy_order (cows before sheep by default), at
+    # most ANIMAL_BUY_CAP_PER_TURN total, never more than the empty-built-
+    # pasture count observed this turn (trap: a bought animal that can't be
+    # placed is dead capital sitting in the shed — it can never be sold), and
+    # only inside each species' own breakeven purchase window. Looped rather
+    # than duplicated per species so animal_buy_order can reorder the two
+    # blocks without touching either one's guard, cap, or target math.
     animal_room = empty_pastures
     turn_cap_left = ANIMAL_BUY_CAP_PER_TURN
+    animal_target: dict[str, int] = {"COW": cow_target, "SHEEP": sheep_target}
+    animal_owned: dict[str, int] = {"COW": cows_owned, "SHEEP": sheep_owned}
 
-    if day <= COW_LAST_BUY_DAY:
-        need = max(0, cow_target - cows_owned)
-        n = min(need, animal_room, turn_cap_left, int(budget // COW_PRICE))
-        if n > 0:
-            buys.append(["BUY_ANIMAL", "COW", n])
-            budget -= n * COW_PRICE
-            animal_room -= n
-            turn_cap_left -= n
-
-    if day <= SHEEP_LAST_BUY_DAY:
-        need = max(0, sheep_target - sheep_owned)
-        n = min(need, animal_room, turn_cap_left, int(budget // SHEEP_PRICE))
-        if n > 0:
-            buys.append(["BUY_ANIMAL", "SHEEP", n])
-            budget -= n * SHEEP_PRICE
-            animal_room -= n
-            turn_cap_left -= n
+    for species in animal_buy_order:
+        if day <= _ANIMAL_LAST_BUY_DAY[species]:
+            need = max(0, animal_target[species] - animal_owned[species])
+            n = min(need, animal_room, turn_cap_left, int(budget // _ANIMAL_PRICE[species]))
+            if n > 0:
+                buys.append(["BUY_ANIMAL", species, n])
+                budget -= n * _ANIMAL_PRICE[species]
+                animal_room -= n
+                turn_cap_left -= n
 
     if day <= PLANT_CUTOFF_DAY:
         # Hold at most two days of the dispatcher's plant quota: seeds beyond
