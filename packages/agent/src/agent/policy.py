@@ -36,6 +36,8 @@ from agent.dispatch import (
     STRAWBERRY_PLANT_CUTOFF_DAY,
     STRAWBERRY_PLANT_DAILY_CAP,
     STRAWBERRY_PLANT_PRIORITY,
+    WHEAT_PLANT_HOUR_CUTOFF,
+    WHEAT_PLANT_PRIORITY,
     dispatch,
 )
 from agent.market import (
@@ -47,7 +49,7 @@ from agent.market import (
     WOOL_MIN_PRICE,
     build_orders,
 )
-from agent.plan import FEED_RESERVE, STRAWBERRY_SEED_BUDGET_SHARE, plan_day
+from agent.plan import FEED_RESERVE, MAX_HIRES_PER_TURN, STRAWBERRY_SEED_BUDGET_SHARE, plan_day
 from agent.shell import Action, Observation, pass_action
 from agent.state import MelonMarketMemory, ProductCrashLatch, StateTracker
 from agent.view import FarmView, clone_pressure_products, parse_obs
@@ -119,11 +121,24 @@ _KNOWN_FERT_RESERVE_MODES = frozenset({"target", "planted"})
 
 #: dispatch()'s own priority-class dict is keyed 0 (most urgent) .. 4
 #: (least) -- tasks_by_priority = {p: [] for p in range(5)} in dispatch.py.
-#: A strawberry_plant_priority outside this range would KeyError deep inside
-#: a turn the moment a strawberry-zone tile needed planting; PolicyConfig
-#: rejects it here instead, at construction, where the error names the field.
+#: A strawberry_plant_priority/wheat_plant_priority outside this range would
+#: KeyError deep inside a turn the moment a tile of that crop needed
+#: planting; PolicyConfig rejects it here instead, at construction, where
+#: the error names the field.
 _MIN_TASK_PRIORITY = 0
 _MAX_TASK_PRIORITY = 4
+
+#: max_hires_per_turn: HIRE is one market-order slot each (market.MAX_ORDERS
+#: caps the whole per-turn order list at 10), so a value above 10 could never
+#: mean anything beyond "every slot" and a value below 1 would silently
+#: disable hiring altogether -- rejected here rather than left to quietly
+#: stall crew growth for an entire game.
+_MIN_HIRES_PER_TURN = 1
+_MAX_HIRES_PER_TURN = 10
+
+#: wheat_plant_hour_cutoff: the valid range of view.hour within one game day.
+_MIN_PLANT_HOUR_CUTOFF = 0
+_MAX_PLANT_HOUR_CUTOFF = 23
 
 
 @dataclass(frozen=True)
@@ -138,6 +153,30 @@ class PolicyConfig:
     cow_target: int = COW_TARGET
     sheep_target: int = SHEEP_TARGET
     wheat_rush_tiles: int = _WHEAT_RUSH_TILES_DEFAULT
+    # Priority tier for a fresh PLANT WHEAT task -- dispatch.py's
+    # _field_tasks, threaded through dispatch() the same way
+    # strawberry_plant_priority is. Defaults to dispatch.WHEAT_PLANT_PRIORITY,
+    # today's hardcoded tier: the same one PLANT MELON, PLANT STRAWBERRY and
+    # BUILD_PASTURE already claim, so at the default a wheat planting only
+    # wins an idle unit once every nearer same-tier task is already claimed
+    # (priority classes are worked in strict order, 0 most urgent through 4
+    # least, and a tie within one class goes to distance).
+    #
+    # Diagnosis (SHIPPED agent, all-default PolicyConfig, seeds
+    # 855000-855001 vs public:sokolovsky-v12): PLANT WHEAT tasks are
+    # generated ~7,800 times, claimed ~740, executed ~200 of the ~410
+    # plant_quota intends. __post_init__ rejects anything outside dispatch's
+    # 0-4 priority range, the same bound strawberry_plant_priority uses.
+    wheat_plant_priority: int = WHEAT_PLANT_PRIORITY
+    # Hour cutoff for a fresh PLANT WHEAT task -- dispatch.py's
+    # _field_tasks, threaded the same way. Defaults to dispatch.
+    # WHEAT_PLANT_HOUR_CUTOFF (20): a plant issued at hour 21+ cannot
+    # reliably get its own same-day water, so PLANT WHEAT stops even with
+    # seeds in hand and an empty tile underfoot. Melon's and strawberry's own
+    # `hour <= 20` plant gates are separate literals and stay put regardless
+    # of this knob. __post_init__ rejects anything outside 0-23, the valid
+    # range of view.hour.
+    wheat_plant_hour_cutoff: int = WHEAT_PLANT_HOUR_CUTOFF
 
     # How many quadrants to OWN, counting the always-unlocked NW. The
     # shipped default is 3 of the board's 4 -- this knob is LIVE, not dormant.
@@ -148,6 +187,19 @@ class PolicyConfig:
     # scales with active_tiles, so every quadrant carries a standing crew
     # charge on top of its price. See constants.MAX_OWNED_QUADRANTS.
     max_owned_quadrants: int = MAX_OWNED_QUADRANTS
+
+    # Crew size. plan.py's plan_day(), threaded through decide() the same way
+    # every other planner knob is. Defaults to plan.MAX_HIRES_PER_TURN (4),
+    # today's hardcoded cap on how many HIRE orders one turn's plan may
+    # request; see that constant's own comment for the diagnosis (the
+    # midnight crew wipe plus this cap means the morning crew rebuilds over 3
+    # hours -- units on the farm at hours 0/1/2/3 measured at 1/5/9/11) and
+    # for what market.MAX_ORDERS's shared 10-slot cap does to a request this
+    # knob raises past what a busy turn's sells/buys leave room for.
+    # __post_init__ rejects anything outside 1-10: 0 would silently disable
+    # hiring, and above 10 can never fit more HIRE orders than the market
+    # list has slots for in one turn regardless.
+    max_hires_per_turn: int = MAX_HIRES_PER_TURN
 
     # Feed logistics. Both default to today's behavior. Raising
     # feed_batch_cap measures WORSE (PICKUP +56% for flat FEED); the cause is
@@ -279,12 +331,19 @@ class PolicyConfig:
         here too, loudly, rather than silently building a zone that can
         never contain a single real tile.
 
-        strawberry_plant_priority must land inside dispatch()'s own 0-4
-        priority-class range, or it would KeyError deep inside a turn instead
-        of failing here, at construction, where the error names the field.
+        strawberry_plant_priority (and wheat_plant_priority, the same check)
+        must land inside dispatch()'s own 0-4 priority-class range, or it
+        would KeyError deep inside a turn instead of failing here, at
+        construction, where the error names the field.
         strawberry_fert_reserve must be one of _KNOWN_FERT_RESERVE_MODES, for
         the same reason strawberry_frame_quadrants' quadrant names are
         checked here rather than left to silently build an empty zone.
+
+        max_hires_per_turn must land inside 1-10 (market.MAX_ORDERS's own
+        10-slot cap), and wheat_plant_hour_cutoff inside 0-23 (the valid
+        range of view.hour) -- both checked here for the same reason as
+        every other field above: loud at construction, not a silent no-op or
+        a crash deep inside a turn.
         """
         frame = tuple(self.strawberry_frame_quadrants)
         unknown = sorted(set(frame) - _KNOWN_QUADRANTS)
@@ -306,6 +365,26 @@ class PolicyConfig:
             raise ValueError(
                 f"unknown strawberry_fert_reserve: {self.strawberry_fert_reserve!r}; "
                 f"expected one of {sorted(_KNOWN_FERT_RESERVE_MODES)}"
+            )
+
+        if not (_MIN_TASK_PRIORITY <= self.wheat_plant_priority <= _MAX_TASK_PRIORITY):
+            raise ValueError(
+                f"wheat_plant_priority must be within dispatch's "
+                f"{_MIN_TASK_PRIORITY} (most urgent) - {_MAX_TASK_PRIORITY} (least urgent) "
+                f"priority range, got {self.wheat_plant_priority!r}"
+            )
+
+        if not (_MIN_PLANT_HOUR_CUTOFF <= self.wheat_plant_hour_cutoff <= _MAX_PLANT_HOUR_CUTOFF):
+            raise ValueError(
+                f"wheat_plant_hour_cutoff must be within "
+                f"{_MIN_PLANT_HOUR_CUTOFF}-{_MAX_PLANT_HOUR_CUTOFF} (the valid range of "
+                f"view.hour), got {self.wheat_plant_hour_cutoff!r}"
+            )
+
+        if not (_MIN_HIRES_PER_TURN <= self.max_hires_per_turn <= _MAX_HIRES_PER_TURN):
+            raise ValueError(
+                f"max_hires_per_turn must be within {_MIN_HIRES_PER_TURN}-"
+                f"{_MAX_HIRES_PER_TURN}, got {self.max_hires_per_turn!r}"
             )
 
 
@@ -598,6 +677,7 @@ def make_policy(
             feed_reserve=cfg.feed_reserve,
             cow_target=cfg.cow_target,
             sheep_target=cfg.sheep_target,
+            max_hires_per_turn=cfg.max_hires_per_turn,
         )
         actions = dispatch(
             view,
@@ -608,6 +688,8 @@ def make_policy(
             prior_claims=unit_claims,
             strawberry_plant_daily_cap=cfg.strawberry_plant_daily_cap,
             strawberry_plant_priority=cfg.strawberry_plant_priority,
+            wheat_plant_priority=cfg.wheat_plant_priority,
+            wheat_plant_hour_cutoff=cfg.wheat_plant_hour_cutoff,
             feed_batch_cap=cfg.feed_batch_cap,
             hand_mule_load=cfg.hand_mule_load,
         )

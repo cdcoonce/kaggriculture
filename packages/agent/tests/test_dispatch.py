@@ -8,6 +8,8 @@ from agent.dispatch import (
     HAND_MULE_LOAD,
     STRAWBERRY_PLANT_DAILY_CAP,
     STRAWBERRY_PLANT_PRIORITY,
+    WHEAT_PLANT_HOUR_CUTOFF,
+    WHEAT_PLANT_PRIORITY,
     dispatch,
 )
 from viewfactory import built_pasture, make_view, pasture, plant, strawberry
@@ -1025,6 +1027,101 @@ def test_strawberry_plant_priority_is_tunable_not_just_the_module_constant() -> 
     )
     assert urgent.claims[1] == far_strawberry, (
         "a strictly more urgent priority class still lost the race to distance"
+    )
+
+
+# --- wheat_plant_priority / wheat_plant_hour_cutoff -------------------------
+#
+# Diagnosis (SHIPPED agent, all-default PolicyConfig, seeds 855000-855001 vs
+# public:sokolovsky-v12): only ~200 of the ~410 wheat plantings plant_quota
+# intends actually execute per game. PLANT WHEAT tasks are generated ~7,800
+# times, claimed ~740, executed ~200 -- dispatch() resolves priority tiers
+# strictly in order (0 most urgent .. 4), nearest task first within a tier,
+# so tier-0-2 work (and same-tier melon/strawberry/pasture work nearer than a
+# given wheat tile) starves planting. These two knobs give wheat the same
+# priority/hour-window levers strawberry already has.
+
+
+def test_wheat_plant_priority_is_tunable_not_just_the_module_constant() -> None:
+    # Mirror of test_strawberry_plant_priority_is_tunable_not_just_the_module_
+    # constant above, but for wheat's own priority knob. By default PLANT
+    # WHEAT shares BUILD_PASTURE's tier-3 class, so a near non-wheat tier-3
+    # task wins a same-class tie over a farther wheat planting even though
+    # the wheat planting is just as urgent by class -- a tie within one class
+    # is broken by distance. wheat_plant_priority settles the race by CLASS
+    # instead, regardless of distance, exactly like strawberry_plant_priority
+    # does for strawberry.
+    day = 5
+    near_pasture = (1, 0)
+    far_wheat = (4, 0)
+    tiles = make_view().tiles
+    for x, y in NW_TILES:
+        if (x, y) not in (near_pasture, far_wheat):
+            tiles[y][x] = plant(planted_day=day - 1, watered_today=False)  # age 1: no task
+    view = make_view(
+        step=day * 24,
+        hands=[(0, 0)],
+        tiles=tiles,
+        seeds=5,
+        inventories=[{"WHEAT": 1}, {}],  # farmer already loaded: out of the field race
+    )
+
+    default = dispatch(view, NW_TILES, frozenset(), frozenset({near_pasture}), frozenset())
+    assert default.claims[1] == near_pasture, (
+        "default priority: the near BUILD_PASTURE task should win a same-class tie"
+    )
+
+    urgent = dispatch(
+        view,
+        NW_TILES,
+        frozenset(),
+        frozenset({near_pasture}),
+        frozenset(),
+        wheat_plant_priority=WHEAT_PLANT_PRIORITY - 1,
+    )
+    assert urgent.claims[1] == far_wheat, (
+        "a strictly more urgent wheat priority still lost the race to distance"
+    )
+
+
+def test_wheat_plant_hour_cutoff_is_tunable_independent_of_melon() -> None:
+    # test_plant_suppressed_after_hour_twenty proves the SHIPPED hour-20 cutoff;
+    # this proves it is wheat's own knob, not a shared literal -- raising it
+    # opens a later PLANT WHEAT window while melon's own `hour <= 20` gate
+    # (a separate literal in _field_tasks) stays exactly where it was.
+    day = 5
+    wheat_tile = (2, 2)
+    melon_tile = (3, 3)
+    # Fill every OTHER NW tile with a taskless age-1 plant (same technique as
+    # test_wheat_plant_priority_is_tunable_not_just_the_module_constant
+    # above): otherwise EVERY empty tile on the board -- including the
+    # farmer's own standing tile -- competes for the same shared
+    # plant_budget, and nothing guarantees wheat_tile/melon_tile are the
+    # ones that win it.
+    tiles = make_view().tiles
+    for x, y in NW_TILES:
+        if (x, y) not in (wheat_tile, melon_tile):
+            tiles[y][x] = plant(planted_day=day - 1, watered_today=False)  # age 1: no task
+    view = make_view(
+        step=day * 24 + 21,  # hour 21: past today's hardcoded cutoff for both crops
+        hands=[wheat_tile, melon_tile],
+        tiles=tiles,
+        seeds=5,
+        melon_seeds=5,
+    )
+
+    default = dispatch(view, NW_TILES, frozenset({melon_tile}))
+    assert default.hands[0] == ["PASS"], "wheat should not plant past hour 20 by default"
+    assert default.hands[1] == ["PASS"], "melon should not plant past hour 20 by default"
+
+    raised_cutoff = dispatch(
+        view, NW_TILES, frozenset({melon_tile}), wheat_plant_hour_cutoff=WHEAT_PLANT_HOUR_CUTOFF + 2
+    )
+    assert raised_cutoff.hands[0] == ["PLANT", "WHEAT"], (
+        "wheat_plant_hour_cutoff=22 should allow a PLANT WHEAT task at hour 21"
+    )
+    assert raised_cutoff.hands[1] == ["PASS"], (
+        "melon's own hour<=20 gate must stay unaffected by wheat_plant_hour_cutoff"
     )
 
 

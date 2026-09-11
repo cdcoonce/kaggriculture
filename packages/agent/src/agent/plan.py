@@ -67,7 +67,39 @@ SE_LAND_RESERVE = 2000  # demoted further: a bigger cash cushion than NE/SW's fl
 
 HANDS_MIN = 3  # the Plan A opening crew, even on the 24-tile NW-only board
 HANDS_PER_TILES = 8  # roughly one hand per eight target tiles
-MAX_HIRES_PER_TURN = 4  # HIRE is one order slot each; caps the market-list cost of catching up
+# HIRE is one order slot each; caps the market-list cost of catching up. Single
+# source of truth for PolicyConfig.max_hires_per_turn (threaded policy.py ->
+# plan_day(), the same pattern as dispatch.STRAWBERRY_PLANT_PRIORITY), so the
+# knob's default can never drift out of sync with what this module does when
+# the knob is left alone.
+#
+# Diagnosis (SHIPPED agent, all-default PolicyConfig, seeds 855000-855001 vs
+# public:sokolovsky-v12): the engine evicts every hand at midnight, so the
+# morning crew is rebuilt from scratch over 3 hours every day at this default
+# -- units on the farm (farmer + hands) at hours 0/1/2/3 measured at 1/5/9/11.
+# Tier-3 field work (PLANT WHEAT among it) has few or no idle units to claim
+# it for that whole stretch. Raising this knob does not by itself guarantee a
+# faster ramp reaches the market: market.MAX_ORDERS caps the WHOLE per-turn
+# order list at 10, HIRE orders are appended LAST (see policy.decide's "Buys
+# first, hires last" comment), and any hires past that shared cap are
+# silently DROPPED by the truncation, not deferred to a later slot in the
+# same turn -- though the shortfall persists and is asked for again next turn
+# since plan_day recomputes hands_target - hires_today fresh every time.
+#
+# The hour-0 OBSERVATION itself never shows more than the bare farmer, for
+# ANY value of this knob: hires_today resets to 0 at the start of every day,
+# and that first observation necessarily precedes the day's first action
+# batch, so no hire this knob requests can have taken effect yet (recon,
+# seeds 777400-777401: units@hour0 == 1.00 identically at max_hires_per_turn
+# 4 and 10). The knob's effect first becomes visible at hour 1 -- and even
+# then, whether all of a raised request actually reaches the market on that
+# first turn depends on how many sell/buy lines are already competing for
+# the same 10 slots: uncontested (nothing else to buy or sell that turn) all
+# of it lands, but on a busy turn it does not -- measured directly at both
+# ends in test_policy.py's test_max_hires_per_turn_threads_from_policy_
+# config_to_the_market_list (10 requested, 10 land) and test_hires_beyond_
+# the_market_order_cap_are_dropped_not_deferred (10 requested, 3 land).
+MAX_HIRES_PER_TURN = 4
 HUSBANDRY_HAND_THRESHOLD = 8  # placed animals at which chore load earns a dedicated extra hand
 
 # Animal breakeven purchase windows (engine-verified): cow $400, first yield
@@ -134,6 +166,7 @@ def plan_day(
     feed_reserve: int = FEED_RESERVE,
     cow_target: int = COW_TARGET,
     sheep_target: int = SHEEP_TARGET,
+    max_hires_per_turn: int = MAX_HIRES_PER_TURN,
 ) -> DayPlan:
     buys: list[list[object]] = []
     budget = money
@@ -283,6 +316,6 @@ def plan_day(
 
     husbandry_hand = 1 if animals_placed >= HUSBANDRY_HAND_THRESHOLD else 0
     hands_target = max(HANDS_MIN, round(active_tiles / HANDS_PER_TILES) + husbandry_hand)
-    hire_count = min(max(0, hands_target - hires_today), MAX_HIRES_PER_TURN)
+    hire_count = min(max(0, hands_target - hires_today), max_hires_per_turn)
 
     return DayPlan(hire_count=hire_count, buys=buys)
