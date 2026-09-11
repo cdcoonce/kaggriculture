@@ -8,11 +8,15 @@ from agent.constants import (
     COOP_TILE,
     COW_TARGET,
     MELON_TILE_TARGET,
+    PASTURE_REFERENCE_QUADRANTS,
     PASTURE_TILE_TARGET,
     SHEEP_TARGET,
+    STRAWBERRY_REFERENCE_QUADRANTS,
     melon_tiles,
     nearest_shed_access,
     pasture_tiles,
+    strawberry_tiles,
+    strawberry_tiles_for_frame,
     target_tiles,
 )
 
@@ -143,3 +147,111 @@ def test_wheat_universe_excludes_both_melon_and_pasture_zones() -> None:
     assert set(wheat).isdisjoint(pastures)
     assert set(wheat) | melons | pastures == set(tiles)
     assert len(wheat) + len(melons) + len(pastures) == len(tiles)
+
+
+# --- Strawberry zone: arbitrary frames (kaggriculture strawberry_frame_
+# quadrants) -----------------------------------------------------------
+#
+# strawberry_tiles takes a FIXED positional slice (target_tiles(frame)
+# [18:18+target]), assuming melon + pasture already fill exactly the frame's
+# first 18 tiles. That assumption is specific to STRAWBERRY_REFERENCE_
+# QUADRANTS: melon tracks the LIVE unlocked_quadrants, so for any other
+# frame (e.g. a zone parked on SW, away from melon/pasture's NW+NE homes)
+# there is no reason the frame's own first 18 tiles would be melon/pasture
+# at all. strawberry_tiles_for_frame instead filters target_tiles(frame) by
+# the ACTUAL melon_set/pasture_set and takes the first `target` survivors --
+# correct for any frame, at the cost of needing those two sets as arguments.
+
+
+def test_strawberry_tiles_for_frame_sw_target_25_is_all_of_sw_no_nw_ne_tile() -> None:
+    zone = strawberry_tiles_for_frame(("SW",), 25, frozenset(), frozenset())
+    assert set(zone) == set(target_tiles(("SW",)))
+    assert len(zone) == 25
+    assert not (set(zone) & set(target_tiles(("NW", "NE"))))
+
+
+def test_strawberry_tiles_for_frame_sw_target_20_is_first_20_in_target_tiles_order() -> None:
+    zone = strawberry_tiles_for_frame(("SW",), 20, frozenset(), frozenset())
+    assert zone == target_tiles(("SW",))[:20]
+
+
+def test_strawberry_tiles_for_frame_skips_melon_and_pasture_tiles() -> None:
+    # The reason this function takes melon_set/pasture_set explicitly instead
+    # of assuming a fixed offset: once SW unlocks, melon_tiles (live-tracked)
+    # claims some of SW's own nearest tiles (SW's shed-access tile ties NW's
+    # and NE's for "distance 0" the instant SW unlocks -- see the mechanism
+    # in test_the_general_formula_disagrees_with_the_default_frame_formula_
+    # once_sw_unlocks below). A frame that shares ground with melon/pasture
+    # must not double-book it.
+    frame = ("SW",)
+    claimed = frozenset(target_tiles(frame)[:3])
+    zone = strawberry_tiles_for_frame(frame, 5, claimed, frozenset())
+    assert not (set(zone) & claimed)
+    assert len(zone) == 5
+    assert zone == [t for t in target_tiles(frame) if t not in claimed][:5]
+
+
+# --- Strawberry zone: the default frame keeps its OWN formula --------------
+#
+# policy.decide special-cases STRAWBERRY_REFERENCE_QUADRANTS to keep calling
+# strawberry_tiles (the fixed positional slice) rather than
+# strawberry_tiles_for_frame, because the two formulas are NOT
+# interchangeable at that frame -- proven below, not assumed.
+
+_UNLOCK_STATES_THE_AGENT_CAN_REACH = [
+    ("NW",),
+    ("NW", "NE"),
+    ("NW", "NE", "SW"),
+    ("NW", "NE", "SE"),
+    ("NW", "NE", "SW", "SE"),
+]
+
+
+def test_the_general_formula_disagrees_with_the_default_frame_formula_once_sw_unlocks() -> None:
+    """melon_tiles tracks the LIVE unlocked_quadrants; STRAWBERRY_REFERENCE_
+    QUADRANTS/PASTURE_REFERENCE_QUADRANTS are fixed at ("NW", "NE"). The two
+    only coincide when live unlocked_quadrants is exactly ("NW", "NE") -- on
+    turn 0 (only NW live) and on every turn from SW's purchase on, melon's
+    zone stops being a clean prefix of the fixed frame's own ordering (SW's
+    shed-access tile (4, 5) ties NW's/NE's for distance 0 in target_tiles the
+    instant SW unlocks), and strawberry_tiles_for_frame's "first N
+    non-melon/non-pasture tiles" then disagrees with strawberry_tiles'
+    "tiles 18..18+N". This is the empirical answer to "does the new formula
+    equal the old one for the default frame" -- no, not in general -- and it
+    is why policy.decide keeps two code paths instead of one.
+    """
+    disagreements: list[tuple[tuple[str, ...], int]] = []
+    for unlocked in _UNLOCK_STATES_THE_AGENT_CAN_REACH:
+        melon_set = frozenset(melon_tiles(unlocked, target=MELON_TILE_TARGET))
+        pasture_set = frozenset(
+            pasture_tiles(PASTURE_REFERENCE_QUADRANTS, target=PASTURE_TILE_TARGET)
+        )
+        for target in range(32):
+            old = (
+                frozenset(strawberry_tiles(STRAWBERRY_REFERENCE_QUADRANTS, target=target))
+                - melon_set
+                - pasture_set
+            )
+            new = (
+                frozenset(
+                    strawberry_tiles_for_frame(
+                        STRAWBERRY_REFERENCE_QUADRANTS, target, melon_set, pasture_set
+                    )
+                )
+                - melon_set
+                - pasture_set
+            )
+            if old != new:
+                disagreements.append((unlocked, target))
+
+    assert disagreements, (
+        "expected the two formulas to disagree somewhere -- if this now holds "
+        "everywhere, policy.decide no longer needs to special-case the default frame"
+    )
+    # The one state where they are provably forced to agree: live
+    # unlocked_quadrants exactly matches the fixed frame the formulas share,
+    # so melon's zone and the frame's own first 8 tiles coincide exactly.
+    assert not [d for d in disagreements if d[0] == ("NW", "NE")], (
+        "the two formulas diverged even though the live state matched the fixed "
+        "frame -- that should be impossible"
+    )

@@ -20,12 +20,14 @@ from agent.constants import (
     MAX_OWNED_QUADRANTS,
     MELON_TILE_TARGET,
     PASTURE_REFERENCE_QUADRANTS,
+    QUADRANTS,
     SHEEP_TARGET,
     STRAWBERRY_REFERENCE_QUADRANTS,
     STRAWBERRY_TILE_TARGET,
     melon_tiles,
     pasture_tiles,
     strawberry_tiles,
+    strawberry_tiles_for_frame,
     target_tiles,
 )
 from agent.dispatch import (
@@ -33,6 +35,7 @@ from agent.dispatch import (
     HAND_MULE_LOAD,
     STRAWBERRY_PLANT_CUTOFF_DAY,
     STRAWBERRY_PLANT_DAILY_CAP,
+    STRAWBERRY_PLANT_PRIORITY,
     dispatch,
 )
 from agent.market import (
@@ -107,6 +110,21 @@ CRASH_TRIGGER_TICKS = 12
 # from turn one, so this is a no-op until an eval run raises it.
 STRAWBERRY_START_DAY = 0
 
+_KNOWN_QUADRANTS = frozenset(QUADRANTS)
+
+#: Legal values for PolicyConfig.strawberry_fert_reserve (see its field
+#: comment). "target" reproduces today's formula; "planted" is the new,
+#: occupancy-driven one.
+_KNOWN_FERT_RESERVE_MODES = frozenset({"target", "planted"})
+
+#: dispatch()'s own priority-class dict is keyed 0 (most urgent) .. 4
+#: (least) -- tasks_by_priority = {p: [] for p in range(5)} in dispatch.py.
+#: A strawberry_plant_priority outside this range would KeyError deep inside
+#: a turn the moment a strawberry-zone tile needed planting; PolicyConfig
+#: rejects it here instead, at construction, where the error names the field.
+_MIN_TASK_PRIORITY = 0
+_MAX_TASK_PRIORITY = 4
+
 
 @dataclass(frozen=True)
 class PolicyConfig:
@@ -146,6 +164,29 @@ class PolicyConfig:
     # unchanged until a gate says otherwise.
     strawberry_tile_target: int = STRAWBERRY_TILE_TARGET
     strawberry_plant_daily_cap: int = STRAWBERRY_PLANT_DAILY_CAP
+    # Priority tier for a fresh PLANT STRAWBERRY task specifically --
+    # dispatch.py's _field_tasks, threaded through dispatch() the same way
+    # strawberry_plant_daily_cap above is. Defaults to dispatch.
+    # STRAWBERRY_PLANT_PRIORITY, today's hardcoded tier: the same one PLANT
+    # WHEAT and PLANT MELON already claim, so at the default a
+    # strawberry-zone planting only wins an idle unit once every nearer
+    # wheat/melon planting in that same tier is already claimed (priority
+    # classes are worked in strict order, 0 most urgent through 4 least, and
+    # a tie within one class goes to distance).
+    #
+    # Diagnosis 2026-09-10: this is why an SW-framed zone (bought day 9-10,
+    # target 25) plants only ~5 tiles by the day-12 cutoff -- 17-27 nearer
+    # NW/NE wheat/melon tasks claim every idle unit first for hours 2-15 of
+    # every day, and the few strawberry claims that DO land arrive too late
+    # and stop being regenerated once _field_tasks' own hour<=20 planting
+    # gate closes for the day. One tier more urgent
+    # (dispatch.STRAWBERRY_PLANT_PRIORITY - 1, i.e. 2) instead competes with
+    # wheat's/melon's own in-window WATER tasks, the SAME zone's own
+    # already-planted strawberry tiles' WATER/FERTILIZE chores
+    # (dispatch._strawberry_task's P2), and pasture CARE/
+    # COLLECT_FERTILIZER -- real, ongoing competition, not an empty tier.
+    # __post_init__ rejects anything outside dispatch's 0-4 priority range.
+    strawberry_plant_priority: int = STRAWBERRY_PLANT_PRIORITY
     # Share of the cash still uncommitted when the strawberry seed line runs
     # that the line may take (plan.STRAWBERRY_SEED_BUDGET_SHARE). Swept, not
     # assumed: 1.0 recovers the sizing that shipped before the 2026-08-19
@@ -160,6 +201,22 @@ class PolicyConfig:
     # the seed buy -- until the herd and the wheat rush have already run.
     strawberry_start_day: int = STRAWBERRY_START_DAY
     strawberry_floor: float = STRAWBERRY_MIN_PRICE
+    # How build_orders' fert_reserve is sized (market.py holds back this many
+    # FERTILIZER units from sale so a strawberry tile can FERTILIZE at age
+    # 9/13 instead of finding an empty shed -- see market.py's fert_reserve
+    # comment). "target" (the default) reproduces today's exact formula:
+    # reserve = cfg.strawberry_tile_target, reserved from strawberry_start_day
+    # on even though no tile exists yet. Diagnosis 2026-09-10: that is what
+    # starves day-9 FERTILIZER sales to 0 (shipped: 10-12 units/day) for an
+    # SW-framed zone (target 25), delaying the SW purchase a full day past
+    # its $2,500 threshold. "planted" instead reserves exactly the number of
+    # OUR tiles currently holding a live strawberry plant (kind PLANT, crop
+    # STRAWBERRY -- see _strawberry_planted_tiles below), read fresh off the
+    # observation every turn: zero before anything is planted, so a zone
+    # that has not started yet sells fertilizer exactly like strawberry-off,
+    # and it only ever withholds units a real tile can actually spend.
+    # __post_init__ rejects any value other than "target"/"planted".
+    strawberry_fert_reserve: str = "target"
     # A measuring instrument, not a promotion candidate.
     # STRAWBERRY_REFERENCE_QUADRANTS pins the strawberry zone to a fixed
     # frame, while melon_tiles deliberately tracks the LIVE
@@ -170,6 +227,19 @@ class PolicyConfig:
     # view.unlocked_quadrants so an A/B can answer it empirically. False, the
     # shipped default, is today's call bit-for-bit.
     strawberry_frame_live: bool = False
+    # Which quadrants the frame covers when strawberry_frame_live is False
+    # (the shipped case). Defaults to STRAWBERRY_REFERENCE_QUADRANTS, so
+    # every existing PolicyConfig() keeps today's NW+NE zone exactly. An
+    # eval run overrides this (e.g. to ("SW",)) to measure putting the zone
+    # somewhere the live agent tends to leave idle instead of carving it out
+    # of NW+NE wheat ground: a zone in NW+NE measures at $7-10k/game of
+    # displaced wheat revenue, while SW (bought day 9-10) sits with 20-38
+    # empty tiles on days 10-16. See constants.strawberry_tiles_for_frame's
+    # docstring for why a non-default value here runs a different formula
+    # than the default does, and __post_init__ below for the coercion an
+    # agent_config override (JSON has no tuple type) needs before this
+    # reaches any @cache'd function.
+    strawberry_frame_quadrants: tuple[str, ...] = STRAWBERRY_REFERENCE_QUADRANTS
 
     # M2c (kaggriculture#59): two-tier shed valve + WOOL/MILK crash latches.
     # See the VALVE_*/*_CRASH_TRIGGER module constants above and market.py's
@@ -192,6 +262,51 @@ class PolicyConfig:
         the pasture zone size drift out of sync with the animal targets it's
         supposed to exactly cover (one animal per pasture tile)."""
         return self.cow_target + self.sheep_target
+
+    def __post_init__(self) -> None:
+        """Coerce + validate strawberry_frame_quadrants, strawberry_plant_priority
+        and strawberry_fert_reserve on EVERY construction (not just the
+        agent_config path -- a frozen dataclass has no other post-construction
+        hook to hang this on).
+
+        harness.episodes.resolve_agent builds this from a CLI --agent-config
+        JSON object (``PolicyConfig(**agent_config)``); JSON has no tuple
+        type, so a list must be coerced before it reaches
+        constants.strawberry_tiles_for_frame/target_tiles -- both
+        ``@cache``'d, so an unhashable list would crash them (and this
+        dataclass's own generated ``__hash__`` along with it), and a list
+        never equals the tuple default. An unknown quadrant name is rejected
+        here too, loudly, rather than silently building a zone that can
+        never contain a single real tile.
+
+        strawberry_plant_priority must land inside dispatch()'s own 0-4
+        priority-class range, or it would KeyError deep inside a turn instead
+        of failing here, at construction, where the error names the field.
+        strawberry_fert_reserve must be one of _KNOWN_FERT_RESERVE_MODES, for
+        the same reason strawberry_frame_quadrants' quadrant names are
+        checked here rather than left to silently build an empty zone.
+        """
+        frame = tuple(self.strawberry_frame_quadrants)
+        unknown = sorted(set(frame) - _KNOWN_QUADRANTS)
+        if unknown:
+            raise ValueError(
+                f"unknown quadrant name(s) in strawberry_frame_quadrants: {unknown!r}; "
+                f"known quadrants: {sorted(_KNOWN_QUADRANTS)}"
+            )
+        object.__setattr__(self, "strawberry_frame_quadrants", frame)
+
+        if not (_MIN_TASK_PRIORITY <= self.strawberry_plant_priority <= _MAX_TASK_PRIORITY):
+            raise ValueError(
+                f"strawberry_plant_priority must be within dispatch's "
+                f"{_MIN_TASK_PRIORITY} (most urgent) - {_MAX_TASK_PRIORITY} (least urgent) "
+                f"priority range, got {self.strawberry_plant_priority!r}"
+            )
+
+        if self.strawberry_fert_reserve not in _KNOWN_FERT_RESERVE_MODES:
+            raise ValueError(
+                f"unknown strawberry_fert_reserve: {self.strawberry_fert_reserve!r}; "
+                f"expected one of {sorted(_KNOWN_FERT_RESERVE_MODES)}"
+            )
 
 
 def _owned_count(view: FarmView, species: str) -> int:
@@ -232,6 +347,22 @@ def _empty_built_pastures(view: FarmView, pastures: list[tuple[int, int]]) -> in
 
 def _wheat_on_hand(view: FarmView) -> int:
     return view.shed.get("WHEAT", 0) + sum(inv.get("WHEAT", 0) for inv in view.inventories)
+
+
+def _strawberry_planted_tiles(view: FarmView) -> int:
+    """Count of OUR tiles currently holding a live strawberry plant (kind
+    PLANT, crop STRAWBERRY) -- read fresh off the observation every turn for
+    PolicyConfig.strawberry_fert_reserve == "planted". Zero before anything
+    has been planted, same as a strawberry-off agent, regardless of what
+    strawberry_tile_target is configured to."""
+    return sum(
+        1
+        for row in view.tiles
+        for tile in row
+        if isinstance(tile, dict)
+        and tile.get("kind") == "PLANT"
+        and tile.get("crop") == "STRAWBERRY"
+    )
 
 
 def _plantable_targets(view: FarmView, tiles: list[tuple[int, int]]) -> int:
@@ -384,10 +515,13 @@ def make_policy(
         # QUADRANTS explains why: a live value orphans built pastures and
         # placed animals the instant the nearest-shed-first ordering shifts).
         pastures = pasture_tiles(PASTURE_REFERENCE_QUADRANTS, target=cfg.pasture_tile_target)
-        # Fixed reference frame for the same reason pastures use one, and more
-        # urgently: a strawberry tile is occupied for seventeen days, so a zone
-        # that drifted on a BUY_LAND would orphan a live plant mid-cycle and it
-        # would weed two days later. See STRAWBERRY_REFERENCE_QUADRANTS.
+        melon_set = frozenset(melons)
+        pasture_set = frozenset(pastures)
+        # Fixed by default (cfg.strawberry_frame_quadrants) for the same
+        # reason pastures use a fixed frame, and more urgently: a strawberry
+        # tile is occupied for seventeen days, so a zone that drifted on a
+        # BUY_LAND would orphan a live plant mid-cycle and it would weed two
+        # days later. See STRAWBERRY_REFERENCE_QUADRANTS.
         #
         # strawberry_frame_live lifts that pin, for measurement only. What
         # makes a live frame survivable for a CROP and not for an ANIMAL is an
@@ -401,11 +535,27 @@ def make_policy(
         # PASTURE_REFERENCE_QUADRANTS silently starves and loses placed
         # animals. Do NOT mirror this flag onto pastures.
         strawberry_frame = (
-            view.unlocked_quadrants if cfg.strawberry_frame_live else STRAWBERRY_REFERENCE_QUADRANTS
+            view.unlocked_quadrants if cfg.strawberry_frame_live else cfg.strawberry_frame_quadrants
         )
-        strawberries = strawberry_tiles(strawberry_frame, target=cfg.strawberry_tile_target)
-        melon_set = frozenset(melons)
-        pasture_set = frozenset(pastures)
+        # STRAWBERRY_REFERENCE_QUADRANTS keeps the OLD fixed-offset formula
+        # (strawberry_tiles): it assumes melon+pasture fill exactly the
+        # frame's first 18 tiles, which only holds for this one frame, and
+        # even then only intermittently -- constants.strawberry_tiles_for_
+        # frame's docstring has the full mechanism, and test_constants.py's
+        # test_the_general_formula_disagrees_with_the_default_frame_formula_
+        # once_sw_unlocks proves the two formulas actually disagree for this
+        # frame across most of a real game. Any OTHER frame routes through
+        # the general, melon/pasture-aware formula instead -- there is no
+        # shipped-behavior default to preserve for those.
+        # strawberry_frame_live predates strawberry_frame_quadrants and keeps
+        # today's fixed-offset formula over the live quadrants; only a non-default
+        # FIXED frame takes the melon/pasture-aware one.
+        if cfg.strawberry_frame_live or strawberry_frame == STRAWBERRY_REFERENCE_QUADRANTS:
+            strawberries = strawberry_tiles(strawberry_frame, target=cfg.strawberry_tile_target)
+        else:
+            strawberries = strawberry_tiles_for_frame(
+                strawberry_frame, cfg.strawberry_tile_target, melon_set, pasture_set
+            )
         strawberry_set = frozenset(strawberries) - melon_set - pasture_set
         # Set difference, not a positional slice: pasture_set's positions are
         # anchored to the fixed reference frame above and are not guaranteed
@@ -457,6 +607,7 @@ def make_policy(
             strawberry_set,
             prior_claims=unit_claims,
             strawberry_plant_daily_cap=cfg.strawberry_plant_daily_cap,
+            strawberry_plant_priority=cfg.strawberry_plant_priority,
             feed_batch_cap=cfg.feed_batch_cap,
             hand_mule_load=cfg.hand_mule_load,
         )
@@ -469,6 +620,11 @@ def make_policy(
         buys.extend([["HIRE"]] * plan.hire_count)
         any_animal_owned = goose or cows_owned > 0 or sheep_owned > 0
         wheat_reserve = animals_placed + cfg.feed_reserve if any_animal_owned else 0
+        fert_reserve = (
+            cfg.strawberry_tile_target
+            if cfg.strawberry_fert_reserve == "target"
+            else _strawberry_planted_tiles(view)
+        )
         orders = build_orders(
             shed=view.shed,
             prices=view.prices,
@@ -485,12 +641,16 @@ def make_policy(
             milk_floor=cfg.milk_floor,
             fert_floor=cfg.fert_floor,
             strawberry_floor=cfg.strawberry_floor,
-            # Derived, not a separate knob, so it can never drift out of sync
-            # with the zone it exists to serve -- and so it is exactly 0 (and
-            # the sell path exactly unchanged) whenever strawberry is off,
-            # including before strawberry_start_day (cfg.strawberry_tile_target
-            # is 0 there, same as every other zone read this turn).
-            fert_reserve=cfg.strawberry_tile_target,
+            # cfg.strawberry_fert_reserve selects the formula (see
+            # PolicyConfig). "target" (the default) reproduces today's exact
+            # derivation -- reserve = cfg.strawberry_tile_target -- so it is
+            # exactly 0 (and the sell path exactly unchanged) whenever
+            # strawberry is off, including before strawberry_start_day
+            # (cfg.strawberry_tile_target is 0 there, same as every other
+            # zone read this turn). "planted" instead reserves only what is
+            # actually standing (_strawberry_planted_tiles), so a zone that
+            # has not started planting yet withholds nothing.
+            fert_reserve=fert_reserve,
             wool_crashed=wool_latch.latched,
             milk_crashed=milk_latch.latched,
             wool_milk_sell_cap=cfg.wool_milk_sell_cap,

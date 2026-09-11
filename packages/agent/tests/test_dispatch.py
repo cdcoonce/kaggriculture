@@ -4,7 +4,12 @@ and how both widen once land purchases unlock more quadrants."""
 from __future__ import annotations
 
 from agent.constants import PASTURE_TILE_TARGET, target_tiles
-from agent.dispatch import HAND_MULE_LOAD, STRAWBERRY_PLANT_DAILY_CAP, dispatch
+from agent.dispatch import (
+    HAND_MULE_LOAD,
+    STRAWBERRY_PLANT_DAILY_CAP,
+    STRAWBERRY_PLANT_PRIORITY,
+    dispatch,
+)
 from viewfactory import built_pasture, make_view, pasture, plant, strawberry
 
 NW_TILES = target_tiles(("NW",))
@@ -973,6 +978,53 @@ def test_strawberry_daily_cap_is_tunable_not_just_the_module_constant() -> None:
     ).hands[0]
     assert action == ["PLANT", "WHEAT"], (
         f"a cap of {cap} was ignored: the tile planted strawberry anyway (got {action})"
+    )
+
+
+def test_strawberry_plant_priority_is_tunable_not_just_the_module_constant() -> None:
+    # Diagnosis 2026-09-10: PLANT STRAWBERRY shares PLANT WHEAT/MELON's
+    # dispatch priority tier, so for hours 2-15 of every day, 17-27 nearer
+    # NW/NE wheat/melon tasks in that SAME tier claim every idle unit first
+    # -- an SW-framed zone (target 25) plants only ~5 tiles by the day-12
+    # cutoff (funnel on days 10-12: 606 tasks generated, 61 claimed, 3
+    # executed). At the default priority, a tie within one class is broken
+    # by distance, so the nearer wheat task wins even though the farther
+    # strawberry planting is just as urgent by class. Moving strawberry one
+    # tier more urgent settles the race by CLASS instead, regardless of
+    # distance -- classes are worked strictly in order (dispatch()'s
+    # `for priority in range(5)`), so a fully-claimed more-urgent class never
+    # lets a less-urgent one even compete for the same unit.
+    day = 5
+    near_wheat = (1, 0)
+    far_strawberry = (4, 0)
+    tiles = make_view().tiles
+    for x, y in NW_TILES:
+        if (x, y) not in (near_wheat, far_strawberry):
+            tiles[y][x] = plant(planted_day=day - 1, watered_today=False)  # age 1: no task
+    view = make_view(
+        step=day * 24,
+        hands=[(0, 0)],
+        tiles=tiles,
+        seeds=5,
+        strawberry_seeds=5,
+        inventories=[{"WHEAT": 1}, {}],  # farmer already loaded: out of the field race
+    )
+
+    default = dispatch(view, NW_TILES, frozenset(), frozenset(), frozenset({far_strawberry}))
+    assert default.claims[1] == near_wheat, (
+        "default priority: the nearer wheat task should win a same-class tie"
+    )
+
+    urgent = dispatch(
+        view,
+        NW_TILES,
+        frozenset(),
+        frozenset(),
+        frozenset({far_strawberry}),
+        strawberry_plant_priority=STRAWBERRY_PLANT_PRIORITY - 1,
+    )
+    assert urgent.claims[1] == far_strawberry, (
+        "a strictly more urgent priority class still lost the race to distance"
     )
 
 

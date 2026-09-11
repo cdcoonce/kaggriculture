@@ -115,6 +115,33 @@ STRAWBERRY_PLANT_CUTOFF_DAY = 12
 # binding constraint -- the seed budget in plan.py is, and it self-throttles.
 STRAWBERRY_PLANT_DAILY_CAP = 6
 
+# Priority tier for a fresh PLANT STRAWBERRY task. This is the single source
+# of truth for that tier: PolicyConfig.strawberry_plant_priority (threaded
+# policy.py -> dispatch() -> _field_tasks(), exactly like
+# STRAWBERRY_PLANT_DAILY_CAP above) defaults to THIS constant rather than a
+# duplicated literal, so the knob's default can never drift out of sync with
+# what the module actually does when the knob is left alone.
+#
+# 3 is today's hardcoded value -- the same tier PLANT WHEAT and PLANT MELON
+# already claim (see _field_tasks' priority table). At the default, a
+# strawberry-zone planting only wins an idle unit once every nearer
+# wheat/melon planting in that SAME tier is already claimed, because classes
+# are worked in strict order and ties within one class go to distance.
+# Diagnosis 2026-09-10: this is why an SW-framed zone (bought day 9-10,
+# target 25) plants only ~5 tiles by the day-12 cutoff -- 17-27 nearer NW/NE
+# wheat/melon tasks claim every idle unit first for hours 2-15 of every day.
+# A strawberry claim that finally lands after that (once the nearer wheat/
+# melon work runs out) usually lands past hour 20, at which point this
+# branch's own `view.hour <= 20` gate stops emitting the task at all -- the
+# claim has nothing left to walk to (funnel on days 10-12: 606 tasks
+# generated, 61 claimed, 3 executed).
+#
+# One tier more urgent (2) instead competes with wheat's and melon's own
+# in-window WATER tasks, the SAME zone's own already-planted strawberry
+# tiles' WATER/FERTILIZE chores (_strawberry_task's P2), and pasture
+# CARE/COLLECT_FERTILIZER -- real, ongoing competition, not an empty tier.
+STRAWBERRY_PLANT_PRIORITY = 3
+
 # The last game day. Harvested or dropped goods can't reach the shed before
 # the market closes once it's this late (the market reads shed contents
 # pre-drop), so they sell for $0 — stop manufacturing more of them and rush
@@ -371,6 +398,7 @@ def _field_tasks(
     pasture_tiles: frozenset[tuple[int, int]] = frozenset(),
     strawberry_tiles: frozenset[tuple[int, int]] = frozenset(),
     strawberry_plant_daily_cap: int = STRAWBERRY_PLANT_DAILY_CAP,
+    strawberry_plant_priority: int = STRAWBERRY_PLANT_PRIORITY,
 ) -> list[_Task]:
     """Work needed on the target tiles, tagged with an urgency class.
 
@@ -502,7 +530,7 @@ def _field_tasks(
                         _Task(
                             (x, y),
                             ["PLANT", "STRAWBERRY"],
-                            priority=3,
+                            priority=strawberry_plant_priority,
                             uses_seed=True,
                             crop="STRAWBERRY",
                         )
@@ -632,6 +660,7 @@ def dispatch(
     strawberry_tiles: frozenset[tuple[int, int]] = frozenset(),
     prior_claims: dict[int, tuple[int, int]] | None = None,
     strawberry_plant_daily_cap: int = STRAWBERRY_PLANT_DAILY_CAP,
+    strawberry_plant_priority: int = STRAWBERRY_PLANT_PRIORITY,
     feed_batch_cap: int = FEED_BATCH_CAP,
     hand_mule_load: int = HAND_MULE_LOAD,
 ) -> Actions:
@@ -675,7 +704,13 @@ def dispatch(
             fielded.discard(i)
 
     tasks = _field_tasks(
-        view, tiles, melon_tiles, pasture_tiles, strawberry_tiles, strawberry_plant_daily_cap
+        view,
+        tiles,
+        melon_tiles,
+        pasture_tiles,
+        strawberry_tiles,
+        strawberry_plant_daily_cap,
+        strawberry_plant_priority,
     )
     # Wheat, melon and strawberry draw from separate seed pools; keyed by the
     # task's own crop so exhausting one never blocks the others' PLANT tasks.
