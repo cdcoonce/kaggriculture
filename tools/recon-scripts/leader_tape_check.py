@@ -166,6 +166,12 @@ def main():
         record = json.load(fh)
     with open(a.weeds) as fh:
         weeds = json.load(fh)
+    for name, rec, tool in (
+        ("ledger", record, "early_cash_ledger.py"),
+        ("weed scan", weeds, "weed_provenance.py"),
+    ):
+        if "identity" not in rec or "games" not in rec:
+            raise SystemExit(f"ABORT: the {name} has no identity/games block; regenerate it with {tool} --out")
     ident, wident = record["identity"], weeds["identity"]
     if ident["engine"] != ENGINE:
         raise SystemExit(f"ABORT: engine {ident['engine']}; the check requires {ENGINE}")
