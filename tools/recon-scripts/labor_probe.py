@@ -29,14 +29,15 @@ import subprocess
 from concurrent.futures import ProcessPoolExecutor
 
 # Registered criteria, by arm name (see the registration's expression check).
-UNITS_AT_HOUR_1_MIN = 8.0
+RAMP_GAIN_MIN = 1.0  # mean units over hours 1-2 above the reference's
 PLANTINGS_RATIO_MIN = 1.15
 LATE_PLANTINGS_MIN = 10.0  # plantings ordered at decision hours 21-22, mean per game
 WEED_RATIO_MAX = 1.5
 CRITERIA = {
-    "H10": ("units_h1",),
+    "H10": ("ramp",),
     "WP2": ("plantings",),
-    "COMBO": ("units_h1", "plantings", "late_plantings"),
+    "CUT22": ("late_plantings",),
+    "COMBO": ("ramp", "plantings", "late_plantings"),
 }
 
 
@@ -121,13 +122,17 @@ def check(summary, arms, ref):
             continue
         s, crit = summary[arm], {}
         for name in CRITERIA.get(arm, ()):
-            if name == "units_h1":
-                crit[name] = (s["units_by_hour"][1], UNITS_AT_HOUR_1_MIN, s["units_by_hour"][1] >= UNITS_AT_HOUR_1_MIN)
+            if name == "ramp":
+                arm_ramp = (s["units_by_hour"][1] + s["units_by_hour"][2]) / 2
+                need = (base["units_by_hour"][1] + base["units_by_hour"][2]) / 2 + RAMP_GAIN_MIN
+                crit[name] = (arm_ramp, need, arm_ramp >= need)
             elif name == "plantings":
                 need = PLANTINGS_RATIO_MIN * base["wheat_plantings"]
                 crit[name] = (s["wheat_plantings"], need, s["wheat_plantings"] >= need)
             elif name == "late_plantings":
                 crit[name] = (s["late_plantings"], LATE_PLANTINGS_MIN, s["late_plantings"] >= LATE_PLANTINGS_MIN)
+            else:
+                raise ValueError(f"unknown criterion {name!r}: a registered criterion must never be skipped")
         cap = WEED_RATIO_MAX * base["weed_tile_days"]
         crit["weed_guardrail"] = (s["weed_tile_days"], cap, s["weed_tile_days"] <= cap)
         verdict[arm] = {"criteria": crit, "pass": all(c[2] for c in crit.values()),
