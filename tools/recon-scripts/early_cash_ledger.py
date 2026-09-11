@@ -65,6 +65,18 @@ def orders(action):
     return out
 
 
+def strawberry_quadrants(v, quadrants):
+    """Count strawberry tiles per quadrant. The grid is view.tiles[y][x]; QUADRANTS maps
+    name -> (x range, y range)."""
+    c = collections.Counter()
+    for y, row in enumerate(v.tiles):
+        for x, t in enumerate(row if isinstance(row, (list, tuple)) else [row]):
+            if isinstance(t, dict) and str(t.get("crop", "")).upper() == "STRAWBERRY":
+                q = next((n for n, (xr, yr) in quadrants.items() if x in xr and y in yr), "?")
+                c[q] += 1
+    return dict(sorted(c.items()))
+
+
 def canon(x):
     return json.dumps(x, sort_keys=True, default=str)
 
@@ -88,6 +100,7 @@ def main():
     assert k.__version__ == "1.32.7", f"ABORT: engine {k.__version__}; requires 1.32.7"
     import agent
     import agent.policy as pol
+    from agent.constants import QUADRANTS
     from agent.view import parse_obs
     from harness.episodes import resolve_agent
     from kaggle_environments import make
@@ -138,6 +151,7 @@ def main():
                         "money": v.money,
                         "wheat": b["wheat"],
                         "strawberry": b["strawberry"],
+                        "strawberry_by_quadrant": strawberry_quadrants(v, QUADRANTS),
                         "melon": b["melon"],
                         "empty": b["empty"],
                         "cow": b["a_cow"],

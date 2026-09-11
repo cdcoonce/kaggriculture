@@ -1,0 +1,48 @@
+    seed |      arm |      d9$ d9fert_sold d9fert_eod | SW day
+  855000 |     sw25 |    1,739           0         12 |     10   (day8 money=1,904)
+  855000 |  shipped |      101          11          2 |      9   (day8 money=1,904)
+  855001 |     sw25 |    1,214           0         12 |     10   (day8 money=1,494)
+  855001 |  shipped |    2,220          12          0 |     10   (day8 money=1,494)
+  855002 |     sw25 |    1,177           0         12 |     10   (day8 money=1,471)
+  855002 |  shipped |    2,183          12          0 |     10   (day8 money=1,471)
+  855003 |     sw25 |    1,429           0         12 |     10   (day8 money=1,729)
+  855003 |  shipped |       21          11          4 |      9   (day8 money=1,729)
+  855004 |     sw25 |    1,278           0         10 |     10   (day8 money=454)
+  855004 |  shipped |    2,111          10          0 |     10   (day8 money=454)
+  855005 |     sw25 |    1,314           0         12 |     10   (day8 money=1,606)
+  855005 |  shipped |    2,320          12          0 |     10   (day8 money=1,606)
+  855006 |     sw25 |    1,418           0         12 |     10   (day8 money=1,696)
+  855006 |  shipped |        4          11          4 |      9   (day8 money=1,696)
+  855007 |     sw25 |    1,416           0         12 |     10   (day8 money=1,696)
+  855007 |  shipped |        1          11          4 |      9   (day8 money=1,696)
+
+--- per-day detail, seed 855000, both arms, days 7-11 ---
+
+sw25:
+  day  7  money=     192  fert_sold_today=  8  fert_shed_eod=  0  land_buys_today=0  unlocked=NWNE
+  day  8  money=   1,904  fert_sold_today=  9  fert_shed_eod=  0  land_buys_today=0  unlocked=NWNE
+  day  9  money=   1,739  fert_sold_today=  0  fert_shed_eod= 12  land_buys_today=0  unlocked=NWNE
+  day 10  money=     177  fert_sold_today=  0  fert_shed_eod= 25  land_buys_today=1  unlocked=NWNESW
+  day 11  money=   3,949  fert_sold_today= 10  fert_shed_eod= 26  land_buys_today=0  unlocked=NWNESW
+
+shipped:
+  day  7  money=     192  fert_sold_today=  8  fert_shed_eod=  0  land_buys_today=0  unlocked=NWNE
+  day  8  money=   1,904  fert_sold_today=  9  fert_shed_eod=  0  land_buys_today=0  unlocked=NWNE
+  day  9  money=     101  fert_sold_today= 11  fert_shed_eod=  2  land_buys_today=1  unlocked=NWNESW
+  day 10  money=   2,861  fert_sold_today= 13  fert_shed_eod=  3  land_buys_today=0  unlocked=NWNESW
+  day 11  money=   6,469  fert_sold_today= 10  fert_shed_eod=  2  land_buys_today=0  unlocked=NWNESW
+
+SW bought on day 9:  sw25=0/8   shipped=4/8
+SW bought on day 10: sw25=8/8   shipped=4/8
+
+--- cumulative FERTILIZER sold through day 9, and day-9 cash, both arms ---
+  seed 855000: fert_sold[0..9] sw25= 33 shipped= 44  |  day9 money sw25=   1,739 shipped=     101  delta=  +1,638  |  SW day sw25=10 shipped=9
+  seed 855001: fert_sold[0..9] sw25= 32 shipped= 44  |  day9 money sw25=   1,214 shipped=   2,220  delta=  -1,006  |  SW day sw25=10 shipped=10
+  seed 855002: fert_sold[0..9] sw25= 32 shipped= 44  |  day9 money sw25=   1,177 shipped=   2,183  delta=  -1,006  |  SW day sw25=10 shipped=10
+  seed 855003: fert_sold[0..9] sw25= 32 shipped= 43  |  day9 money sw25=   1,429 shipped=      21  delta=  +1,408  |  SW day sw25=10 shipped=9
+  seed 855004: fert_sold[0..9] sw25= 33 shipped= 43  |  day9 money sw25=   1,278 shipped=   2,111  delta=    -833  |  SW day sw25=10 shipped=10
+  seed 855005: fert_sold[0..9] sw25= 32 shipped= 44  |  day9 money sw25=   1,314 shipped=   2,320  delta=  -1,006  |  SW day sw25=10 shipped=10
+  seed 855006: fert_sold[0..9] sw25= 32 shipped= 43  |  day9 money sw25=   1,418 shipped=       4  delta=  +1,414  |  SW day sw25=10 shipped=9
+  seed 855007: fert_sold[0..9] sw25= 32 shipped= 43  |  day9 money sw25=   1,416 shipped=       1  delta=  +1,415  |  SW day sw25=10 shipped=9
+
+wrote /private/tmp/claude-501/-Users-cdcoonce-Developer-GitHub-the-vault/44ca31c2-6966-4b54-bb4a-b28adf7fe08c/scratchpad/swdiag/q2_results.json
