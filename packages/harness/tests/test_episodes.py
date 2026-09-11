@@ -162,6 +162,37 @@ class TestResolveAgent:
         finally:
             shutil.rmtree(dest / frozen_package_name(name), ignore_errors=True)
 
+    def test_agent_config_coerces_a_strawberry_frame_list_to_a_tuple(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # JSON has no tuple type, so a CLI --agent-config
+        # '{"strawberry_frame_quadrants": ["SW"]}' arrives here as a Python
+        # list. A list is unhashable (crashes any @cache function it reaches,
+        # and PolicyConfig's own generated __hash__ along with it) and never
+        # equals the tuple default, so PolicyConfig must coerce it before it
+        # goes anywhere near constants.strawberry_tiles_for_frame/
+        # target_tiles.
+        import agent.policy as policy_module
+
+        captured: dict[str, object] = {}
+
+        def fake_make_policy(clock: object = None, policy_config: object = None) -> object:
+            captured["policy_config"] = policy_config
+            return lambda obs, config=None: {"farmer": ["PASS"], "hands": [], "market": []}
+
+        monkeypatch.setattr(policy_module, "make_policy", fake_make_policy)
+        resolve_agent("champion", {"strawberry_frame_quadrants": ["SW"]})
+
+        config = captured["policy_config"]
+        assert isinstance(config, policy_module.PolicyConfig)
+        assert config.strawberry_frame_quadrants == ("SW",)
+        assert isinstance(config.strawberry_frame_quadrants, tuple)
+        hash(config)  # must not raise TypeError: unhashable type: 'list'
+
+    def test_agent_config_rejects_an_unknown_quadrant_name(self) -> None:
+        with pytest.raises(ValueError, match="XX"):
+            resolve_agent("champion", {"strawberry_frame_quadrants": ["XX"]})
+
     def test_frozen_spec_raises_on_a_knob_its_own_build_never_had(self) -> None:
         """The guard that matters, kept. A frozen package that predates the
         knob it is handed must reject it LOUDLY, naming the frozen package --

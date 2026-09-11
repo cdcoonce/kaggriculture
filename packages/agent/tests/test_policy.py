@@ -14,6 +14,7 @@ from agent.constants import (
     melon_tiles,
     pasture_tiles,
     strawberry_tiles,
+    target_tiles,
 )
 from agent.policy import PolicyConfig, make_policy
 from agent.shell import pass_action
@@ -637,32 +638,55 @@ def _zone_built_by_decide(
     unlocked: tuple[str, ...],
     target: int = 12,
     frame_live: bool | None = None,
+    frame_quadrants: tuple[str, ...] | None = None,
 ) -> list[tuple[int, int]]:
     """The strawberry zone ``decide()`` actually built, read off its call site.
 
     ``frame_live=None`` leaves the field off the PolicyConfig entirely, so the
     SHIPPED default is what gets exercised rather than a value the test handed
-    back to itself.
+    back to itself. ``frame_quadrants=None`` does the same for
+    ``strawberry_frame_quadrants``.
+
+    Spies on BOTH ``policy.strawberry_tiles`` (the fixed-offset formula,
+    used only for the default frame) and ``policy.strawberry_tiles_for_
+    frame`` (the melon/pasture-aware formula used for any other frame) --
+    decide() calls exactly one of the two, so exactly one spy should ever
+    fire.
     """
     overrides: dict[str, Any] = {"strawberry_tile_target": target}
     if frame_live is not None:
         overrides["strawberry_frame_live"] = frame_live
+    if frame_quadrants is not None:
+        overrides["strawberry_frame_quadrants"] = frame_quadrants
 
     seen: list[list[tuple[int, int]]] = []
-    real = policy.strawberry_tiles
+    real_fixed = policy.strawberry_tiles
+    real_for_frame = policy.strawberry_tiles_for_frame
 
-    def spy(unlocked_arg: tuple[str, ...], target: int = 0) -> list[tuple[int, int]]:
-        zone = real(unlocked_arg, target)
+    def spy_fixed(unlocked_arg: tuple[str, ...], target: int = 0) -> list[tuple[int, int]]:
+        zone = real_fixed(unlocked_arg, target)
         seen.append(zone)
         return zone
 
-    policy.strawberry_tiles = spy  # type: ignore[assignment]
+    def spy_for_frame(
+        frame_arg: tuple[str, ...],
+        target_arg: int,
+        melon_set: frozenset[tuple[int, int]],
+        pasture_set: frozenset[tuple[int, int]],
+    ) -> list[tuple[int, int]]:
+        zone = real_for_frame(frame_arg, target_arg, melon_set, pasture_set)
+        seen.append(zone)
+        return zone
+
+    policy.strawberry_tiles = spy_fixed  # type: ignore[assignment]
+    policy.strawberry_tiles_for_frame = spy_for_frame  # type: ignore[assignment]
     try:
         make_policy(policy_config=PolicyConfig(**overrides))(
             raw_obs(unlocked_quadrants=unlocked), None
         )
     finally:
-        policy.strawberry_tiles = real  # type: ignore[assignment]
+        policy.strawberry_tiles = real_fixed  # type: ignore[assignment]
+        policy.strawberry_tiles_for_frame = real_for_frame  # type: ignore[assignment]
 
     assert len(seen) == 1, f"decide() sized the strawberry zone {len(seen)}x, expected once"
     return seen[0]
@@ -707,6 +731,103 @@ def test_strawberry_frame_live_is_a_no_op_before_sw_is_bought() -> None:
     fixed = _zone_built_by_decide(unlocked=("NW", "NE"))
     assert live == fixed == strawberry_tiles(STRAWBERRY_REFERENCE_QUADRANTS, target=12)
     assert not _sw_tiles(live)
+
+
+# --- strawberry_frame_quadrants: an arbitrary (non-live) frame, e.g. SW ---
+#
+# strawberry_frame_live answers "does a LIVE frame change behavior"; this
+# knob answers a different question -- "what if the (still fixed) frame were
+# somewhere other than NW+NE". Measured: a zone in NW+NE displaces $7-10k of
+# wheat revenue per game, while SW (bought day 9-10) sits mostly idle
+# (20-38 empty tiles on days 10-16). See constants.strawberry_tiles_for_
+# frame for the formula this uses once the frame isn't the default.
+
+
+def test_strawberry_frame_quadrants_default_is_pinned_to_nw_ne() -> None:
+    # The only thing standing between this knob and a silent change to the
+    # shipped agent is this default -- every existing PolicyConfig() must
+    # keep resolving to exactly today's frame.
+    assert PolicyConfig().strawberry_frame_quadrants == STRAWBERRY_REFERENCE_QUADRANTS
+    assert PolicyConfig().strawberry_frame_quadrants == ("NW", "NE")
+
+
+def test_strawberry_frame_sw_is_a_full_wheat_noop_before_sw_is_unlocked() -> None:
+    # The whole point of relocating the zone: target_tiles(("SW",)) can never
+    # overlap NW/NE (the four quadrants partition the board), so -- unlike
+    # the default NW+NE frame, which always carves its target out of wheat's
+    # own tiles -- a zone parked on SW cannot displace a single wheat tile
+    # while SW isn't owned yet. And a "LOCKED" tile (raw_obs'/viewfactory's
+    # stand-in for ground outside unlocked_quadrants) is neither None nor a
+    # WEED, so _plantable_targets counts none of it either -- no seed gets
+    # bought for ground the farmer cannot reach.
+    # Direct, literal tile-set proof (not just a downstream count proxy): the
+    # raw zone itself must not contain a single NW/NE tile, which is what
+    # makes wheat_tiles' "t not in strawberry_set" filter a no-op for every
+    # tile in target_tiles(("NW", "NE")) -- the exact mechanism, not just its
+    # observable effect on the seed line below.
+    zone = _zone_built_by_decide(unlocked=("NW", "NE"), target=25, frame_quadrants=("SW",))
+    assert set(zone).isdisjoint(target_tiles(("NW", "NE"))), (
+        f"the SW-framed zone overlapped NW/NE tiles: {zone}"
+    )
+
+    shipped = make_policy()(raw_obs(unlocked_quadrants=("NW", "NE"), money=5000.0), None)
+    sw_frame = make_policy(
+        policy_config=PolicyConfig(strawberry_frame_quadrants=("SW",), strawberry_tile_target=25)
+    )(raw_obs(unlocked_quadrants=("NW", "NE"), money=5000.0), None)
+
+    assert not any(o[:2] == ["BUY_SEED", "STRAWBERRY"] for o in sw_frame["market"]), (
+        f"bought strawberry seed for an unreachable SW zone: {sw_frame['market']}"
+    )
+    assert _wheat_seed_qty(sw_frame["market"]) == _wheat_seed_qty(shipped["market"]), (
+        "an unreachable SW zone still displaced wheat's NW+NE seed line"
+    )
+
+
+def test_strawberry_frame_sw_stays_inside_sw_once_sw_is_unlocked() -> None:
+    zone = _zone_built_by_decide(unlocked=("NW", "NE", "SW"), target=20, frame_quadrants=("SW",))
+    assert zone, "expected a non-empty zone once SW is unlocked"
+    assert _sw_tiles(zone) == zone, f"the SW-framed zone reached outside SW: {zone}"
+
+
+def test_strawberry_frame_sw_buys_seed_once_sw_is_unlocked() -> None:
+    obs = raw_obs(step=10 * 24, unlocked_quadrants=("NW", "NE", "SW"), money=50000.0)
+    action = make_policy(
+        policy_config=PolicyConfig(strawberry_frame_quadrants=("SW",), strawberry_tile_target=20)
+    )(obs, None)
+    bought = next((o for o in action["market"] if o[:2] == ["BUY_SEED", "STRAWBERRY"]), None)
+    assert bought is not None and bought[2] > 0, (
+        f"expected a STRAWBERRY seed buy once SW is unlocked, got {action['market']}"
+    )
+
+
+def test_default_frame_zone_matches_todays_formula_at_every_target_and_unlock_state() -> None:
+    """Step-2 equivalence proof for the DEFAULT frame: decide() must keep
+    routing STRAWBERRY_REFERENCE_QUADRANTS to the untouched, fixed-offset
+    ``strawberry_tiles`` -- never to the new melon/pasture-aware
+    ``strawberry_tiles_for_frame`` -- at every target 0..31, under every
+    unlocked-quadrant state the agent can reach.
+
+    Not the same claim as "the two formulas agree" --
+    test_constants.py's test_the_general_formula_disagrees_with_the_
+    default_frame_formula_once_sw_unlocks proves they do NOT, across most of
+    this same grid. What must stay true is narrower: which function
+    decide() calls for this one frame.
+    """
+    states = [
+        ("NW",),
+        ("NW", "NE"),
+        ("NW", "NE", "SW"),
+        ("NW", "NE", "SE"),
+        ("NW", "NE", "SW", "SE"),
+    ]
+    for unlocked in states:
+        for target in range(32):
+            actual = _zone_built_by_decide(unlocked=unlocked, target=target)
+            expected = strawberry_tiles(STRAWBERRY_REFERENCE_QUADRANTS, target=target)
+            assert actual == expected, (
+                f"unlocked={unlocked} target={target}: decide() built {actual}, "
+                f"expected today's shipped zone {expected}"
+            )
 
 
 def test_strawberry_tiles_are_carved_out_of_the_wheat_zone() -> None:

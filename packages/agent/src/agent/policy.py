@@ -20,12 +20,14 @@ from agent.constants import (
     MAX_OWNED_QUADRANTS,
     MELON_TILE_TARGET,
     PASTURE_REFERENCE_QUADRANTS,
+    QUADRANTS,
     SHEEP_TARGET,
     STRAWBERRY_REFERENCE_QUADRANTS,
     STRAWBERRY_TILE_TARGET,
     melon_tiles,
     pasture_tiles,
     strawberry_tiles,
+    strawberry_tiles_for_frame,
     target_tiles,
 )
 from agent.dispatch import (
@@ -107,6 +109,8 @@ CRASH_TRIGGER_TICKS = 12
 # from turn one, so this is a no-op until an eval run raises it.
 STRAWBERRY_START_DAY = 0
 
+_KNOWN_QUADRANTS = frozenset(QUADRANTS)
+
 
 @dataclass(frozen=True)
 class PolicyConfig:
@@ -170,6 +174,19 @@ class PolicyConfig:
     # view.unlocked_quadrants so an A/B can answer it empirically. False, the
     # shipped default, is today's call bit-for-bit.
     strawberry_frame_live: bool = False
+    # Which quadrants the frame covers when strawberry_frame_live is False
+    # (the shipped case). Defaults to STRAWBERRY_REFERENCE_QUADRANTS, so
+    # every existing PolicyConfig() keeps today's NW+NE zone exactly. An
+    # eval run overrides this (e.g. to ("SW",)) to measure putting the zone
+    # somewhere the live agent tends to leave idle instead of carving it out
+    # of NW+NE wheat ground: a zone in NW+NE measures at $7-10k/game of
+    # displaced wheat revenue, while SW (bought day 9-10) sits with 20-38
+    # empty tiles on days 10-16. See constants.strawberry_tiles_for_frame's
+    # docstring for why a non-default value here runs a different formula
+    # than the default does, and __post_init__ below for the coercion an
+    # agent_config override (JSON has no tuple type) needs before this
+    # reaches any @cache'd function.
+    strawberry_frame_quadrants: tuple[str, ...] = STRAWBERRY_REFERENCE_QUADRANTS
 
     # M2c (kaggriculture#59): two-tier shed valve + WOOL/MILK crash latches.
     # See the VALVE_*/*_CRASH_TRIGGER module constants above and market.py's
@@ -192,6 +209,30 @@ class PolicyConfig:
         the pasture zone size drift out of sync with the animal targets it's
         supposed to exactly cover (one animal per pasture tile)."""
         return self.cow_target + self.sheep_target
+
+    def __post_init__(self) -> None:
+        """Coerce + validate strawberry_frame_quadrants on EVERY construction
+        (not just the agent_config path -- a frozen dataclass has no other
+        post-construction hook to hang this on).
+
+        harness.episodes.resolve_agent builds this from a CLI --agent-config
+        JSON object (``PolicyConfig(**agent_config)``); JSON has no tuple
+        type, so a list must be coerced before it reaches
+        constants.strawberry_tiles_for_frame/target_tiles -- both
+        ``@cache``'d, so an unhashable list would crash them (and this
+        dataclass's own generated ``__hash__`` along with it), and a list
+        never equals the tuple default. An unknown quadrant name is rejected
+        here too, loudly, rather than silently building a zone that can
+        never contain a single real tile.
+        """
+        frame = tuple(self.strawberry_frame_quadrants)
+        unknown = sorted(set(frame) - _KNOWN_QUADRANTS)
+        if unknown:
+            raise ValueError(
+                f"unknown quadrant name(s) in strawberry_frame_quadrants: {unknown!r}; "
+                f"known quadrants: {sorted(_KNOWN_QUADRANTS)}"
+            )
+        object.__setattr__(self, "strawberry_frame_quadrants", frame)
 
 
 def _owned_count(view: FarmView, species: str) -> int:
@@ -384,10 +425,13 @@ def make_policy(
         # QUADRANTS explains why: a live value orphans built pastures and
         # placed animals the instant the nearest-shed-first ordering shifts).
         pastures = pasture_tiles(PASTURE_REFERENCE_QUADRANTS, target=cfg.pasture_tile_target)
-        # Fixed reference frame for the same reason pastures use one, and more
-        # urgently: a strawberry tile is occupied for seventeen days, so a zone
-        # that drifted on a BUY_LAND would orphan a live plant mid-cycle and it
-        # would weed two days later. See STRAWBERRY_REFERENCE_QUADRANTS.
+        melon_set = frozenset(melons)
+        pasture_set = frozenset(pastures)
+        # Fixed by default (cfg.strawberry_frame_quadrants) for the same
+        # reason pastures use a fixed frame, and more urgently: a strawberry
+        # tile is occupied for seventeen days, so a zone that drifted on a
+        # BUY_LAND would orphan a live plant mid-cycle and it would weed two
+        # days later. See STRAWBERRY_REFERENCE_QUADRANTS.
         #
         # strawberry_frame_live lifts that pin, for measurement only. What
         # makes a live frame survivable for a CROP and not for an ANIMAL is an
@@ -401,11 +445,24 @@ def make_policy(
         # PASTURE_REFERENCE_QUADRANTS silently starves and loses placed
         # animals. Do NOT mirror this flag onto pastures.
         strawberry_frame = (
-            view.unlocked_quadrants if cfg.strawberry_frame_live else STRAWBERRY_REFERENCE_QUADRANTS
+            view.unlocked_quadrants if cfg.strawberry_frame_live else cfg.strawberry_frame_quadrants
         )
-        strawberries = strawberry_tiles(strawberry_frame, target=cfg.strawberry_tile_target)
-        melon_set = frozenset(melons)
-        pasture_set = frozenset(pastures)
+        # STRAWBERRY_REFERENCE_QUADRANTS keeps the OLD fixed-offset formula
+        # (strawberry_tiles): it assumes melon+pasture fill exactly the
+        # frame's first 18 tiles, which only holds for this one frame, and
+        # even then only intermittently -- constants.strawberry_tiles_for_
+        # frame's docstring has the full mechanism, and test_constants.py's
+        # test_the_general_formula_disagrees_with_the_default_frame_formula_
+        # once_sw_unlocks proves the two formulas actually disagree for this
+        # frame across most of a real game. Any OTHER frame routes through
+        # the general, melon/pasture-aware formula instead -- there is no
+        # shipped-behavior default to preserve for those.
+        if strawberry_frame == STRAWBERRY_REFERENCE_QUADRANTS:
+            strawberries = strawberry_tiles(strawberry_frame, target=cfg.strawberry_tile_target)
+        else:
+            strawberries = strawberry_tiles_for_frame(
+                strawberry_frame, cfg.strawberry_tile_target, melon_set, pasture_set
+            )
         strawberry_set = frozenset(strawberries) - melon_set - pasture_set
         # Set difference, not a positional slice: pasture_set's positions are
         # anchored to the fixed reference frame above and are not guaranteed

@@ -219,9 +219,57 @@ def strawberry_tiles(
     ``target`` defaults to 0, so every existing caller and every default
     ``PolicyConfig`` gets an empty zone and byte-identical behavior to the
     pre-strawberry chassis. Memoized for the same reason as ``target_tiles``.
+
+    Only correct for ``unlocked == STRAWBERRY_REFERENCE_QUADRANTS`` (the one
+    frame melon/pasture's fixed-offset assumption is built around). For any
+    other frame, use ``strawberry_tiles_for_frame`` below instead of passing
+    a different ``unlocked`` here -- ``policy.decide``'s own branch on
+    ``strawberry_frame == STRAWBERRY_REFERENCE_QUADRANTS`` is what picks
+    between the two; see that function's docstring for why they disagree.
     """
     start = MELON_TILE_TARGET + PASTURE_TILE_TARGET
     return target_tiles(unlocked)[start : start + target]
+
+
+def strawberry_tiles_for_frame(
+    frame: tuple[str, ...],
+    target: int,
+    melon_set: frozenset[tuple[int, int]],
+    pasture_set: frozenset[tuple[int, int]],
+) -> list[tuple[int, int]]:
+    """The strawberry zone for an ARBITRARY frame: the first ``target`` tiles
+    of ``target_tiles(frame)``, in that function's order, skipping any tile
+    already claimed by melon or pasture.
+
+    ``strawberry_tiles`` (above) instead takes a fixed positional slice
+    (``target_tiles(frame)[18:18+target]``), which assumes melon and pasture
+    already occupy exactly the frame's first 18 tiles. That assumption holds
+    only for ``frame == STRAWBERRY_REFERENCE_QUADRANTS`` -- and even then,
+    only while the LIVE ``unlocked_quadrants`` that ``melon_tiles`` is
+    computed against also equals that same fixed frame (true before SW is
+    bought, false after: SW's own shed-access tile ``(4, 5)`` ties NW's/NE's
+    for distance 0 in ``target_tiles`` the instant SW unlocks, so melon's
+    live zone stops being a clean prefix of the fixed frame's ordering). For
+    any OTHER frame (e.g. a zone parked on SW) melon's frame has nothing to
+    do with this one, so the 18-tile assumption doesn't even approximately
+    hold; this function computes the zone directly against the actual
+    ``melon_set``/``pasture_set`` instead of assuming where they fall.
+
+    Deliberately NOT used for ``STRAWBERRY_REFERENCE_QUADRANTS`` itself: the
+    two formulas provably disagree there too, across most of a real game
+    (see ``packages/agent/tests/test_constants.py``'s
+    ``test_the_general_formula_disagrees_with_the_default_frame_formula_
+    once_sw_unlocks``), so switching the shipped default over to this
+    formula would silently change its zone. ``policy.decide`` keeps calling
+    ``strawberry_tiles`` for exactly that one frame instead.
+
+    Not memoized: ``melon_set``/``pasture_set`` are rebuilt fresh every turn,
+    so a cache keyed on them would never hit anyway -- ``target_tiles``
+    itself is already cached, which is where the real cost lives.
+    """
+    candidates = target_tiles(frame)
+    zone = [tile for tile in candidates if tile not in melon_set and tile not in pasture_set]
+    return zone[:target]
 
 
 def nearest_shed_access(pos: tuple[int, int], unlocked: tuple[str, ...]) -> tuple[int, int]:
