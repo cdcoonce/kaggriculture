@@ -49,7 +49,14 @@ from agent.market import (
     WOOL_MIN_PRICE,
     build_orders,
 )
-from agent.plan import FEED_RESERVE, MAX_HIRES_PER_TURN, STRAWBERRY_SEED_BUDGET_SHARE, plan_day
+from agent.plan import (
+    ANIMAL_BUY_ORDER,
+    FEED_RESERVE,
+    MAX_HIRES_PER_TURN,
+    NE_LAND_MIN_DAY,
+    STRAWBERRY_SEED_BUDGET_SHARE,
+    plan_day,
+)
 from agent.shell import Action, Observation, pass_action
 from agent.state import MelonMarketMemory, ProductCrashLatch, StateTracker
 from agent.view import FarmView, clone_pressure_products, parse_obs
@@ -148,6 +155,20 @@ _MAX_PLANT_HOUR_CUTOFF = 23
 _MIN_EXTRA_HANDS = 0
 _MAX_EXTRA_HANDS = 5
 
+#: ne_land_min_day: the valid range of view.day across the 30-day game (see
+#: plan.LAND_LAST_BUY_DAY["NE"] == 24 for the corresponding *latest* day --
+#: a value past that makes the purchase unreachable but is not itself an
+#: invalid day, so it is not rejected here).
+_MIN_NE_LAND_MIN_DAY = 0
+_MAX_NE_LAND_MIN_DAY = 29
+
+#: animal_buy_order: must be a permutation of plan.ANIMAL_BUY_ORDER itself --
+#: checked by sorted-list equality (not a set) so a duplicate (e.g. ("COW",
+#: "COW")) is rejected too, not just an unknown species. Anything else would
+#: either KeyError inside plan_day's per-species lookups or silently skip a
+#: species' purchase window for the rest of the game.
+_SORTED_ANIMAL_BUY_ORDER = sorted(ANIMAL_BUY_ORDER)
+
 
 @dataclass(frozen=True)
 class PolicyConfig:
@@ -160,6 +181,25 @@ class PolicyConfig:
     melon_tile_target: int = MELON_TILE_TARGET
     cow_target: int = COW_TARGET
     sheep_target: int = SHEEP_TARGET
+
+    # Order the shared per-turn cap/room (plan.ANIMAL_BUY_CAP_PER_TURN,
+    # empty-pasture count) is offered to cow vs sheep. Cows-before-sheep was
+    # a hardcoded sequence, not a parameter, before this knob existed, so
+    # ("COW", "SHEEP") is DEFAULT-NEUTRAL -- every existing game buys in
+    # exactly this order already, and every other guard/cap/target in
+    # plan_day's animal block is untouched (see plan.py's animal_buy_order
+    # loop).
+    #
+    # Diagnosis (observed strongest public bots, game replays, 2026-09-11):
+    # they buy about 4 sheep and 1 cow on day 0 -- sheep-first, not
+    # cow-first. An eval run flips this to ("SHEEP", "COW") to measure that
+    # ordering. __post_init__ rejects anything that is not a permutation of
+    # the default, and coerces a JSON list (no tuple type in JSON) to a
+    # tuple the same way strawberry_frame_quadrants does, so an
+    # agent_config override stays hashable and reaches plan_day's loop
+    # unchanged.
+    animal_buy_order: tuple[str, ...] = ANIMAL_BUY_ORDER
+
     wheat_rush_tiles: int = _WHEAT_RUSH_TILES_DEFAULT
     # Priority tier for a fresh PLANT WHEAT task -- dispatch.py's
     # _field_tasks, threaded through dispatch() the same way
@@ -195,6 +235,23 @@ class PolicyConfig:
     # scales with active_tiles, so every quadrant carries a standing crew
     # charge on top of its price. See constants.MAX_OWNED_QUADRANTS.
     max_owned_quadrants: int = MAX_OWNED_QUADRANTS
+
+    # Earliest day the NE purchase may fire, mirroring SE's own
+    # SE_LAND_MIN_DAY gate (see plan.py) rather than a new mechanism. The NE
+    # branch never had an earliest-day gate before this knob existed -- it
+    # buys NE the instant it is the next quadrant and cash allows, including
+    # turn 0 -- so 0 is DEFAULT-NEUTRAL: day >= 0 is always true and every
+    # existing game is bit-for-bit unchanged. SW's and SE's own gates
+    # (including SE_LAND_MIN_DAY) are untouched by this knob, and so is the
+    # fixed NE -> SW -> SE unlock order (constants.LAND_ORDER).
+    #
+    # Diagnosis (observed strongest public bots, game replays, 2026-09-11):
+    # they own only NW until buying NE around day 6, spending the opening
+    # budget on the day-0 herd instead of land. An eval run raises this to
+    # hold NE off while that opening plays out. __post_init__ rejects
+    # anything outside 0-29, the valid range of view.day across the 30-day
+    # game -- see _MAX_NE_LAND_MIN_DAY.
+    ne_land_min_day: int = NE_LAND_MIN_DAY
 
     # Crew size. plan.py's plan_day(), threaded through decide() the same way
     # every other planner knob is. Defaults to plan.MAX_HIRES_PER_TURN (4),
@@ -371,6 +428,18 @@ class PolicyConfig:
         extra_hands must land inside 0-5 (_MAX_EXTRA_HANDS) -- a deliberately
         conservative guard against a runaway CLI override, checked here for
         the same "loud at construction" reason as every other field above.
+
+        ne_land_min_day must land inside 0-29 (the valid range of view.day),
+        checked here for the same "loud at construction" reason as every
+        other field above.
+
+        animal_buy_order gets the same list-to-tuple coercion as
+        strawberry_frame_quadrants above (JSON has no tuple type, so a CLI
+        --agent-config override arrives as a list -- unhashable, and never
+        equal to the tuple default), and is rejected unless it is a
+        permutation of plan.ANIMAL_BUY_ORDER: anything else would either
+        KeyError inside plan_day's per-species lookups or silently skip a
+        species' purchase window for the rest of the game.
         """
         frame = tuple(self.strawberry_frame_quadrants)
         unknown = sorted(set(frame) - _KNOWN_QUADRANTS)
@@ -419,6 +488,20 @@ class PolicyConfig:
                 f"extra_hands must be within {_MIN_EXTRA_HANDS}-{_MAX_EXTRA_HANDS}, "
                 f"got {self.extra_hands!r}"
             )
+
+        if not (_MIN_NE_LAND_MIN_DAY <= self.ne_land_min_day <= _MAX_NE_LAND_MIN_DAY):
+            raise ValueError(
+                f"ne_land_min_day must be within {_MIN_NE_LAND_MIN_DAY}-"
+                f"{_MAX_NE_LAND_MIN_DAY}, got {self.ne_land_min_day!r}"
+            )
+
+        animal_order = tuple(self.animal_buy_order)
+        if sorted(animal_order) != _SORTED_ANIMAL_BUY_ORDER:
+            raise ValueError(
+                f"animal_buy_order must be a permutation of {ANIMAL_BUY_ORDER!r}, "
+                f"got {animal_order!r}"
+            )
+        object.__setattr__(self, "animal_buy_order", animal_order)
 
 
 def _owned_count(view: FarmView, species: str) -> int:
@@ -703,6 +786,7 @@ def make_policy(
             unlocked_quadrants=view.unlocked_quadrants,
             active_tiles=len(tiles),
             max_owned_quadrants=cfg.max_owned_quadrants,
+            ne_land_min_day=cfg.ne_land_min_day,
             cows_owned=cows_owned,
             sheep_owned=sheep_owned,
             empty_pastures=_empty_built_pastures(view, pastures),
@@ -710,6 +794,7 @@ def make_policy(
             feed_reserve=cfg.feed_reserve,
             cow_target=cfg.cow_target,
             sheep_target=cfg.sheep_target,
+            animal_buy_order=cfg.animal_buy_order,
             max_hires_per_turn=cfg.max_hires_per_turn,
             extra_hands=cfg.extra_hands,
         )

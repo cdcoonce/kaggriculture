@@ -294,6 +294,53 @@ class TestResolveAgent:
         with pytest.raises(ValueError, match="extra_hands"):
             resolve_agent("champion", {"extra_hands": -1})
 
+    def test_agent_config_flows_ne_land_min_day_and_animal_buy_order_to_policy_config(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # The JSON-shaped-config wiring proof for the two opening knobs
+        # (kaggriculture, 2026-09-11): a CLI --agent-config
+        # '{"ne_land_min_day": 6, "animal_buy_order": ["SHEEP", "COW"]}' must
+        # reach make_policy as an actual PolicyConfig with both fields set,
+        # not get silently dropped or partially applied -- mirrors
+        # test_agent_config_flows_all_three_labor_knobs_to_policy_config
+        # above. animal_buy_order also arrives as a JSON list (no tuple type
+        # in JSON), so this doubles as the coercion proof through the real
+        # resolve_agent path, the same way
+        # test_agent_config_coerces_a_strawberry_frame_list_to_a_tuple checks
+        # strawberry_frame_quadrants.
+        import agent.policy as policy_module
+
+        captured: dict[str, object] = {}
+
+        def fake_make_policy(clock: object = None, policy_config: object = None) -> object:
+            captured["policy_config"] = policy_config
+            return lambda obs, config=None: {"farmer": ["PASS"], "hands": [], "market": []}
+
+        monkeypatch.setattr(policy_module, "make_policy", fake_make_policy)
+        resolve_agent(
+            "champion",
+            {"ne_land_min_day": 6, "animal_buy_order": ["SHEEP", "COW"]},
+        )
+
+        config = captured["policy_config"]
+        assert isinstance(config, policy_module.PolicyConfig)
+        assert config.ne_land_min_day == 6
+        assert config.animal_buy_order == ("SHEEP", "COW")
+        assert isinstance(config.animal_buy_order, tuple)
+        hash(config)  # must not raise TypeError: unhashable type: 'list'
+
+    def test_agent_config_rejects_an_out_of_range_ne_land_min_day(self) -> None:
+        with pytest.raises(ValueError, match="ne_land_min_day"):
+            resolve_agent("champion", {"ne_land_min_day": -1})
+        with pytest.raises(ValueError, match="ne_land_min_day"):
+            resolve_agent("champion", {"ne_land_min_day": 30})
+
+    def test_agent_config_rejects_a_non_permutation_animal_buy_order(self) -> None:
+        with pytest.raises(ValueError, match="animal_buy_order"):
+            resolve_agent("champion", {"animal_buy_order": ["COW", "COW"]})
+        with pytest.raises(ValueError, match="animal_buy_order"):
+            resolve_agent("champion", {"animal_buy_order": ["COW"]})
+
     def test_frozen_spec_raises_on_a_knob_its_own_build_never_had(self) -> None:
         """The guard that matters, kept. A frozen package that predates the
         knob it is handed must reject it LOUDLY, naming the frozen package --
