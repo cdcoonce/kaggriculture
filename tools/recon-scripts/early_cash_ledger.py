@@ -154,6 +154,7 @@ def main():
                         "strawberry_by_quadrant": strawberry_quadrants(v, QUADRANTS),
                         "melon": b["melon"],
                         "empty": b["empty"],
+                        "weed": b["weed"],
                         "cow": b["a_cow"],
                         "sheep": b["a_sheep"],
                         "goose": b["a_goose"],
