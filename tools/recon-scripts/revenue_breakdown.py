@@ -88,6 +88,13 @@ ALL_ARMS: dict[str, dict[str, Any]] = {
     # (eval/prereg/2026-09-12-never-gated-knob-screen.md). Each names one
     # traded item and one direction; the registered expression check reads
     # that item's settled flow out of this instrument's per-item table.
+    # The strawberry-cohort slice's arms
+    # (eval/prereg/2026-09-12-strawberry-cohort-price.md). Its criterion 3 reads
+    # combined WHEAT + STRAWBERRY settled revenue out of this instrument, because
+    # trading wheat land for strawberry land is the mechanism under test.
+    "COH": {"strawberry_tile_target": 36, "strawberry_frame_quadrants": ['NW', 'NE', 'SW'], "strawberry_start_day": 3, "strawberry_plant_daily_cap": 11, "strawberry_plant_priority": 2, "strawberry_fert_reserve": 'planted', "strawberry_seed_budget_share": 1.0, "rescue_water": True},
+    "COH_HALF": {"strawberry_tile_target": 36, "strawberry_frame_quadrants": ['NW', 'NE', 'SW'], "strawberry_start_day": 3, "strawberry_plant_daily_cap": 11, "strawberry_plant_priority": 2, "strawberry_fert_reserve": 'planted', "rescue_water": True},
+    "COH_OPEN": {"strawberry_tile_target": 36, "strawberry_frame_quadrants": ['NW', 'NE', 'SW'], "strawberry_start_day": 3, "strawberry_plant_daily_cap": 11, "strawberry_plant_priority": 2, "strawberry_fert_reserve": 'planted', "strawberry_seed_budget_share": 1.0, "rescue_water": True, "ne_land_min_day": 6, "animal_buy_order": ['SHEEP', 'COW'], "goose_min_day": 7},
     "RW": {"rescue_water": True},
     "RW_H10": {"rescue_water": True, "max_hires_per_turn": 10},
     "SHEEP1": {"animal_buy_order": ["SHEEP", "COW"]},
