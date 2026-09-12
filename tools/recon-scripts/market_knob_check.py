@@ -48,7 +48,7 @@ TARGETS: dict[str, tuple[str, str]] = {
 
 
 def ours(record, arm):
-    return record["means"][arm]["seat_0_ours"]
+    return record["means_per_arm"][arm]["seat_0_ours"]
 
 
 def check(arm, arm_side, ref_side):
@@ -113,7 +113,7 @@ def main():
         raise SystemExit("ABORT: the record ran on a dirty packages/ tree")
     if sorted(ident["seeds"]) != SEEDS:
         raise SystemExit(f"ABORT: the record covers seeds {ident['seeds']}, not the registered {SEEDS}")
-    if REFERENCE not in record["means"]:
+    if REFERENCE not in record["means_per_arm"]:
         raise SystemExit(f"ABORT: the record has no {REFERENCE!r} reference arm")
     # The instrument's own reproduction gate: shipped has a recorded mean, and a drift in it
     # means these games are not the games the registration was written against.
@@ -126,7 +126,7 @@ def main():
         raise SystemExit(f"ABORT: the settlement did not conserve: {val['conservation_violations']}")
 
     ref_side = ours(record, REFERENCE)
-    arms = [a for a in record["means"] if a != REFERENCE]
+    arms = [a for a in record["means_per_arm"] if a != REFERENCE]
     print(
         f"{len(ident['seeds'])} seeds {min(ident['seeds'])}..{max(ident['seeds'])} vs"
         f" {ident['opponent']}; tree {ident['git_sha'][:7]}; reference {REFERENCE}"
