@@ -258,3 +258,45 @@ size as the arm built to raise wool. That points at labor reallocation rather th
 about water: a rescue trip is priority 0 and displaces the lowest-priority bulk work, which
 is planting. It is a hypothesis, not a measurement, and it changes nothing here — both arms
 are dropped on their registered criterion regardless.
+
+## ADDENDUM — SCREEN VERDICT (2026-09-12): NOT ADVANCED
+
+Run at BUILD `df31c9b` (main, with `packages/` and `dist/` verified identical to the
+expression-checked tree `4c3e3ec`), engine 1.32.7, band 875000, n = 64 per leader. The three
+ledgers are `eval/gates/2026-09-12T17-45-49Z-…`, `…T17-48-48Z-…` and `…T17-51-29Z-…`, with
+no crash and no veto.
+
+| opponent | n | mean Δ | se | 95% CI | opponent Δ | margin Δ |
+|---|---|---|---|---|---|---|
+| public:sokolovsky-v12 | 64 | +$3,342 | 1,563 | [+$278, +$6,405] | +$4,721 | −$1,379 |
+| public:rayk-v11 | 64 | +$1,460 | 1,817 | [−$2,102, +$5,021] | +$4,655 | −$3,195 |
+| public:kaito-v4 | 64 | +$1,351 | 1,846 | [−$2,267, +$4,969] | +$5,216 | −$3,866 |
+| **pooled** | | **+$2,051** | **1,008** | **[+$74, +$4,027]** | | **−$2,814** |
+
+Criterion 1 fails: +$2,051 against the +$4,000 bar. Criteria 2 and 3 pass (pooled lower
+bound +$74; worst single leader +$1,351). **SHEEP1 is NOT ADVANCED, and with it the
+never-gated knob screen is NOT ADVANCED.** No confirmation or guard ran, and bands 876000
+and 877000 are retired unused.
+
+**It would also have failed confirmation.** The pooled margin delta is **−$2,814** against
+the registered guard of > −$2,000: the leaders' own banks rise $4.7-5.2k while ours rises
+$2.1k, so most of what this arm earns is share the leaders would otherwise have taken rather
+than new production. Recorded because the own-bank point estimate on its own reads more
+promising than the arm is.
+
+**Predictions scorecard.**
+- **Right on the verdict.** I registered "no arm advances, about 80% likely", and that is
+  what happened.
+- **Wrong on SHEEP1's size.** I registered −$1,000 to +$1,500 and it measured +$2,051, above
+  the range. Sheep-before-cows is worth more than I credited it — just not half the bar.
+- The two rescue-water arms never reached the screen; their check failure, with wheat revenue
+  falling about 30% where a rise was required, is recorded in the addendum above.
+
+**The scoreboard after six slices**, every gated arm's pooled own-bank delta against shipped
+on the leader panel: START8_T20 +$2,282, **SHEEP1 +$2,051**, START10 +$1,873, H10 +$781,
+EH1 +$340, EH2 −$3,545, EH2_H10 −$3,586. Nothing has reached +$4,000. Sheep-first is now the
+second-largest single-knob effect ever measured here and still under half the bar.
+
+**The never-gated knob surface is closed by measurement**, which is what this slice was for.
+What remains untested is the strawberry cohort, registered separately in
+`eval/prereg/2026-09-12-strawberry-cohort-price.md`.
