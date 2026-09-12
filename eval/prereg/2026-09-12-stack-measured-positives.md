@@ -201,3 +201,47 @@ at n=64 across three leaders is the instrument; one 8-seed draw against one oppo
 - **Wrong that both arms would pass.** I registered that prediction explicitly; STACK2 failed.
 - **Wrong about STACK3's role.** I registered that the hire cap "adds little and may add
   nothing"; it is in fact what keeps the herd component alive inside the stack.
+
+## ADDENDUM — SCREEN VERDICT (2026-09-12): NOT ADVANCED at +$3,637, and the margin would have blocked it anyway
+
+Run at BUILD `e5e8790` (packages/ and dist/ verified unchanged since the expression check),
+engine 1.32.7, band 881000, n = 64 per leader. Three ledgers, no crash and no veto.
+
+| opponent | n | mean Δ | se | 95% CI | opponent Δ | margin Δ |
+|---|---|---|---|---|---|---|
+| public:sokolovsky-v12 | 64 | +$4,923 | 2,050 | [+$905, +$8,941] | +$5,655 | −$732 |
+| public:rayk-v11 | 64 | +$2,995 | 2,026 | [−$975, +$6,965] | +$6,635 | −$3,640 |
+| public:kaito-v4 | 64 | +$2,994 | 2,026 | [−$978, +$6,965] | +$6,489 | −$3,495 |
+| **pooled** | | **+$3,637** | **1,174** | **[+$1,336, +$5,939]** | | **−$2,622** |
+
+Criterion 1 fails by **$363**: +$3,637 against the +$4,000 bar. Criteria 2 and 3 pass (pooled
+lower bound +$1,336, worst single leader +$2,994). **STACK3 is NOT ADVANCED**, and with it the
+stacked-positives slice. No confirmation or guard ran; bands 882000 and 883000 are retired
+unused.
+
+**This is the largest effect this project has measured**, and it still misses. It is also the
+first arm whose lower bound clears $1,000, so the effect is real — it is the bar that is not
+met.
+
+**The margin would have blocked it at confirmation regardless.** The pooled margin delta is
+**−$2,622** against the registered > −$2,000 guard: the leaders' own banks rise $5.7-6.6k while
+ours rises $3.6k. That is the risk this registration named as distinctive before the run, and
+it fired.
+
+**Predictions scorecard.**
+- **Right on magnitude.** Registered +$1,000 to +$4,500 for the stack; measured +$3,637.
+- **Right that the interaction would not be free, wrong about its size.** The components sum to
+  +$4,333 and the stack reached +$3,637, so the interaction cost about **$700 (16%)** — far
+  less than the factorial precedent's near-total loss, which was the stated reason to doubt.
+  The two mechanisms are substantially independent after all.
+- **Right that confirmation was the distinctive risk.** I registered that the components'
+  margins (+$1,206 and −$2,814) would sum near −$1,600 against a −$2,000 guard; the measured
+  margin is −$2,622, the same failure in the same direction, larger than predicted.
+- **Right, in the check, to gate on nullification** — which is why the arm that ran was STACK3
+  and not STACK2.
+
+**The scoreboard after nine slices**, pooled own-bank delta against shipped on the leader panel:
+**STACK3 +$3,637**, START8_T20 +$2,282, SHEEP1 +$2,051, START10 +$1,873, H10 +$781, EH1 +$340,
+EH2 −$3,545, EH2_H10 −$3,586, COH −$5,097, COH_HALF −$5,900, COH_OPEN −$10,444. The knob surface
+tops out just under the bar, with a margin that fails the share-taking guard. What remains is a
+dispatch rewrite or a freeze, and that is an owner decision rather than another slice.
