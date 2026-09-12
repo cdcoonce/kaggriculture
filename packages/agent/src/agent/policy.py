@@ -205,6 +205,17 @@ _MAX_NE_LAND_MIN_DAY = 29
 _MIN_GOOSE_MIN_DAY = 0
 _MAX_GOOSE_MIN_DAY = 29
 
+#: strawberry_plant_cutoff_day: the same valid range of view.day again. Both
+#: ends are meaningful and must stay constructible -- 0 shuts the planting
+#: window after day 0 (the whole zone falls through to wheat from day 1 on),
+#: 29 leaves it open for every day the game has. Neither is clamped to
+#: anything narrower: a value past the point where a planting can still bank
+#: any tick at all buys tiles that yield nothing, which is a bad setting
+#: rather than an invalid day, and pricing exactly that tail is what the knob
+#: is for.
+_MIN_STRAWBERRY_PLANT_CUTOFF_DAY = 0
+_MAX_STRAWBERRY_PLANT_CUTOFF_DAY = 29
+
 #: zone_fallthrough_multiplier: how many multiples of strawberry_plant_
 #: daily_cap the fall-through in _zone_fallthrough_tiles holds back from
 #: wheat before handing the rest over (see ZONE_FALLTHROUGH_MULTIPLIER
@@ -473,6 +484,28 @@ class PolicyConfig:
     # COLLECT_FERTILIZER -- real, ongoing competition, not an empty tier.
     # __post_init__ rejects anything outside dispatch's 0-4 priority range.
     strawberry_plant_priority: int = STRAWBERRY_PLANT_PRIORITY
+    # The last day a fresh strawberry planting is issued, and the last day the
+    # seed line buys for one -- dispatch.py's _field_tasks (threaded through
+    # dispatch()), plan.py's strawberry seed line (threaded through plan_day),
+    # and _zone_fallthrough_tiles below, which reads it straight off this
+    # config. All three sites, because a knob that reached only some of them
+    # would measure a mixture rather than a window (see
+    # strawberry_plant_daily_cap's own history, recorded at plan.py's seed
+    # gate). Defaults to dispatch.STRAWBERRY_PLANT_CUTOFF_DAY (12).
+    #
+    # 12 is the last FULLY productive planting day: ticks land at planted_day
+    # + 10/12/14/16 and the last end-of-day refresh runs on day 28, so day 13
+    # still fires all four but banks the last one for $0. Days 13-19 keep
+    # yielding at a declining fraction; day 20 yields nothing.
+    #
+    # Diagnosis (n=8, seeds 858100-858107 vs public:sokolovsky-v12, 36-tile
+    # NW/NE/SW arm): SW is gated behind the animal pipeline (animals_done, and
+    # SHEEP_LAST_BUY_DAY is 11), so it is bought around day 11-12 and its zone
+    # tiles come up plantable on the last legal planting day. SW's standing
+    # strawberry reaches 3.2 tiles and holds there from day 12 to day 25; the
+    # 36-tile target peaks at 21.9 standing tiles. __post_init__ rejects
+    # anything outside 0-29, the valid range of view.day.
+    strawberry_plant_cutoff_day: int = STRAWBERRY_PLANT_CUTOFF_DAY
     # Share of the cash still uncommitted when the strawberry seed line runs
     # that the line may take (plan.STRAWBERRY_SEED_BUDGET_SHARE). Swept, not
     # assumed: 1.0 recovers the sizing that shipped before the 2026-08-19
@@ -683,6 +716,17 @@ class PolicyConfig:
             )
 
         if not (
+            _MIN_STRAWBERRY_PLANT_CUTOFF_DAY
+            <= self.strawberry_plant_cutoff_day
+            <= _MAX_STRAWBERRY_PLANT_CUTOFF_DAY
+        ):
+            raise ValueError(
+                f"strawberry_plant_cutoff_day must be within "
+                f"{_MIN_STRAWBERRY_PLANT_CUTOFF_DAY}-{_MAX_STRAWBERRY_PLANT_CUTOFF_DAY} "
+                f"(the valid range of view.day), got {self.strawberry_plant_cutoff_day!r}"
+            )
+
+        if not (
             _MIN_ZONE_FALLTHROUGH_MULTIPLIER
             <= self.zone_fallthrough_multiplier
             <= _MAX_ZONE_FALLTHROUGH_MULTIPLIER
@@ -811,7 +855,12 @@ def _zone_fallthrough_tiles(
     play.
     """
     empty_zone = _plantable_targets(view, sorted(strawberry_set))
-    if view.day > STRAWBERRY_PLANT_CUTOFF_DAY:
+    # config's cutoff, never dispatch's module constant: left on the constant
+    # this would hand wheat's seed line the whole zone while an extended
+    # strawberry window was still planting into it, and both lines would buy
+    # for the same squares -- exactly the double-count the disjointness
+    # argument above exists to prevent.
+    if view.day > config.strawberry_plant_cutoff_day:
         # Window shut: the dispatcher hands wheat the whole empty zone, and
         # plan.py's own strawberry seed line has stopped buying, so there is
         # nothing left to stay disjoint from.
@@ -991,6 +1040,7 @@ def make_policy(
             strawberry_seeds=view.seeds.get("STRAWBERRY", 0),
             empty_strawberry_tiles=_plantable_targets(view, sorted(strawberry_set)),
             strawberry_plant_daily_cap=cfg.strawberry_plant_daily_cap,
+            strawberry_plant_cutoff_day=cfg.strawberry_plant_cutoff_day,
             strawberry_seed_budget_share=cfg.strawberry_seed_budget_share,
             wheat_on_hand=_wheat_on_hand(view),
             goose_owned=goose,
@@ -1021,6 +1071,7 @@ def make_policy(
             prior_claims=unit_claims,
             strawberry_plant_daily_cap=cfg.strawberry_plant_daily_cap,
             strawberry_plant_priority=cfg.strawberry_plant_priority,
+            strawberry_plant_cutoff_day=cfg.strawberry_plant_cutoff_day,
             wheat_plant_priority=cfg.wheat_plant_priority,
             wheat_plant_hour_cutoff=cfg.wheat_plant_hour_cutoff,
             feed_batch_cap=cfg.feed_batch_cap,

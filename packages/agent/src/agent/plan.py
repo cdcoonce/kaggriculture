@@ -311,6 +311,7 @@ def plan_day(
     strawberry_seeds: int = 0,
     empty_strawberry_tiles: int = 0,
     strawberry_plant_daily_cap: int = STRAWBERRY_PLANT_DAILY_CAP,
+    strawberry_plant_cutoff_day: int = STRAWBERRY_PLANT_CUTOFF_DAY,
     strawberry_seed_budget_share: float = STRAWBERRY_SEED_BUDGET_SHARE,
     wheat_on_hand: int,
     goose_owned: bool,
@@ -420,7 +421,18 @@ def plan_day(
     # 12 still banks a full four ticks, so the seed line has a thirteen-day
     # runway funded out of ongoing revenue rather than needing the whole
     # commitment out of the opening bankroll.
-    if day <= STRAWBERRY_PLANT_CUTOFF_DAY:
+    #
+    # The gate reads the ARGUMENT, never dispatch's module constant, and must
+    # keep doing so. It defaults to STRAWBERRY_PLANT_CUTOFF_DAY, and this is
+    # the exact line where strawberry_plant_daily_cap once stopped: that knob
+    # reached PolicyConfig and this seed target while _field_tasks went on
+    # reading the module constant, so every eval arm that "swept the cap"
+    # planted at the default and only varied how much seed got bought. Split
+    # the other way round -- a window opened here but shut in the dispatcher,
+    # or opened there and shut here -- the arm would price a seed shortage
+    # instead of a longer planting window. See
+    # test_strawberry_seed_line_cutoff_day_is_tunable_not_just_the_module_constant.
+    if day <= strawberry_plant_cutoff_day:
         # Three bounds, all of which must hold: two days of the dispatcher's
         # own strawberry stagger (same reasoning as the melon and wheat seed
         # lines above), the tiles that actually exist to plant into, and a
