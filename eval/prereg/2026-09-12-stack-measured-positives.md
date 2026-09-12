@@ -164,3 +164,40 @@ M3b (our best live bot), and that remains an owner decision.
   before the expression check runs. Criterion 1's threshold is anchored on START8_T20's
   measured fill (15.5 tiles) from its own slice-1 recon, not on any measurement of these
   stacked arms, which have never been run.
+
+## ADDENDUM — EXPRESSION CHECK (2026-09-12): STACK2 fails, STACK3 passes
+
+Run on `e5e8790`, engine 1.32.7, seeds 857000-857007 against `public:sokolovsky-v12`.
+Records: `eval/recon/2026-09-12-stack-expression-{ledger,flows,check}-857000.json`.
+
+| arm | strawberry@d12 | WHEAT | STRAWBERRY | WOOL | W+S+W | recon bank |
+|---|---|---|---|---|---|---|
+| shipped | 0.0 | 19,681 | 0 | 14,584 | 34,265 | 65,425 |
+| STACK2 | 15.9 | 12,550 | 15,533 | **13,498 (−7.4%)** | 41,581 (+21.4%) | 65,318 |
+| STACK3 | 16.1 | 12,622 | 10,244 | **16,436 (+12.7%)** | 39,302 (+14.7%) | 64,441 |
+
+**STACK2 fails C2, and it fails it in the exact way this check was written to catch.** Wool
+settled revenue **falls 7.4%** where SHEEP1 alone measured **+81.3%**: inside the stack the
+herd component is not merely diminished, it is **nullified and reversed**. That is the
+early-cash channel slice 0 measured — strawberry seed spending displacing the herd the
+shipped agent would otherwise buy — arriving exactly as the registration predicted it might.
+STACK2 is dropped before any run.
+
+**STACK3 passes all four.** Adding the raised hire cap restores the herd component (wool
++12.7%), so the third knob is what makes this stack coherent rather than a spare part. Its
+strawberry component fires at 16.1 tiles, the combined flow is +14.7%, and nothing stops
+selling. **STACK3 goes to the screen alone**, at band 881000.
+
+**What the recon says.** The recon bank — one leader, one shared baseline, n=8, not gating —
+is flat to slightly negative: 65,318 (STACK2) and 64,441 (STACK3) against shipped's 65,425.
+The components summed to +$4,333 on the panel at n=64, so if this recon points the right way,
+the interaction has eaten the gain, which is what the factorial precedent
+(`eval/prereg/2026-09-07-elo-aligned-factorial.md`) said to expect from a stack. The screen
+at n=64 across three leaders is the instrument; one 8-seed draw against one opponent is not.
+
+**Predictions scorecard (the check).**
+- **Right that the nullification risk was the one to watch**, and right to name it in advance:
+  criterion 2 exists because of slice 0's measurement, and it fired.
+- **Wrong that both arms would pass.** I registered that prediction explicitly; STACK2 failed.
+- **Wrong about STACK3's role.** I registered that the hire cap "adds little and may add
+  nothing"; it is in fact what keeps the herd component alive inside the stack.

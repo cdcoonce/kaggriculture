@@ -1,0 +1,135 @@
+{
+ "identity": {
+  "script": "tools/recon-scripts/early_cash_ledger.py",
+  "git_sha": "e5e8790798fd6e10c4b886e811abf02c6ec87fff",
+  "packages_dirty": false,
+  "agent_imported_from": "/Users/cdcoonce/Developer/GitHub/kaggriculture/.claude/worktrees/stack-check/packages/agent/src/agent/__init__.py",
+  "engine": "1.32.7",
+  "opponent": "public:sokolovsky-v12",
+  "seeds": [
+   857000,
+   857001,
+   857002,
+   857003,
+   857004,
+   857005,
+   857006,
+   857007
+  ],
+  "arms": {
+   "A_shipped": {},
+   "STACK2": {
+    "strawberry_tile_target": 20,
+    "strawberry_plant_daily_cap": 10,
+    "strawberry_start_day": 8,
+    "animal_buy_order": [
+     "SHEEP",
+     "COW"
+    ]
+   },
+   "STACK3": {
+    "strawberry_tile_target": 20,
+    "strawberry_plant_daily_cap": 10,
+    "strawberry_start_day": 8,
+    "animal_buy_order": [
+     "SHEEP",
+     "COW"
+    ],
+    "max_hires_per_turn": 10
+   }
+  },
+  "checker": "tools/recon-scripts/stack_check.py",
+  "ledger": "/private/tmp/claude-501/-Users-cdcoonce-Developer-GitHub-the-vault/44ca31c2-6966-4b54-bb4a-b28adf7fe08c/scratchpad/stack_ledger.json",
+  "settled_flows": "/private/tmp/claude-501/-Users-cdcoonce-Developer-GitHub-the-vault/44ca31c2-6966-4b54-bb4a-b28adf7fe08c/scratchpad/stack_flows.json"
+ },
+ "criteria": {
+  "C1_fill_min": 10.0,
+  "C2_wool_min_rise": 0.1,
+  "C3_combined_min_rise": 0.1,
+  "C3_items": [
+   "WHEAT",
+   "STRAWBERRY",
+   "WOOL"
+  ],
+  "C4_units_floor": 10
+ },
+ "fills": {
+  "A_shipped": {
+   "857000": 0,
+   "857001": 0,
+   "857002": 0,
+   "857003": 0,
+   "857004": 0,
+   "857005": 0,
+   "857006": 0,
+   "857007": 0
+  },
+  "STACK2": {
+   "857000": 16,
+   "857001": 16,
+   "857002": 16,
+   "857003": 16,
+   "857004": 16,
+   "857005": 16,
+   "857006": 16,
+   "857007": 15
+  },
+  "STACK3": {
+   "857000": 16,
+   "857001": 16,
+   "857002": 16,
+   "857003": 16,
+   "857004": 16,
+   "857005": 15,
+   "857006": 16,
+   "857007": 18
+  }
+ },
+ "verdicts": {
+  "STACK2": {
+   "pass": false,
+   "criteria": {
+    "C1_strawberry_fires": {
+     "pass": true,
+     "detail": "standing strawberry end of day 12 15.9 (needs >= 10)"
+    },
+    "C2_herd_fires": {
+     "pass": false,
+     "detail": "WOOL settled revenue $13,498 vs shipped $14,584 = -7.4% (needs >= +10%)"
+    },
+    "C3_combined_flow": {
+     "pass": true,
+     "detail": "WHEAT+STRAWBERRY+WOOL $41,581 vs shipped $34,265 = +21.4% (needs >= +10%)"
+    },
+    "C4_degenerate": {
+     "pass": true,
+     "detail": "no item's sales stopped"
+    }
+   }
+  },
+  "STACK3": {
+   "pass": true,
+   "criteria": {
+    "C1_strawberry_fires": {
+     "pass": true,
+     "detail": "standing strawberry end of day 12 16.1 (needs >= 10)"
+    },
+    "C2_herd_fires": {
+     "pass": true,
+     "detail": "WOOL settled revenue $16,436 vs shipped $14,584 = +12.7% (needs >= +10%)"
+    },
+    "C3_combined_flow": {
+     "pass": true,
+     "detail": "WHEAT+STRAWBERRY+WOOL $39,302 vs shipped $34,265 = +14.7% (needs >= +10%)"
+    },
+    "C4_degenerate": {
+     "pass": true,
+     "detail": "no item's sales stopped"
+    }
+   }
+  }
+ },
+ "arms_cleared": [
+  "STACK3"
+ ]
+}
