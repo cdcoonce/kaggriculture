@@ -9,8 +9,11 @@ from agent.dispatch import (
     RESCUE_WATER,
     STRAWBERRY_PLANT_DAILY_CAP,
     STRAWBERRY_PLANT_PRIORITY,
+    STRAWBERRY_ZONE_CREW,
     WHEAT_PLANT_HOUR_CUTOFF,
     WHEAT_PLANT_PRIORITY,
+    Actions,
+    _field_tasks,
     dispatch,
 )
 from viewfactory import built_pasture, make_view, pasture, plant, strawberry
@@ -1336,3 +1339,375 @@ def test_a_claim_never_takes_a_tile_another_unit_already_holds() -> None:
     assert sticky.claims[1] == (0, 0), "the unit standing on the work lost it"
     assert sticky.claims[2] == (4, 0), "a claim double-booked an occupied tile"
     assert len(set(sticky.claims.values())) == len(sticky.claims), "two units share a tile"
+
+
+# --- strawberry_zone_crew: reserve k units for the strawberry zone --------
+#
+# dispatch() works tasks in five strict priority classes, and inside a class
+# Pass 2 hands each free unit the NEAREST unclaimed task. The distance is
+# exact Manhattan: _step_toward is pure axis-stepping, there is no
+# pathfinding to bend it, so a far zone has nothing but distance to argue
+# with and simply loses. Turn-by-turn trace, 2026-09-11, SW-framed zone:
+# 606 PLANT STRAWBERRY tasks generated, 61 claimed, 3 EXECUTED -- "from
+# hour 2 to 15 there are always 17-27 nearer NW/NE tasks, so SW plantings
+# get zero claims until evening", and the hour-20 cutoff then deletes them.
+#
+# strawberry_plant_priority cannot fix that. It moves which CLASS the task
+# sits in; distance still decides inside the class. Re-measured at n=8
+# (seeds 858100-858107 vs public:sokolovsky-v12) the cohort arm -- which
+# already runs strawberry_plant_priority 2 -- holds NW 9.2 / NE 9.4 / SW 3.2
+# standing tiles on day 12, and SW never moves off 3.2 again for the
+# remaining thirteen days, against a 36-tile target.
+#
+# strawberry_zone_crew reserves k units to tiles inside the zone, in every
+# priority class. 0 is DEFAULT-NEUTRAL: nothing is ever reserved and
+# dispatch() is bit-identical to what it was before the knob existed.
+
+CREW_ZONE = frozenset({(0, 0), (0, 1), (1, 0), (1, 1)})
+CREW_PASTURE = frozenset({(0, 4), (1, 4)})
+#: A two-tile target universe -- one zone tile, one outside it -- so a class
+#: fixture below is the ONLY work on the board and nothing else can be
+#: nearer. (0, 0) is the zone tile; (3, 0) is where the hand stands.
+CREW_PAIR = [(0, 0), (3, 0)]
+
+
+def _crew_board() -> list[list[object]]:
+    """A board with work in all five priority classes, inside the zone and
+    out: zone P1 harvest, zone P2 water and two plantable zone tiles; and
+    outside it a P0 water, a P1 harvest, a P2 water, a P4 weed, an unfed
+    animal (P0 FEED) and a built-but-empty pasture."""
+    tiles = make_view().tiles
+    tiles[1][0] = strawberry(planted_day=0, yield_units=4, watered_today=True)  # (0, 1)
+    tiles[0][0] = strawberry(planted_day=0, watered_today=False)  # (0, 0)
+    tiles[1][3] = plant(planted_day=3, watered_today=False)  # (3, 1)
+    tiles[2][3] = plant(planted_day=0, yield_units=3, watered_today=True)  # (3, 2)
+    tiles[3][2] = plant(planted_day=0, watered_today=False, yield_units=0)  # (2, 3)
+    tiles[0][4] = {"kind": "WEED"}  # (4, 0)
+    tiles[4][0] = pasture(fed_today=False)  # (0, 4)
+    tiles[4][1] = built_pasture()  # (1, 4)
+    return tiles
+
+
+def _crew_matrix() -> list[tuple[str, object, frozenset[tuple[int, int]], object]]:
+    """The default-neutrality matrix: zone and no zone, one unit and seven,
+    units standing inside the zone and far outside it, with and without last
+    turn's claims -- every axis the reservation could possibly read."""
+    tiles = _crew_board()
+    common: dict[str, object] = {
+        "step": 3 * 24 + 5,
+        "tiles": tiles,
+        "seeds": 4,
+        "strawberry_seeds": 4,
+        "shed": {"WHEAT": 6, "FERTILIZER": 2},
+    }
+    spread = [(0, 0), (4, 0), (2, 2), (0, 4), (4, 4), (2, 0)]
+    return [
+        ("zone; six hands in and out", make_view(hands=spread, **common), CREW_ZONE, None),
+        ("no zone at all", make_view(hands=spread, **common), frozenset(), None),
+        ("one hand, far from the zone", make_view(hands=[(4, 3)], **common), CREW_ZONE, None),
+        ("farmer alone", make_view(**common), CREW_ZONE, None),
+        ("held claims", make_view(hands=spread, **common), CREW_ZONE, {1: (3, 2), 2: (0, 1)}),
+    ]
+
+
+#: Captured from dispatch() BEFORE strawberry_zone_crew existed, so this is
+#: literally the shipped behavior and not a re-derivation of it. Every one of
+#: the five classes fires in every row (checked alongside the assertions
+#: below), and the zone / no-zone rows genuinely differ -- the last hand
+#: claims the zone's (1, 0) with a zone and the weed at (3, 3) without -- so
+#: a reservation leaking in at the default cannot hide inside a row that was
+#: identical anyway.
+CREW_SHIPPED = {
+    "zone; six hands in and out": (
+        ["WEST"],
+        [["SOUTH"], ["WEST"], ["EAST"], ["EAST"], ["PLANT", "WHEAT"], ["WEST"]],
+        {0: (3, 1), 1: (0, 1), 2: (2, 3), 3: (4, 2), 4: (0, 4), 5: (4, 4), 6: (1, 0)},
+    ),
+    "no zone at all": (
+        ["WEST"],
+        [["SOUTH"], ["WEST"], ["EAST"], ["EAST"], ["PLANT", "WHEAT"], ["EAST"]],
+        {0: (3, 1), 1: (0, 1), 2: (2, 3), 3: (4, 2), 4: (0, 4), 5: (4, 4), 6: (3, 3)},
+    ),
+    "one hand, far from the zone": (["WEST"], [["SOUTH"]], {0: (3, 1), 1: (0, 4)}),
+    "farmer alone": (["WEST"], [], {0: (3, 1)}),
+    "held claims": (
+        ["WEST"],
+        [["EAST"], ["WEST"], ["EAST"], ["EAST"], ["PLANT", "WHEAT"], ["WEST"]],
+        {0: (3, 1), 1: (2, 3), 2: (0, 1), 3: (4, 2), 4: (0, 4), 5: (4, 4), 6: (1, 0)},
+    ),
+}
+
+
+def test_strawberry_zone_crew_default_is_zero_so_shipped_behavior_is_unchanged() -> None:
+    # Pinned against the module constant, the same pattern
+    # test_rescue_water_default_is_off_so_shipped_behavior_is_unchanged uses
+    # above, so an edit can never drift silently out of sync with dispatch()'s
+    # own default.
+    assert STRAWBERRY_ZONE_CREW == 0
+
+
+def test_strawberry_zone_crew_default_leaves_every_unit_unreserved() -> None:
+    # The shipped agent must be bit-identical until a gate says otherwise, so
+    # this asserts the WHOLE Actions result -- farmer, every hand, and the
+    # full claims map -- against output captured before the knob existed, on
+    # a board carrying all five priority classes at once.
+    for label, view, zone, held in _crew_matrix():
+        tasks = _field_tasks(view, NW_TILES, frozenset(), CREW_PASTURE, zone)  # type: ignore[arg-type]
+        assert sorted({t.priority for t in tasks}) == [0, 1, 2, 3, 4], (
+            f"{label}: the matrix stopped covering all five classes"
+        )
+        farmer, hands, claims = CREW_SHIPPED[label]
+        actions = dispatch(
+            view,  # type: ignore[arg-type]
+            NW_TILES,
+            frozenset(),
+            CREW_PASTURE,
+            zone,
+            prior_claims=held,  # type: ignore[arg-type]
+        )
+        assert actions == Actions(farmer=farmer, hands=hands, claims=claims), label
+
+
+def test_strawberry_zone_crew_of_zero_matches_the_implicit_default() -> None:
+    # The sibling of the pin above: passing the knob EXPLICITLY at its off
+    # value must land on the identical Actions, so "0 is neutral" is a
+    # property of the value and not just of leaving the argument out.
+    for label, view, zone, held in _crew_matrix():
+        farmer, hands, claims = CREW_SHIPPED[label]
+        actions = dispatch(
+            view,  # type: ignore[arg-type]
+            NW_TILES,
+            frozenset(),
+            CREW_PASTURE,
+            zone,
+            prior_claims=held,  # type: ignore[arg-type]
+            strawberry_zone_crew=0,
+        )
+        assert actions == Actions(farmer=farmer, hands=hands, claims=claims), label
+
+
+#: One zone tile at the far NW corner, mirroring the SW-starvation geometry
+#: on a board small enough to reason about: the zone tile at (0, 0), the
+#: competing non-zone tile at (3, 0) where the hand already stands.
+CREW_ZONE_ONE = frozenset({(0, 0)})
+
+
+def _crew_class_view(
+    zone_tile: object,
+    outside_tile: object,
+    *,
+    day: int = 5,
+    hands: list[tuple[int, int]] | None = None,
+    inventories: list[dict[str, int]] | None = None,
+    seeds: int = 0,
+) -> object:
+    """A hand standing on non-zone work at (3, 0), with the zone's own task
+    of the SAME priority class three steps west at (0, 0).
+
+    The farmer is left fielded at (4, 4) deliberately. The crew is drawn from
+    HANDS (slot 0 is exempt), and the clamp needs a second fielded unit to
+    hold back as the general one -- park the farmer as a mule here and the
+    clamp correctly reserves nobody, which would make every assertion below
+    pass for the wrong reason.
+    """
+    tiles = make_view().tiles
+    tiles[0][0] = zone_tile
+    tiles[0][3] = outside_tile
+    return make_view(
+        step=day * 24 + 5,
+        hands=hands if hands is not None else [(3, 0)],
+        tiles=tiles,
+        inventories=inventories,
+        seeds=seeds,
+        strawberry_seeds=seeds,
+    )
+
+
+def _crew_claims(
+    view: object,
+    *,
+    crew: int,
+    zone: frozenset[tuple[int, int]] = CREW_ZONE_ONE,
+    tiles: list[tuple[int, int]] | None = None,
+) -> dict[int, tuple[int, int]]:
+    return dispatch(
+        view,  # type: ignore[arg-type]
+        CREW_PAIR if tiles is None else tiles,
+        frozenset(),
+        frozenset(),
+        zone,
+        strawberry_zone_crew=crew,
+    ).claims
+
+
+def test_a_reserved_unit_walks_past_nearer_non_zone_work_to_the_zone() -> None:
+    # The whole mechanism on one board. Both tasks are priority 0, so the
+    # ONLY thing separating them is distance -- exactly the tie the zone has
+    # been losing -- and the hand is STANDING on the non-zone one, which is
+    # the strongest form of "nearer" the dispatcher has.
+    view = _crew_class_view(
+        strawberry(planted_day=5, watered_today=False),
+        plant(planted_day=5, watered_today=False),
+    )
+    assert _crew_claims(view, crew=0)[1] == (3, 0), "the default stopped taking the near tile"
+    assert _crew_claims(view, crew=1)[1] == (0, 0), "a reserved hand kept non-zone work"
+
+
+def test_the_zone_crew_takes_zone_work_in_every_priority_class() -> None:
+    # A reservation that only bit on PLANT would fill the zone and then let
+    # it die untended: strawberry's entire yield sits behind WATER on the
+    # tick ages and HARVEST on the cap, and a weeded tile is only cleared by
+    # DIG. Each case pairs a zone task with a non-zone task in the SAME
+    # class -- asserted, not assumed, so a fixture cannot silently drift into
+    # a different class and leave this testing nothing.
+    cases: list[tuple[int, object, object, int]] = [
+        (0, strawberry(planted_day=5, watered_today=False), plant(planted_day=5), 0),
+        (
+            1,
+            strawberry(planted_day=0, yield_units=4, watered_today=True),
+            plant(planted_day=0, yield_units=3, watered_today=True),
+            0,
+        ),
+        (2, strawberry(planted_day=3), plant(planted_day=3), 0),
+        (3, None, None, 4),  # both tiles empty: PLANT STRAWBERRY vs PLANT WHEAT
+        (4, {"kind": "WEED"}, {"kind": "WEED"}, 0),
+    ]
+    for priority, zone_tile, outside_tile, seeds in cases:
+        view = _crew_class_view(zone_tile, outside_tile, seeds=seeds)
+        tasks = _field_tasks(view, CREW_PAIR, frozenset(), frozenset(), CREW_ZONE_ONE)  # type: ignore[arg-type]
+        assert {t.tile: t.priority for t in tasks} == {(0, 0): priority, (3, 0): priority}, (
+            f"P{priority} fixture no longer pairs two tasks of that one class"
+        )
+        assert _crew_claims(view, crew=0)[1] == (3, 0), f"P{priority}: default took the zone"
+        assert _crew_claims(view, crew=1)[1] == (0, 0), f"P{priority}: reservation did not bite"
+
+
+def test_the_zone_crew_is_clamped_to_leave_a_general_unit() -> None:
+    # k must never swallow the whole crew -- the wheat/melon core still has
+    # to be worked. The farmer mules here, so exactly TWO units are fielded
+    # and the clamp (fielded - 1) allows exactly ONE reservation however
+    # large k is. Without the clamp both hands go to the zone and the
+    # non-zone tile is worked by nobody at all.
+    tiles = make_view().tiles
+    tiles[0][0] = strawberry(planted_day=5, watered_today=False)  # zone task
+    tiles[1][0] = strawberry(planted_day=5, watered_today=False)  # second zone task
+    tiles[0][3] = plant(planted_day=5, watered_today=False)  # the only non-zone task
+    view = make_view(
+        step=5 * 24 + 5,
+        hands=[(1, 0), (3, 0)],
+        tiles=tiles,
+        inventories=[{"WHEAT": 1}, {}, {}],  # farmer carries cargo -> mules, not fielded
+    )
+    zone = frozenset({(0, 0), (0, 1)})
+    claims = _crew_claims(view, crew=6, zone=zone, tiles=[(0, 0), (0, 1), (3, 0)])
+    assert sum(1 for tile in claims.values() if tile in zone) == 1, (
+        "the clamp let k reserve every fielded unit"
+    )
+    assert (3, 0) in claims.values(), "non-zone work was starved of its general unit"
+
+
+def test_the_zone_crew_is_inert_when_the_zone_offers_no_task_at_all() -> None:
+    # Fallback, case one: the zone is real but has nothing to do (a mid-cycle
+    # strawberry on one of its own deliberate gap days). A reserved unit must
+    # rejoin ordinary dispatch rather than stand in an empty zone all turn.
+    view = _crew_class_view(
+        strawberry(planted_day=4, watered_today=True),  # age 1: no branch matches
+        plant(planted_day=5, watered_today=False),
+    )
+    tasks = _field_tasks(view, CREW_PAIR, frozenset(), frozenset(), CREW_ZONE_ONE)  # type: ignore[arg-type]
+    assert [t.tile for t in tasks] == [(3, 0)], "the zone fixture stopped being taskless"
+    assert _crew_claims(view, crew=1)[1] == (3, 0), "a reserved hand idled on an empty zone"
+
+
+def test_a_reserved_unit_the_zone_ran_out_for_rejoins_general_dispatch() -> None:
+    # Fallback, case two: the zone HAS work, just not enough of it. Two hands
+    # are reserved and the zone holds one task, so the second reserved hand
+    # must fall through to ordinary dispatch at the tail rather than idle.
+    # Asserted positionally-blind (every fielded unit claims something,
+    # exactly one claim lands in the zone) so it holds whichever two hands
+    # the nearest-to-zone rule happens to pick.
+    tiles = make_view().tiles
+    tiles[0][0] = strawberry(planted_day=5, watered_today=False)  # the single zone task
+    tiles[0][3] = plant(planted_day=5, watered_today=False)
+    tiles[1][3] = plant(planted_day=5, watered_today=False)
+    tiles[2][3] = plant(planted_day=5, watered_today=False)
+    view = make_view(step=5 * 24 + 5, hands=[(1, 0), (3, 0), (3, 1)], tiles=tiles)
+    claims = _crew_claims(view, crew=2, tiles=[(0, 0), (3, 0), (3, 1), (3, 2)])
+    assert set(claims) == {0, 1, 2, 3}, f"a reserved unit was left with nothing: {claims}"
+    assert sum(1 for tile in claims.values() if tile in CREW_ZONE_ONE) == 1, claims
+
+
+def test_the_zone_crew_reserves_the_units_nearest_the_zone() -> None:
+    # Deterministic selection, and the rule that minimises the walk each
+    # reserved unit makes once. Both hands stand on their own non-zone work,
+    # so neither would touch the zone unreserved; with one reservation it has
+    # to be hand 2, four steps from the zone, not hand 1 at eight.
+    tiles = make_view().tiles
+    tiles[0][0] = strawberry(planted_day=5, watered_today=False)
+    tiles[0][4] = plant(planted_day=5, watered_today=False)
+    tiles[0][1] = plant(planted_day=5, watered_today=False)
+    view = make_view(step=5 * 24 + 5, hands=[(4, 0), (1, 0)], tiles=tiles)
+    board = [(0, 0), (4, 0), (1, 0)]
+    assert _crew_claims(view, crew=0, tiles=board)[2] == (1, 0), "the default moved a hand"
+    claims = _crew_claims(view, crew=1, tiles=board)
+    assert claims[2] == (0, 0), "the reservation picked a unit that was not the nearest"
+    assert claims[1] == (4, 0), "the far hand was reserved instead of left general"
+
+
+def test_the_zone_crew_breaks_a_distance_tie_by_slot_index() -> None:
+    # Two hands exactly two steps from the zone. These games are replayed, so
+    # the tie has to resolve the same way every time: lowest slot index wins,
+    # the same order every other unit loop in this module walks.
+    tiles = make_view().tiles
+    tiles[0][0] = strawberry(planted_day=5, watered_today=False)
+    tiles[0][2] = plant(planted_day=5, watered_today=False)
+    tiles[2][0] = plant(planted_day=5, watered_today=False)
+    view = make_view(step=5 * 24 + 5, hands=[(2, 0), (0, 2)], tiles=tiles)
+    claims = _crew_claims(view, crew=1, tiles=[(0, 0), (2, 0), (0, 2)])
+    assert claims[1] == (0, 0), f"the tie did not go to the lower slot index: {claims}"
+
+
+def test_the_zone_crew_assignment_is_repeatable() -> None:
+    # Replay safety: the same view must produce the same Actions on every
+    # call, and a zone frozenset built in a different insertion order is the
+    # same zone -- set iteration order must not reach the assignment.
+    tiles = make_view().tiles
+    tiles[0][0] = strawberry(planted_day=5, watered_today=False)
+    tiles[1][0] = strawberry(planted_day=5, watered_today=False)
+    tiles[0][3] = plant(planted_day=5, watered_today=False)
+    tiles[1][3] = plant(planted_day=5, watered_today=False)
+    view = make_view(step=5 * 24 + 5, hands=[(3, 0), (3, 1), (2, 2)], tiles=tiles)
+    board = [(0, 0), (0, 1), (3, 0), (3, 1)]
+    forward = frozenset([(0, 0), (0, 1)])
+    backward = frozenset([(0, 1), (0, 0)])
+
+    def run(zone: frozenset[tuple[int, int]]) -> object:
+        return dispatch(
+            view,  # type: ignore[arg-type]
+            board,
+            frozenset(),
+            frozenset(),
+            zone,
+            strawberry_zone_crew=2,
+        )
+
+    first = run(forward)
+    assert run(forward) == first, "a repeated call changed its mind"
+    assert run(backward) == first, "the zone's iteration order reached the assignment"
+
+
+def test_the_farmer_is_never_drafted_into_the_zone_crew() -> None:
+    # Slot 0 is exempt, the same way the mule loop skips it (range(1, ...)):
+    # the farmer is fielded only on turns when the goose needs nothing and it
+    # carries nothing, so reserving it would resize the crew turn to turn.
+    # At k=6 with two hands, both hands go to the zone and the farmer must
+    # still take the non-zone tile nearest it.
+    tiles = make_view().tiles
+    tiles[0][0] = strawberry(planted_day=5, watered_today=False)
+    tiles[1][0] = strawberry(planted_day=5, watered_today=False)
+    tiles[4][3] = plant(planted_day=5, watered_today=False)  # (3, 4), one step from (4, 4)
+    view = make_view(step=5 * 24 + 5, hands=[(1, 0), (0, 1)], tiles=tiles)
+    zone = frozenset({(0, 0), (0, 1)})
+    claims = _crew_claims(view, crew=6, zone=zone, tiles=[(0, 0), (0, 1), (3, 4)])
+    assert claims[0] == (3, 4), f"the farmer was drafted into the zone crew: {claims}"
+    assert sorted(claims[i] for i in (1, 2)) == [(0, 0), (0, 1)], claims

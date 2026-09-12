@@ -1751,6 +1751,84 @@ def test_rescue_water_threads_from_policy_config_to_the_hands_action() -> None:
     assert overridden_action["hands"][0] == ["WATER"]
 
 
+# --- strawberry_zone_crew: reserve k units for the strawberry zone --------
+#
+# dispatch.py's own strawberry_zone_crew tests (test_dispatch.py) cover the
+# mechanism and carry the default-neutrality proof; these three prove the
+# knob threads PolicyConfig -> decide() -> dispatch(), the same "defaults pin
+# the module constant" / "out-of-range rejected" / "threading reaches the
+# real action" trio every other knob above gets.
+
+
+def test_strawberry_zone_crew_default_pins_todays_behavior() -> None:
+    # Compared against the module's OWN constant, the same pattern
+    # test_rescue_water_default_pins_todays_behavior above uses, so an edit
+    # to dispatch.STRAWBERRY_ZONE_CREW can never drift silently out of sync
+    # with this default.
+    config = PolicyConfig()
+    assert config.strawberry_zone_crew == 0
+    assert config.strawberry_zone_crew == dispatch.STRAWBERRY_ZONE_CREW
+
+
+def test_strawberry_zone_crew_rejects_out_of_range_values() -> None:
+    # 0-6: the engine caps nothing, so like extra_hands' own 0-5 this is a
+    # deliberately conservative guard against a runaway CLI override rather
+    # than a modeled limit. 0 is the floor rather than 1 because 0 is this
+    # knob's DEFAULT-NEUTRAL off value and must stay constructible, and
+    # negative has no meaning against a unit count. Both ends are accepted.
+    with pytest.raises(ValueError, match="strawberry_zone_crew"):
+        PolicyConfig(strawberry_zone_crew=-1)
+    with pytest.raises(ValueError, match="strawberry_zone_crew"):
+        PolicyConfig(strawberry_zone_crew=7)
+
+    assert PolicyConfig(strawberry_zone_crew=0).strawberry_zone_crew == 0
+    assert PolicyConfig(strawberry_zone_crew=6).strawberry_zone_crew == 6
+
+
+def test_strawberry_zone_crew_threads_from_policy_config_to_the_hands_action() -> None:
+    """The knob has to reach the emitted hand actions through decide()'s
+    dispatch() call, not just dispatch() in isolation (test_dispatch.py's
+    strawberry_zone_crew tests cover the mechanism itself) -- mirrors
+    test_rescue_water_threads_from_policy_config_to_the_hands_action above.
+
+    strawberry_tile_target=1 makes the zone exactly {(2, 0)}, and the hand
+    stands on its own priority-0 water at (4, 0) -- the same row, two steps
+    east -- so the zone task is the STRICTLY farther of two tasks in the
+    same class and the hand only reaches it by being reserved. The expected
+    step is WEST either way it is derived: _step_toward closes the x axis
+    first, and the two tiles share a row.
+
+    cow/sheep/melon targets zeroed for the same reason
+    test_rescue_water_threads_from_policy_config_to_the_hands_action zeroes
+    them -- an empty pasture tile emits an unconditional BUILD_PASTURE task
+    that would put a third task on the board. Wheat's and strawberry's own
+    PLANT tasks need no zeroing: raw_obs carries no seeds of either.
+
+    The farmer is left fielded at (4, 4) deliberately. Slot 0 is exempt from
+    the crew, and the clamp needs it as the general unit -- with only one
+    fielded unit on the board the clamp would correctly reserve nobody.
+    """
+    obs = raw_obs(step=5 * 24, money=3000.0)
+    obs["farms"][0]["tiles"][0][2] = plant(crop="STRAWBERRY", planted_day=5, watered_today=False)
+    obs["farms"][0]["tiles"][0][4] = plant(planted_day=5, watered_today=False)
+    obs["farms"][0]["hands"] = [[4, 0]]
+    obs["private"]["inventories"] = [{}, {}]
+    isolated: dict[str, Any] = {
+        "cow_target": 0,
+        "sheep_target": 0,
+        "melon_tile_target": 0,
+        "strawberry_tile_target": 1,
+    }
+
+    default_action = make_policy(policy_config=PolicyConfig(**isolated))(obs, None)
+    assert default_action["hands"][0] == ["WATER"]  # stays on the nearer non-zone tile
+
+    reserved_action = make_policy(
+        policy_config=PolicyConfig(**isolated, strawberry_zone_crew=1)
+    )(obs, None)
+    assert reserved_action["hands"][0] == ["WEST"]  # walks to the zone tile at (2, 0)
+
+
 # --- hire_slot_floor: keep the first k HIRE orders out of the truncation ---
 #
 # market.py's own hire_slot_floor tests (test_market.py) cover the mechanism
