@@ -371,6 +371,36 @@ class TestResolveAgent:
         with pytest.raises(ValueError, match="goose_min_day"):
             resolve_agent("champion", {"goose_min_day": 30})
 
+    def test_agent_config_flows_land_unlock_hand_burst_to_policy_config(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # The JSON-shaped-config wiring proof for land_unlock_hand_burst
+        # (kaggriculture, 2026-09-12): a CLI --agent-config
+        # '{"land_unlock_hand_burst": 4}' must reach make_policy as an actual
+        # PolicyConfig with the field set, not get silently dropped --
+        # mirrors test_agent_config_flows_goose_min_day_to_policy_config
+        # above.
+        import agent.policy as policy_module
+
+        captured: dict[str, object] = {}
+
+        def fake_make_policy(clock: object = None, policy_config: object = None) -> object:
+            captured["policy_config"] = policy_config
+            return lambda obs, config=None: {"farmer": ["PASS"], "hands": [], "market": []}
+
+        monkeypatch.setattr(policy_module, "make_policy", fake_make_policy)
+        resolve_agent("champion", {"land_unlock_hand_burst": 4})
+
+        config = captured["policy_config"]
+        assert isinstance(config, policy_module.PolicyConfig)
+        assert config.land_unlock_hand_burst == 4
+
+    def test_agent_config_rejects_an_out_of_range_land_unlock_hand_burst(self) -> None:
+        with pytest.raises(ValueError, match="land_unlock_hand_burst"):
+            resolve_agent("champion", {"land_unlock_hand_burst": -1})
+        with pytest.raises(ValueError, match="land_unlock_hand_burst"):
+            resolve_agent("champion", {"land_unlock_hand_burst": 9})
+
     def test_agent_config_flows_rescue_water_to_policy_config(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:

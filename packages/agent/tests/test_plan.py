@@ -11,11 +11,13 @@ from __future__ import annotations
 from agent.plan import (
     ANIMAL_BUY_ORDER,
     GOOSE_MIN_DAY,
+    LAND_UNLOCK_HAND_BURST,
     MAX_HIRES_PER_TURN,
     MELON_SEED_PRICE,
     NE_LAND_MIN_DAY,
     SEED_PRICE,
     STRAWBERRY_SEED_PRICE,
+    DayPlan,
     plan_day,
 )
 
@@ -882,6 +884,408 @@ def test_extra_hands_raises_the_hands_target_by_exactly_two() -> None:
     with_extra_hands = plan_day(**kwargs, extra_hands=2)
     assert with_extra_hands.hire_count == default_plan.hire_count + 2
     assert with_extra_hands.hire_count == 3  # hands_target 3+2=5, hires_today 2
+
+
+# --- land_unlock_hand_burst: a ONE-TURN crew burst on the turn that buys new
+# land (kaggriculture, 2026-09-12) --------------------------------------------
+
+
+def test_land_unlock_hand_burst_raises_the_hands_target_on_the_sw_purchase_turn() -> None:
+    # The turn under test submits the SW ["BUY_LAND"] (NW+NE owned, both
+    # animal windows closed at day 12, ample cash), so the burst fires. Same
+    # isolation technique as test_extra_hands_raises_the_hands_target_by_
+    # exactly_two above: hires_today is pinned one below the base target so
+    # the uncapped hire_count reveals the target exactly, and the same kwargs
+    # feed both calls so any change is attributable to the knob alone.
+    #
+    # active_tiles=48 (NW+NE) -> base target 6 (round(48/8); no husbandry
+    # bonus at animals_placed=0), hires_today=5 -> base hire_count 1. A burst
+    # of 2 lifts the target to 8, so 3 hires -- still under
+    # MAX_HIRES_PER_TURN's 4, which the clamp test below covers separately.
+    kwargs = dict(
+        day=12,
+        money=20000.0,
+        wheat_seeds=0,
+        plantable_target_tiles=0,
+        wheat_on_hand=50,
+        goose_owned=True,
+        hires_today=5,
+        unlocked_quadrants=("NW", "NE"),
+        active_tiles=48,
+    )
+    default_plan = plan_day(**kwargs)
+    assert ["BUY_LAND"] in default_plan.buys  # the trigger turn is real
+    assert default_plan.hire_count == 1  # hands_target 6, hires_today 5
+
+    burst_plan = plan_day(**kwargs, land_unlock_hand_burst=2)
+    assert burst_plan.hire_count == default_plan.hire_count + 2
+    assert burst_plan.hire_count == 3  # hands_target 6+2=8, hires_today 5
+
+
+def test_land_unlock_hand_burst_default_is_zero_so_shipped_behavior_is_unchanged() -> None:
+    # DEFAULT-NEUTRAL by construction: there was never an implicit "burst"
+    # term before this knob existed, so 0 adds exactly nothing to
+    # hands_target on every turn, land-buying or not. Pinned against the
+    # module constant so an edit can never drift silently out of sync with
+    # plan_day's own default -- the same pin
+    # test_ne_land_min_day_default_is_zero_so_shipped_behavior_is_unchanged
+    # and test_goose_min_day_default_is_zero_so_shipped_behavior_is_unchanged
+    # put on their constants.
+    assert LAND_UNLOCK_HAND_BURST == 0
+
+
+# Every row is a (label, kwargs, hire_count, buys) tuple whose expected values
+# are pinned to the PRE-knob formula -- hands_target = max(HANDS_MIN,
+# round(active_tiles / HANDS_PER_TILES) + husbandry_hand) + extra_hands, then
+# hire_count = min(max(0, hands_target - hires_today), max_hires_per_turn).
+# Recomputing them by hand here (rather than diffing two plan_day calls) is
+# what makes this a no-op proof rather than a self-consistency check: a burst
+# that fired at the default would have to change one of these literals.
+_BURST_NO_OP_MATRIX: list[tuple[str, dict[str, object], int, list[list[object]]]] = [
+    (
+        # NE purchase turn at the shipped ne_land_min_day of 0: day 0, the
+        # 24-tile NW-only board, opening cash. base target 3 (HANDS_MIN and
+        # round(24/8) agree), hires_today 0.
+        "ne purchase, day 0, opening board",
+        dict(
+            day=0,
+            money=3000.0,
+            wheat_seeds=0,
+            plantable_target_tiles=0,
+            wheat_on_hand=50,
+            goose_owned=True,
+            hires_today=0,
+            unlocked_quadrants=("NW",),
+            active_tiles=24,
+        ),
+        3,
+        [["BUY_LAND"]],
+    ),
+    (
+        # No land left to buy (three quadrants owned, the shipped
+        # max_owned_quadrants cap) -- the burst has nothing to fire on.
+        "no purchase, three quadrants owned",
+        dict(
+            day=20,
+            money=20000.0,
+            wheat_seeds=0,
+            plantable_target_tiles=0,
+            wheat_on_hand=50,
+            goose_owned=True,
+            hires_today=0,
+            unlocked_quadrants=("NW", "NE", "SW"),
+            active_tiles=72,
+        ),
+        4,
+        [],
+    ),
+    (
+        # SW purchase turn, mid-ramp: base target 6, hires_today one below it.
+        "sw purchase, hires_today one below target",
+        dict(
+            day=12,
+            money=20000.0,
+            wheat_seeds=0,
+            plantable_target_tiles=0,
+            wheat_on_hand=50,
+            goose_owned=True,
+            hires_today=5,
+            unlocked_quadrants=("NW", "NE"),
+            active_tiles=48,
+        ),
+        1,
+        [["BUY_LAND"]],
+    ),
+    (
+        # BEFORE the animal gate: SW is next and affordable, but neither
+        # species' window has closed and neither target is met, so
+        # animals_done is False and no BUY_LAND is submitted.
+        "sw next but animals_done False",
+        dict(
+            day=5,
+            money=20000.0,
+            wheat_seeds=0,
+            plantable_target_tiles=0,
+            wheat_on_hand=50,
+            goose_owned=True,
+            hires_today=0,
+            unlocked_quadrants=("NW", "NE"),
+            active_tiles=48,
+        ),
+        4,
+        [],
+    ),
+    (
+        # SW purchase turn at hires_today 0 -- already pinned to
+        # max_hires_per_turn before any burst is applied.
+        "sw purchase, already cap-bound at hires_today 0",
+        dict(
+            day=12,
+            money=20000.0,
+            wheat_seeds=0,
+            plantable_target_tiles=0,
+            wheat_on_hand=50,
+            goose_owned=True,
+            hires_today=0,
+            unlocked_quadrants=("NW", "NE"),
+            active_tiles=48,
+        ),
+        4,
+        [["BUY_LAND"]],
+    ),
+    (
+        # SW purchase turn with extra_hands raised and the per-turn cap
+        # lifted, so neither of those knobs masks a stray burst.
+        "sw purchase, extra_hands=3 and max_hires_per_turn=10",
+        dict(
+            day=12,
+            money=20000.0,
+            wheat_seeds=0,
+            plantable_target_tiles=0,
+            wheat_on_hand=50,
+            goose_owned=True,
+            hires_today=8,
+            unlocked_quadrants=("NW", "NE"),
+            active_tiles=48,
+            extra_hands=3,
+            max_hires_per_turn=10,
+        ),
+        1,
+        [["BUY_LAND"]],
+    ),
+    (
+        # The SE rung, reachable only through max_owned_quadrants=4 (the
+        # value the pre-cap eval arms use) -- it appends ["BUY_LAND"] too.
+        "se purchase, max_owned_quadrants=4",
+        dict(
+            day=15,
+            money=20000.0,
+            wheat_seeds=0,
+            plantable_target_tiles=0,
+            wheat_on_hand=50,
+            goose_owned=True,
+            hires_today=8,
+            unlocked_quadrants=("NW", "NE", "SW"),
+            active_tiles=72,
+            max_owned_quadrants=4,
+        ),
+        1,
+        [["BUY_LAND"]],
+    ),
+    (
+        # A land-buying turn that also carries a non-land order and the
+        # husbandry bonus: base target 6 + 1 = 7. Pins that the burst leaves
+        # the feed line's quantity and its position before ["BUY_LAND"] alone.
+        "sw purchase alongside a feed order and the husbandry hand",
+        dict(
+            day=12,
+            money=20000.0,
+            wheat_seeds=0,
+            plantable_target_tiles=0,
+            wheat_on_hand=0,
+            goose_owned=True,
+            hires_today=5,
+            unlocked_quadrants=("NW", "NE"),
+            active_tiles=48,
+            animals_placed=9,
+        ),
+        2,
+        [["BUY_PRODUCT", "WHEAT", 12], ["BUY_LAND"]],
+    ),
+]
+
+
+def test_land_unlock_hand_burst_at_the_default_changes_nothing_anywhere() -> None:
+    # The property that matters most: at the default the shipped agent is
+    # provably unchanged. Asserts the WHOLE DayPlan (hire_count AND buys)
+    # against hand-computed pre-knob values across land-buying and
+    # non-land-buying turns, NE/SW/SE purchases, before and after the animal
+    # gate, and varying hires_today, active_tiles, extra_hands and
+    # max_hires_per_turn.
+    for label, kwargs, hire_count, buys in _BURST_NO_OP_MATRIX:
+        expected = DayPlan(hire_count=hire_count, buys=buys)
+        assert plan_day(**kwargs) == expected, label  # type: ignore[arg-type]
+        # ...and passing the default explicitly is the same thing again, so
+        # plan_day's own default can never diverge from LAND_UNLOCK_HAND_BURST.
+        explicit = plan_day(**kwargs, land_unlock_hand_burst=LAND_UNLOCK_HAND_BURST)  # type: ignore[arg-type]
+        assert explicit == expected, label
+
+
+def test_land_unlock_hand_burst_does_not_fire_on_the_turns_around_the_purchase() -> None:
+    # The burst is a ONE-TURN event keyed to the ["BUY_LAND"] order itself,
+    # not to the day or to the board size. The turn before (SW affordable and
+    # next, but animals_done still False at day 11 -- sheep's window closes
+    # after day 11) and the turn after (SW now owned, so _next_quadrant is
+    # None) must both get exactly the base target even at a large burst.
+    common = dict(
+        money=20000.0,
+        wheat_seeds=0,
+        plantable_target_tiles=0,
+        wheat_on_hand=50,
+        goose_owned=True,
+    )
+    before = dict(common, day=11, hires_today=5, unlocked_quadrants=("NW", "NE"), active_tiles=48)
+    purchase = dict(common, day=12, hires_today=5, unlocked_quadrants=("NW", "NE"), active_tiles=48)
+    after = dict(
+        common,
+        day=12,
+        hires_today=9,
+        unlocked_quadrants=("NW", "NE", "SW"),
+        active_tiles=72,
+    )
+
+    assert ["BUY_LAND"] not in plan_day(**before).buys  # type: ignore[arg-type]
+    assert ["BUY_LAND"] in plan_day(**purchase).buys  # type: ignore[arg-type]
+    assert ["BUY_LAND"] not in plan_day(**after).buys  # type: ignore[arg-type]
+
+    # Base target 6 against hires_today 5 before, and 9 against 9 after.
+    assert plan_day(**before, land_unlock_hand_burst=8).hire_count == 1  # type: ignore[arg-type]
+    assert plan_day(**after, land_unlock_hand_burst=8).hire_count == 0  # type: ignore[arg-type]
+    # Unchanged from the no-burst call on both, and changed on the purchase
+    # turn -- so the knob is keyed to the order, not to the surrounding state.
+    assert plan_day(**before).hire_count == 1  # type: ignore[arg-type]
+    assert plan_day(**after).hire_count == 0  # type: ignore[arg-type]
+    assert plan_day(**purchase).hire_count == 1  # type: ignore[arg-type]
+    assert plan_day(**purchase, land_unlock_hand_burst=8).hire_count == 4  # type: ignore[arg-type]
+
+
+def test_land_unlock_hand_burst_is_clamped_by_max_hires_per_turn() -> None:
+    # hire_count = min(hands_target - hires_today, max_hires_per_turn), so a
+    # burst bigger than the per-turn cap cannot place more HIRE orders than
+    # the cap allows on the one turn it fires. hires_today is pinned EXACTLY
+    # at the base target (6) so the whole hire_count is the burst's doing and
+    # the clamp is the only thing bounding it.
+    kwargs = dict(
+        day=12,
+        money=20000.0,
+        wheat_seeds=0,
+        plantable_target_tiles=0,
+        wheat_on_hand=50,
+        goose_owned=True,
+        hires_today=6,
+        unlocked_quadrants=("NW", "NE"),
+        active_tiles=48,
+    )
+    assert plan_day(**kwargs).hire_count == 0  # type: ignore[arg-type]
+    assert plan_day(**kwargs, land_unlock_hand_burst=3).hire_count == 3  # type: ignore[arg-type]
+    assert plan_day(**kwargs, land_unlock_hand_burst=4).hire_count == 4  # type: ignore[arg-type]
+    # Past the cap the extra burst is simply unreachable on this turn.
+    assert plan_day(**kwargs, land_unlock_hand_burst=8).hire_count == MAX_HIRES_PER_TURN  # type: ignore[arg-type]
+
+    for burst in range(0, 9):
+        for cap in (1, 2, 4, 10):
+            plan = plan_day(**kwargs, land_unlock_hand_burst=burst, max_hires_per_turn=cap)  # type: ignore[arg-type]
+            assert plan.hire_count <= cap, (burst, cap)
+            assert plan.hire_count == min(burst, cap), (burst, cap)
+
+
+def test_land_unlock_hand_burst_and_extra_hands_compose_additively() -> None:
+    # extra_hands is a flat all-game add-on; the burst is a one-turn one. Both
+    # land AFTER the max(HANDS_MIN, ...) floor, so on a land-buying turn they
+    # simply sum. max_hires_per_turn=10 keeps the per-turn clamp out of the
+    # way so the composed target is visible directly in hire_count.
+    kwargs = dict(
+        day=12,
+        money=20000.0,
+        wheat_seeds=0,
+        plantable_target_tiles=0,
+        wheat_on_hand=50,
+        goose_owned=True,
+        hires_today=6,
+        unlocked_quadrants=("NW", "NE"),
+        active_tiles=48,
+        max_hires_per_turn=10,
+    )
+    assert plan_day(**kwargs).hire_count == 0  # type: ignore[arg-type]  # target 6, hires_today 6
+    assert plan_day(**kwargs, extra_hands=2).hire_count == 2  # type: ignore[arg-type]  # target 8
+    assert plan_day(**kwargs, land_unlock_hand_burst=3).hire_count == 3  # type: ignore[arg-type]  # target 9
+    both = plan_day(**kwargs, extra_hands=2, land_unlock_hand_burst=3)  # type: ignore[arg-type]
+    assert both.hire_count == 5  # target 6+2+3 = 11, hires_today 6
+
+
+def test_land_unlock_hand_burst_is_applied_after_the_hands_min_floor() -> None:
+    # A tiny board is the only place the HANDS_MIN floor actually binds:
+    # active_tiles=8 gives round(8/8) == 1, which max(HANDS_MIN, ...) lifts
+    # to 3. Folding the burst INSIDE that max would let the floor swallow it
+    # (max(3, 1+2) is still 3); applied after, it adds. Same placement
+    # extra_hands already has -- see
+    # test_extra_hands_raises_the_hands_target_by_exactly_two above.
+    kwargs = dict(
+        day=12,
+        money=20000.0,
+        wheat_seeds=0,
+        plantable_target_tiles=0,
+        wheat_on_hand=50,
+        goose_owned=True,
+        hires_today=3,
+        unlocked_quadrants=("NW", "NE"),
+        active_tiles=8,
+    )
+    assert plan_day(**kwargs).hire_count == 0  # type: ignore[arg-type]  # target max(3, 1) == 3
+    assert plan_day(**kwargs, land_unlock_hand_burst=2).hire_count == 2  # type: ignore[arg-type]
+
+
+def test_land_unlock_hand_burst_never_changes_what_the_turn_buys() -> None:
+    # The knob is labor SUPPLY only. It must not buy land the turn would not
+    # have bought, must not suppress one it would have, and must not shift a
+    # single downstream quantity -- every buy line after the first reads the
+    # running `budget`, so a burst that touched it would show up as a
+    # different seed or feed count here.
+    #
+    # (Known limitation, deliberately NOT modeled: hire cost is paid by the
+    # ENGINE, not out of plan_day's budget, and the engine's _do_hire
+    # silently returns when the farm cannot afford the next rung of the
+    # Fibonacci ladder. A burst asked for on a cash-poor turn is therefore a
+    # silent partial no-op in the game -- see LAND_UNLOCK_HAND_BURST's own
+    # comment in plan.py. plan_day cannot see engine cash at hire time, so
+    # what is pinned here is that the PLAN is unchanged.)
+    opening = dict(
+        day=0,
+        money=3000.0,
+        wheat_seeds=0,
+        plantable_target_tiles=24,
+        wheat_on_hand=0,
+        goose_owned=False,
+        hires_today=0,
+        unlocked_quadrants=("NW",),
+        active_tiles=24,
+    )
+    sw_affordable = dict(
+        day=12,
+        money=2500.0,  # exactly LAND_PRICES["SW"] + LAND_RESERVE
+        wheat_seeds=0,
+        plantable_target_tiles=0,
+        wheat_on_hand=50,
+        goose_owned=True,
+        hires_today=5,
+        unlocked_quadrants=("NW", "NE"),
+        active_tiles=48,
+    )
+    sw_one_dollar_short = dict(sw_affordable, money=2499.0)
+
+    baseline_opening = plan_day(**opening).buys  # type: ignore[arg-type]
+    # The shipped day-0 opening, unchanged -- goose, NE land, the wheat seed
+    # line sized out of what those two left, then feed.
+    assert baseline_opening == [
+        ["BUY_ANIMAL", "GOOSE", 1],
+        ["BUY_LAND"],
+        ["BUY_SEED", "WHEAT", 24],
+        ["BUY_PRODUCT", "WHEAT", 3],
+    ]
+    assert plan_day(**sw_affordable).buys == [["BUY_LAND"]]  # type: ignore[arg-type]
+    assert plan_day(**sw_one_dollar_short).buys == []  # type: ignore[arg-type]
+
+    for burst in range(0, 9):
+        assert plan_day(**opening, land_unlock_hand_burst=burst).buys == baseline_opening, burst  # type: ignore[arg-type]
+        # One dollar short stays one dollar short at every burst: the knob
+        # can never conjure a purchase the turn could not afford.
+        short = plan_day(**sw_one_dollar_short, land_unlock_hand_burst=burst)  # type: ignore[arg-type]
+        assert short.buys == [], burst
+        assert short.hire_count == 1, burst  # base target 6 - 5, no burst fired
+        # ...and an affordable one stays affordable, with the burst applied.
+        afford = plan_day(**sw_affordable, land_unlock_hand_burst=burst)  # type: ignore[arg-type]
+        assert afford.buys == [["BUY_LAND"]], burst
+        assert afford.hire_count == min(1 + burst, MAX_HIRES_PER_TURN), burst
 
 
 def test_feed_reserve_scales_with_placed_animal_count() -> None:

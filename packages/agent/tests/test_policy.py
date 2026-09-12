@@ -1608,6 +1608,88 @@ def test_goose_min_day_threads_from_policy_config_and_delays_the_buy_goose() -> 
     assert on_time_action["market"].count(["BUY_ANIMAL", "GOOSE", 1]) == 1
 
 
+# --- land_unlock_hand_burst: a ONE-TURN crew burst on the turn that buys new
+# land (kaggriculture, 2026-09-12) --------------------------------------------
+#
+# Observed public leaders (eval/recon/2026-09-11-leader-opening-tape-855000.md,
+# 8 seeds, zero seed-SD on hands through day 15): hands track newly-unlocked
+# land rather than a fixed headcount -- 0-4 through day 6, 7 the day after NE
+# unlocks, and 14 the SAME day SW unlocks (day 10), then oscillating 8-14. Our
+# champion runs 6,5,6,6,6,7,7,7,7,8 and then flat 10 from day 10 on, so the
+# measured gap is one day wide and four hands deep, on the day the workable
+# board roughly doubles. DEFAULT-NEUTRAL at 0: there was never an implicit
+# burst term, so hands_target is bit-for-bit unchanged on every turn.
+
+
+def test_land_unlock_hand_burst_default_pins_todays_behavior() -> None:
+    # Compared against plan.py's OWN constant, the same pattern
+    # test_goose_min_day_default_pins_todays_behavior above uses, so an edit
+    # to the hardcoded value can never drift silently out of sync with this
+    # default.
+    config = PolicyConfig()
+    assert config.land_unlock_hand_burst == 0
+    assert config.land_unlock_hand_burst == plan.LAND_UNLOCK_HAND_BURST
+
+
+def test_land_unlock_hand_burst_rejects_out_of_range_values() -> None:
+    # 0-8: the engine caps nothing (just the rising Fibonacci hire cost
+    # within a day), so like extra_hands' own 0-5 this ceiling is a
+    # deliberately conservative guard against a runaway CLI override rather
+    # than a modeled market limit. 8 is double the measured four-hand gap
+    # against the leaders, and already past what one turn can express --
+    # hire_count is clamped by max_hires_per_turn, whose own ceiling is 10.
+    with pytest.raises(ValueError, match="land_unlock_hand_burst"):
+        PolicyConfig(land_unlock_hand_burst=-1)
+    with pytest.raises(ValueError, match="land_unlock_hand_burst"):
+        PolicyConfig(land_unlock_hand_burst=9)
+
+
+def test_land_unlock_hand_burst_accepts_both_ends_of_its_range() -> None:
+    assert PolicyConfig(land_unlock_hand_burst=0).land_unlock_hand_burst == 0
+    assert PolicyConfig(land_unlock_hand_burst=8).land_unlock_hand_burst == 8
+
+
+def test_land_unlock_hand_burst_threads_from_policy_config_to_the_market_list() -> None:
+    """The knob has to reach the emitted market orders, not just plan_day
+    (test_plan.py's test_land_unlock_hand_burst_raises_the_hands_target_on_
+    the_sw_purchase_turn covers the formula itself) -- mirrors
+    test_max_hires_per_turn_threads_from_policy_config_to_the_market_list
+    above.
+
+    Day 0 on the NW-only board buys NE land (the shipped ne_land_min_day is
+    0), so this IS a land-unlock turn. hires_today is pinned at the base
+    hands_target of 3, which leaves the default asking for no hires at all --
+    so every HIRE order in the overridden arm is the burst's doing and
+    nothing else's.
+    """
+    obs = raw_obs(money=3000.0)
+    obs["farms"][0]["hires_today"] = 3
+
+    default_action = make_policy()(obs, None)
+    assert ["BUY_LAND"] in default_action["market"]  # the trigger turn is real
+    assert default_action["market"].count(["HIRE"]) == 0  # hands_target 3, hires_today 3
+
+    burst_action = make_policy(policy_config=PolicyConfig(land_unlock_hand_burst=2))(obs, None)
+    assert ["BUY_LAND"] in burst_action["market"]
+    assert burst_action["market"].count(["HIRE"]) == 2
+
+
+def test_land_unlock_hand_burst_stays_silent_on_a_turn_that_buys_no_land() -> None:
+    # The same board one quadrant later: NW+NE+SW is the shipped
+    # max_owned_quadrants cap, so there is no land left to buy and the burst
+    # has nothing to fire on. money=0.0 makes every other buy line
+    # unaffordable, isolating the HIRE orders (see
+    # test_max_hires_per_turn_threads_from_policy_config_to_the_market_list's
+    # own docstring).
+    obs = raw_obs(step=12 * 24, money=0.0, unlocked_quadrants=("NW", "NE", "SW"))
+
+    default_hires = make_policy()(obs, None)["market"].count(["HIRE"])
+    burst_action = make_policy(policy_config=PolicyConfig(land_unlock_hand_burst=8))(obs, None)
+
+    assert ["BUY_LAND"] not in burst_action["market"]
+    assert burst_action["market"].count(["HIRE"]) == default_hires
+
+
 # --- rescue_water: water a plant the day before the engine kills it --------
 #
 # dispatch.py's own rescue_water tests (test_dispatch.py) cover the
