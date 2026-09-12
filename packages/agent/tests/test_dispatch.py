@@ -1367,8 +1367,8 @@ CREW_ZONE = frozenset({(0, 0), (0, 1), (1, 0), (1, 1)})
 CREW_PASTURE = frozenset({(0, 4), (1, 4)})
 #: A two-tile target universe -- one zone tile, one outside it -- so a class
 #: fixture below is the ONLY work on the board and nothing else can be
-#: nearer. (0, 0) is the zone tile; (3, 0) is where the hand stands.
-CREW_PAIR = [(0, 0), (3, 0)]
+#: nearer. (0, 0) is the zone tile, (2, 0) the competing one outside it.
+CREW_PAIR = [(0, 0), (2, 0)]
 
 
 def _crew_board() -> list[list[object]]:
@@ -1496,28 +1496,36 @@ def _crew_class_view(
     zone_tile: object,
     outside_tile: object,
     *,
+    standing: bool,
     day: int = 5,
-    hands: list[tuple[int, int]] | None = None,
-    inventories: list[dict[str, int]] | None = None,
     seeds: int = 0,
 ) -> object:
-    """A hand standing on non-zone work at (3, 0), with the zone's own task
-    of the SAME priority class three steps west at (0, 0).
+    """Non-zone work at (2, 0) and the zone's own task of the SAME priority
+    class two steps west at (0, 0), in the two layouts that reach the
+    reservation by different passes.
 
-    The farmer is left fielded at (4, 4) deliberately. The crew is drawn from
-    HANDS (slot 0 is exempt), and the clamp needs a second fielded unit to
-    hold back as the general one -- park the farmer as a mule here and the
-    clamp correctly reserves nobody, which would make every assertion below
-    pass for the wrong reason.
+    ``standing`` puts hand 1 ON the non-zone tile, so the stand-on-it pass is
+    what would hand it that work, and leaves the farmer fielded at (4, 4) as
+    the clamp's general unit.
+
+    ``not standing`` puts hand 1 one step east of the non-zone tile at
+    (3, 0), where it is nearer that tile (1) than the zone (3) but standing
+    on neither -- so only the nearest-task pass can decide, which is the pass
+    the measured starvation actually happens in. The farmer carries cargo
+    there and mules, and a second hand parks far away at (4, 4): the crew
+    needs two FIELDED units for the clamp to allow any reservation at all,
+    and hand 1 must be the lower-index unit that Pass 2 reaches FIRST, or an
+    unreserved hand 1 would be handed the zone tile by elimination and the
+    layout would prove nothing.
     """
     tiles = make_view().tiles
     tiles[0][0] = zone_tile
-    tiles[0][3] = outside_tile
+    tiles[0][2] = outside_tile
     return make_view(
         step=day * 24 + 5,
-        hands=hands if hands is not None else [(3, 0)],
+        hands=[(2, 0)] if standing else [(3, 0), (4, 4)],
         tiles=tiles,
-        inventories=inventories,
+        inventories=None if standing else [{"WHEAT": 1}, {}, {}],
         seeds=seeds,
         strawberry_seeds=seeds,
     )
@@ -1543,14 +1551,17 @@ def _crew_claims(
 def test_a_reserved_unit_walks_past_nearer_non_zone_work_to_the_zone() -> None:
     # The whole mechanism on one board. Both tasks are priority 0, so the
     # ONLY thing separating them is distance -- exactly the tie the zone has
-    # been losing -- and the hand is STANDING on the non-zone one, which is
-    # the strongest form of "nearer" the dispatcher has.
-    view = _crew_class_view(
-        strawberry(planted_day=5, watered_today=False),
-        plant(planted_day=5, watered_today=False),
-    )
-    assert _crew_claims(view, crew=0)[1] == (3, 0), "the default stopped taking the near tile"
-    assert _crew_claims(view, crew=1)[1] == (0, 0), "a reserved hand kept non-zone work"
+    # been losing. Run in both layouts: standing ON the nearer non-zone tile,
+    # the strongest form of "nearer" the dispatcher has; and merely nearer to
+    # it, which is the case the 606/61/3 trace is actually made of.
+    for standing in (True, False):
+        view = _crew_class_view(
+            strawberry(planted_day=5, watered_today=False),
+            plant(planted_day=5, watered_today=False),
+            standing=standing,
+        )
+        assert _crew_claims(view, crew=0)[1] == (2, 0), f"standing={standing}: default moved"
+        assert _crew_claims(view, crew=1)[1] == (0, 0), f"standing={standing}: kept non-zone work"
 
 
 def test_the_zone_crew_takes_zone_work_in_every_priority_class() -> None:
@@ -1573,13 +1584,15 @@ def test_the_zone_crew_takes_zone_work_in_every_priority_class() -> None:
         (4, {"kind": "WEED"}, {"kind": "WEED"}, 0),
     ]
     for priority, zone_tile, outside_tile, seeds in cases:
-        view = _crew_class_view(zone_tile, outside_tile, seeds=seeds)
-        tasks = _field_tasks(view, CREW_PAIR, frozenset(), frozenset(), CREW_ZONE_ONE)  # type: ignore[arg-type]
-        assert {t.tile: t.priority for t in tasks} == {(0, 0): priority, (3, 0): priority}, (
-            f"P{priority} fixture no longer pairs two tasks of that one class"
-        )
-        assert _crew_claims(view, crew=0)[1] == (3, 0), f"P{priority}: default took the zone"
-        assert _crew_claims(view, crew=1)[1] == (0, 0), f"P{priority}: reservation did not bite"
+        for standing in (True, False):
+            where = f"P{priority} standing={standing}"
+            view = _crew_class_view(zone_tile, outside_tile, standing=standing, seeds=seeds)
+            tasks = _field_tasks(view, CREW_PAIR, frozenset(), frozenset(), CREW_ZONE_ONE)  # type: ignore[arg-type]
+            assert {t.tile: t.priority for t in tasks} == {(0, 0): priority, (2, 0): priority}, (
+                f"{where}: fixture no longer pairs two tasks of that one class"
+            )
+            assert _crew_claims(view, crew=0)[1] == (2, 0), f"{where}: default took the zone"
+            assert _crew_claims(view, crew=1)[1] == (0, 0), f"{where}: reservation did not bite"
 
 
 def test_the_zone_crew_is_clamped_to_leave_a_general_unit() -> None:
@@ -1613,10 +1626,11 @@ def test_the_zone_crew_is_inert_when_the_zone_offers_no_task_at_all() -> None:
     view = _crew_class_view(
         strawberry(planted_day=4, watered_today=True),  # age 1: no branch matches
         plant(planted_day=5, watered_today=False),
+        standing=False,
     )
     tasks = _field_tasks(view, CREW_PAIR, frozenset(), frozenset(), CREW_ZONE_ONE)  # type: ignore[arg-type]
-    assert [t.tile for t in tasks] == [(3, 0)], "the zone fixture stopped being taskless"
-    assert _crew_claims(view, crew=1)[1] == (3, 0), "a reserved hand idled on an empty zone"
+    assert [t.tile for t in tasks] == [(2, 0)], "the zone fixture stopped being taskless"
+    assert _crew_claims(view, crew=1)[1] == (2, 0), "a reserved hand idled on an empty zone"
 
 
 def test_a_reserved_unit_the_zone_ran_out_for_rejoins_general_dispatch() -> None:
