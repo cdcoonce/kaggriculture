@@ -1537,6 +1537,7 @@ def _crew_claims(
     crew: int,
     zone: frozenset[tuple[int, int]] = CREW_ZONE_ONE,
     tiles: list[tuple[int, int]] | None = None,
+    held: dict[int, tuple[int, int]] | None = None,
 ) -> dict[int, tuple[int, int]]:
     return dispatch(
         view,  # type: ignore[arg-type]
@@ -1544,6 +1545,7 @@ def _crew_claims(
         frozenset(),
         frozenset(),
         zone,
+        prior_claims=held,
         strawberry_zone_crew=crew,
     ).claims
 
@@ -1668,6 +1670,51 @@ def test_the_zone_crew_reserves_the_units_nearest_the_zone() -> None:
     assert claims[1] == (4, 0), "the far hand was reserved instead of left general"
 
 
+def test_the_zone_crew_measures_distance_to_the_nearest_zone_tile() -> None:
+    # Found by a mutation check: reading the distance off one arbitrary tile
+    # of the zone instead of the nearest survived every other test here. It
+    # is a real defect -- a 36-tile zone spans most of a quadrant, so which
+    # tile you measure to decides which units get reserved -- but it can only
+    # be caught by a fixture whose answer depends on the tile that happens to
+    # be picked. Hence TWO layouts over the SAME two-tile zone, mirror images
+    # in which of the pair is the deciding one: whichever tile a single-tile
+    # rule latches onto, one of them is wrong. Both assert the same thing --
+    # hand 1, the unit nearest the zone by nearest-tile distance, is the one
+    # reserved -- and hand 1 stands on non-zone work in both, so reserving it
+    # visibly redirects it and reserving hand 2 visibly does not.
+    zone = frozenset({(0, 0), (3, 0)})
+    layouts = [
+        # hand 1 is 3 from (3, 0) and 6 from (0, 0); hand 2 is 4 from (0, 0)
+        # and 7 from (3, 0). Nearest-tile: 3 < 4, hand 1. Measured to (0, 0)
+        # alone: 6 > 4, hand 2 -- wrong.
+        ([(4, 2), (0, 4)], (4, 2), (3, 0)),
+        # hand 1 is 1 from (0, 0) and 4 from (3, 0); hand 2 is 2 from (3, 0)
+        # and 5 from (0, 0). Nearest-tile: 1 < 2, hand 1. Measured to (3, 0)
+        # alone: 4 > 2, hand 2 -- wrong.
+        ([(0, 1), (3, 2)], (0, 1), (0, 0)),
+        # A third pair, for the OTHER way to get the metric wrong: hand 1 is
+        # 1 from (3, 0) and 4 from (0, 0); hand 2 is 2 and 3. Nearest-tile:
+        # 1 < 2, hand 1. Farthest-tile: 4 > 3, hand 2 -- wrong. min and max
+        # agree on both pairs above, so without this one a max() would pass.
+        ([(4, 0), (2, 1)], (4, 0), (3, 0)),
+    ]
+    for hands, outside, expected in layouts:
+        tiles = make_view().tiles
+        tiles[0][0] = strawberry(planted_day=5, watered_today=False)
+        tiles[0][3] = strawberry(planted_day=5, watered_today=False)
+        tiles[outside[1]][outside[0]] = plant(planted_day=5, watered_today=False)
+        view = make_view(
+            step=5 * 24 + 5,
+            hands=hands,
+            tiles=tiles,
+            inventories=[{"WHEAT": 1}, {}, {}],  # farmer mules; two fielded hands
+        )
+        board = [(0, 0), (3, 0), outside]
+        assert _crew_claims(view, crew=0, zone=zone, tiles=board)[1] == outside, hands
+        claims = _crew_claims(view, crew=1, zone=zone, tiles=board)
+        assert claims[1] == expected, f"{hands}: reserved the wrong unit -> {claims}"
+
+
 def test_the_zone_crew_breaks_a_distance_tie_by_slot_index() -> None:
     # Two hands exactly two steps from the zone. These games are replayed, so
     # the tie has to resolve the same way every time: lowest slot index wins,
@@ -1713,15 +1760,51 @@ def test_the_zone_crew_assignment_is_repeatable() -> None:
 def test_the_farmer_is_never_drafted_into_the_zone_crew() -> None:
     # Slot 0 is exempt, the same way the mule loop skips it (range(1, ...)):
     # the farmer is fielded only on turns when the goose needs nothing and it
-    # carries nothing, so reserving it would resize the crew turn to turn.
-    # At k=6 with two hands, both hands go to the zone and the farmer must
-    # still take the non-zone tile nearest it.
+    # carries nothing, so reserving it would resize the crew turn to turn for
+    # reasons that have nothing to do with the zone.
+    #
+    # The farmer here is the unit NEAREST the zone (4 steps against the
+    # hand's 8), so a crew drawn from all fielded units would pick it and
+    # leave the hand general -- exactly inverting both claims below. It is
+    # also standing on the non-zone task, so once exempt it keeps that work
+    # through the ordinary stand-on-it pass.
+    tiles = make_view().tiles
+    tiles[0][0] = strawberry(planted_day=5, watered_today=False)  # the zone task
+    tiles[2][2] = plant(planted_day=5, watered_today=False)  # (2, 2), under the farmer
+    view = make_view(step=5 * 24 + 5, farmer=(2, 2), hands=[(4, 4)], tiles=tiles)
+    claims = _crew_claims(view, crew=1, tiles=[(0, 0), (2, 2)])
+    assert claims[0] == (2, 2), f"the farmer was drafted into the zone crew: {claims}"
+    assert claims[1] == (0, 0), f"the hand was left general instead of reserved: {claims}"
+
+    # ...and the exemption holds at the top of the knob's range: with two
+    # hands and k=6 both hands go to the zone and the farmer still works the
+    # tile it stands on.
+    tiles[1][0] = strawberry(planted_day=5, watered_today=False)  # (0, 1)
+    crowded = make_view(step=5 * 24 + 5, farmer=(2, 2), hands=[(1, 0), (0, 1)], tiles=tiles)
+    zone = frozenset({(0, 0), (0, 1)})
+    crowded_claims = _crew_claims(crowded, crew=6, zone=zone, tiles=[(0, 0), (0, 1), (2, 2)])
+    assert crowded_claims[0] == (2, 2), crowded_claims
+    assert sorted(crowded_claims[i] for i in (1, 2)) == [(0, 0), (0, 1)], crowded_claims
+
+
+def test_a_reserved_unit_drops_a_prior_claim_on_a_non_zone_tile() -> None:
+    # Found by a mutation check: without this the Pass 1b claim filter could
+    # be deleted and nothing failed. A claim is honoured every turn its tile
+    # still offers a task, so a reserved unit that ever picked up a non-zone
+    # tile -- off the fall-back pass, or off a stand-on-it pass before the
+    # reservation existed -- would be handed it again, and again, for the
+    # rest of the game. The reservation has to outrank the claim.
     tiles = make_view().tiles
     tiles[0][0] = strawberry(planted_day=5, watered_today=False)
-    tiles[1][0] = strawberry(planted_day=5, watered_today=False)
-    tiles[4][3] = plant(planted_day=5, watered_today=False)  # (3, 4), one step from (4, 4)
-    view = make_view(step=5 * 24 + 5, hands=[(1, 0), (0, 1)], tiles=tiles)
-    zone = frozenset({(0, 0), (0, 1)})
-    claims = _crew_claims(view, crew=6, zone=zone, tiles=[(0, 0), (0, 1), (3, 4)])
-    assert claims[0] == (3, 4), f"the farmer was drafted into the zone crew: {claims}"
-    assert sorted(claims[i] for i in (1, 2)) == [(0, 0), (0, 1)], claims
+    tiles[0][2] = plant(planted_day=5, watered_today=False)
+    # Farmer carries cargo and mules; hand 1 is 3 from the zone, hand 2 is 8,
+    # so hand 1 is the reserved one and it is the one holding the stale claim.
+    view = make_view(
+        step=5 * 24 + 5,
+        hands=[(3, 0), (4, 4)],
+        tiles=tiles,
+        inventories=[{"WHEAT": 1}, {}, {}],
+    )
+    held = {1: (2, 0)}
+    assert _crew_claims(view, crew=0, held=held)[1] == (2, 0), "the claim stopped being honoured"
+    assert _crew_claims(view, crew=1, held=held)[1] == (0, 0), "a claim outranked the reservation"
