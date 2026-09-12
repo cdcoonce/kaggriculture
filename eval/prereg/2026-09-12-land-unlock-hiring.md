@@ -336,3 +336,62 @@ leaders is the instrument. It points the same way the cash argument does.
 - **Right that the binding constraint is cash rather than labor** (registered 85%). Every
   arm that added a hand paid for it somewhere else, and the one that added the most hands
   is the one that slipped the purchase.
+
+## ADDENDUM — SCREEN VERDICT (2026-09-12): NOT ADVANCED at −$214, and the margin signal was opponent-specific
+
+Run at BUILD `20427d6` (`main` with both knobs merged), engine 1.32.7, band 884000,
+n = 64 per leader. Three ledgers, no crash and no veto.
+
+| opponent | n | mean Δ | se | 95% CI | opponent Δ | margin Δ | regressed |
+|---|---|---|---|---|---|---|---|
+| public:sokolovsky-v12 | 64 | +$768 | 1,986 | [−$3,124, +$4,660] | −$7,533 | **+$8,301** | 31/64 |
+| public:rayk-v11 | 64 | −$720 | 2,214 | [−$5,059, +$3,619] | +$4,660 | −$5,380 | 33/64 |
+| public:kaito-v4 | 64 | −$688 | 2,221 | [−$5,041, +$3,665] | +$3,686 | −$4,374 | 33/64 |
+| **pooled** | | **−$214** | **1,237** | **[−$2,639, +$2,211]** | | **−$485** | |
+
+Criterion 1 fails at **−$214** against the +$4,000 bar; criterion 2 fails with a pooled
+lower bound of −$2,639; criterion 3 passes (worst leader −$720). **BURST_CAP is NOT
+ADVANCED, and with it the land-unlock hiring slice.** No confirmation or guard ran;
+bands 885000 and 886000 are retired unused.
+
+This is not a power failure at the size that mattered. Per-leader `mde_80` runs
+$4,997-$5,572, so pooled the design could detect roughly +$3,000; a +$4,000 effect was
+within reach and is not there. The arm is indistinguishable from zero.
+
+**The margin signal did not survive its second leader, and that is worth recording.**
+Against sokolovsky-v12 the arm took **$7,533 off the opponent** for a margin delta of
+**+$8,301** — the first strongly positive margin this project has measured, on a
+scoreboard where every prior arm made the leaders richer than it made us. Against the
+other two the sign flips: +$4,660 and +$3,686 to the opponent, margins of −$5,380 and
+−$4,374, pooling to −$485. One leader's opponent delta is not a property of the arm.
+This repo already carries that lesson from the other direction (*one opponent's gate
+promotes what four opponents reject*); this is the same trap wearing the opposite sign,
+and it was reported rather than gated on precisely because the registration fixed own
+bank as the metric before the run.
+
+**Predictions scorecard.**
+- **Right that no arm advances** (registered 92%). Pooled −$214 against a +$4,000 bar.
+- **Right that the binding constraint is cash rather than labor** (registered 85%).
+  BURST_CAP bought exactly one extra hand on the unlock day and it bought nothing.
+- **Not triggered:** the prediction that an advancing arm's margin would be negative.
+  No arm advanced.
+- **Wrong, in the check, about SLOTS** (registered 75% to pass), and wrong in a way that
+  taught the most: protecting hire orders from truncation slips the land purchase,
+  because the wage is daily and the purchase gate is a threshold.
+
+## Consequence — the dispatch rewrite is closed in all three parts
+
+The 2026-09-12 owner decision named midnight reachability, plant/water pairing, and
+burst hiring. All three are now closed:
+
+- **Midnight reachability** — by the 2026-08-16 gate `f8689ed` on branch
+  `perf/day-boundary-guard`: the filter removes the orphaned walking it targets and the
+  freed turns go to idle, so there is nothing for the money to come from.
+- **Plant/water pairing** — by the engine: one action per unit per turn, and dispatch's
+  Pass 1 already keeps a unit on the tile it planted.
+- **Burst hiring** — by this screen.
+
+Ten registered slices have now closed without an advance. Both knobs stay shipped-off at
+their defaults and both are proven byte-identical no-ops there, so `main`'s behavior is
+unchanged by any of this. Nothing here authorizes an upload, a default change, or a
+further run.
