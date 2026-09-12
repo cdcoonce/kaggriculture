@@ -88,6 +88,23 @@ ALL_ARMS: dict[str, dict[str, Any]] = {
     # (eval/prereg/2026-09-12-never-gated-knob-screen.md). Each names one
     # traded item and one direction; the registered expression check reads
     # that item's settled flow out of this instrument's per-item table.
+    # The stacked-positives slice's arms
+    # (eval/prereg/2026-09-12-stack-measured-positives.md): the two components
+    # that measured positive at n=64, combined. Its check reads WOOL and the
+    # WHEAT+STRAWBERRY+WOOL sum out of this instrument.
+    "STACK2": {
+        "strawberry_tile_target": 20,
+        "strawberry_plant_daily_cap": 10,
+        "strawberry_start_day": 8,
+        "animal_buy_order": ["SHEEP", "COW"],
+    },
+    "STACK3": {
+        "strawberry_tile_target": 20,
+        "strawberry_plant_daily_cap": 10,
+        "strawberry_start_day": 8,
+        "animal_buy_order": ["SHEEP", "COW"],
+        "max_hires_per_turn": 10,
+    },
     # The strawberry-cohort slice's arms
     # (eval/prereg/2026-09-12-strawberry-cohort-price.md). Its criterion 3 reads
     # combined WHEAT + STRAWBERRY settled revenue out of this instrument, because
