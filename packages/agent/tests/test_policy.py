@@ -1791,12 +1791,14 @@ def test_strawberry_zone_crew_threads_from_policy_config_to_the_hands_action() -
     strawberry_zone_crew tests cover the mechanism itself) -- mirrors
     test_rescue_water_threads_from_policy_config_to_the_hands_action above.
 
-    strawberry_tile_target=1 makes the zone exactly {(2, 0)}, and the hand
-    stands on its own priority-0 water at (4, 0) -- the same row, two steps
-    east -- so the zone task is the STRICTLY farther of two tasks in the
-    same class and the hand only reaches it by being reserved. The expected
-    step is WEST either way it is derived: _step_toward closes the x axis
-    first, and the two tiles share a row.
+    strawberry_tile_target=2 over the SHIPPED ("NW", "NE") frame puts the
+    zone at {(4, 0), (8, 4)}, of which only (4, 0) is on the unlocked
+    NW-only board -- the other sits in still-locked NE and never enters the
+    target-tile universe at all. The hand stands on its own priority-0 water
+    at (4, 3), three steps south of it, so the zone task is the STRICTLY
+    farther of two tasks in the same class and the hand only reaches it by
+    being reserved. NORTH is the expected step however it is derived: the
+    two tiles share a column, so _step_toward's x-first rule never applies.
 
     cow/sheep/melon targets zeroed for the same reason
     test_rescue_water_threads_from_policy_config_to_the_hands_action zeroes
@@ -1809,24 +1811,24 @@ def test_strawberry_zone_crew_threads_from_policy_config_to_the_hands_action() -
     fielded unit on the board the clamp would correctly reserve nobody.
     """
     obs = raw_obs(step=5 * 24, money=3000.0)
-    obs["farms"][0]["tiles"][0][2] = plant(crop="STRAWBERRY", planted_day=5, watered_today=False)
-    obs["farms"][0]["tiles"][0][4] = plant(planted_day=5, watered_today=False)
-    obs["farms"][0]["hands"] = [[4, 0]]
+    obs["farms"][0]["tiles"][0][4] = plant(crop="STRAWBERRY", planted_day=5, watered_today=False)
+    obs["farms"][0]["tiles"][3][4] = plant(planted_day=5, watered_today=False)
+    obs["farms"][0]["hands"] = [[4, 3]]
     obs["private"]["inventories"] = [{}, {}]
     isolated: dict[str, Any] = {
         "cow_target": 0,
         "sheep_target": 0,
         "melon_tile_target": 0,
-        "strawberry_tile_target": 1,
+        "strawberry_tile_target": 2,
     }
 
     default_action = make_policy(policy_config=PolicyConfig(**isolated))(obs, None)
     assert default_action["hands"][0] == ["WATER"]  # stays on the nearer non-zone tile
 
-    reserved_action = make_policy(
-        policy_config=PolicyConfig(**isolated, strawberry_zone_crew=1)
-    )(obs, None)
-    assert reserved_action["hands"][0] == ["WEST"]  # walks to the zone tile at (2, 0)
+    reserved_action = make_policy(policy_config=PolicyConfig(**isolated, strawberry_zone_crew=1))(
+        obs, None
+    )
+    assert reserved_action["hands"][0] == ["NORTH"]  # walks to the zone tile at (4, 0)
 
 
 # --- hire_slot_floor: keep the first k HIRE orders out of the truncation ---

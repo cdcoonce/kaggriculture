@@ -176,6 +176,56 @@ STRAWBERRY_PLANT_DAILY_CAP = 6
 # CARE/COLLECT_FERTILIZER -- real, ongoing competition, not an empty tier.
 STRAWBERRY_PLANT_PRIORITY = 3
 
+# How many units work ONLY tiles inside the strawberry zone. Single source of
+# truth for PolicyConfig.strawberry_zone_crew (threaded policy.py ->
+# dispatch(), exactly like rescue_water above -- but consumed in dispatch()'s
+# own assignment loop, not in _field_tasks, so there is no second hop).
+#
+# What the knob is for. Inside a priority class, dispatch()'s Pass 2 hands
+# each free unit the NEAREST unclaimed task, and the distance is exact
+# Manhattan: _step_toward is pure axis-stepping and there is no pathfinding
+# to bend it. Distance is therefore the only argument a far quadrant has,
+# and it loses. Turn-by-turn trace 2026-09-11, SW-framed zone: 606 PLANT
+# STRAWBERRY tasks generated, 61 claimed, 3 EXECUTED -- "from hour 2 to 15
+# there are always 17-27 nearer NW/NE tasks, so SW plantings get zero claims
+# until evening", and the hour-20 cutoff then deletes them unplanted.
+#
+# STRAWBERRY_PLANT_PRIORITY above cannot fix that, and measurement says so.
+# It moves which CLASS the task sits in; distance still decides inside the
+# class. Re-measured at n=8 (seeds 858100-858107 vs public:sokolovsky-v12),
+# the cohort arm -- which already runs strawberry_plant_priority 2 -- stands
+# at NW 9.2 / NE 9.4 / SW 3.2 tiles on day 12 against a 36-tile target, and
+# SW never moves off 3.2 again for the remaining thirteen days. The public
+# leader holds 36 standing tiles from day 11 to day 20 and banks $41,849 of
+# strawberry revenue against our best arm's $18,118, at comparable per-tile-
+# day yield (0.45 theirs, 0.34-0.40 ours) -- the deficit is TILES.
+#
+# 0 is DEFAULT-NEUTRAL: no unit is ever reserved, the reservation filters
+# are never consulted and the fall-back pass never runs, so dispatch() is
+# bit-identical to what it was before this knob existed. Above 0 it:
+#   reserves from fielded HANDS only. Slot 0 is exempt, the same way the
+#     mule loop skips it with range(1, ...) -- the farmer is fielded only on
+#     turns when the goose needs nothing and it carries nothing, so
+#     reserving it would resize the crew turn to turn for reasons that have
+#     nothing to do with the zone.
+#   picks the k units NEAREST the zone, ties to the LOWER slot index. Nearest
+#     minimises the walk each reserved unit makes once; the tie-break is
+#     spelled out because these games are replayed and an assignment that
+#     fell out of set or dict iteration order would not reproduce.
+#   clamps k to len(fielded) - 1, so at least one fielded unit always stays
+#     general however large the knob is set. Reserving the whole crew to a
+#     satellite would starve the wheat/melon core that pays for it.
+#   applies in EVERY priority class, not just the PLANT tier. A crew that
+#     only bit on planting would fill the zone and then let it die untended:
+#     strawberry's entire yield sits behind WATER on the tick ages and
+#     HARVEST on the cap, and a weeded tile is only cleared by DIG.
+#   falls back to ordinary dispatch when the zone offers nothing. A reserved
+#     unit the zone has no unclaimed task for rejoins general work at the
+#     tail of the turn rather than idling -- last pick, so the reservation
+#     still costs it the choice of general work instead of quietly undoing
+#     itself.
+STRAWBERRY_ZONE_CREW = 0
+
 # Priority tier for a fresh PLANT WHEAT task. Single source of truth for
 # PolicyConfig.wheat_plant_priority (threaded policy.py -> dispatch() ->
 # _field_tasks(), exactly like STRAWBERRY_PLANT_PRIORITY above), so the
@@ -785,6 +835,7 @@ def dispatch(
     feed_batch_cap: int = FEED_BATCH_CAP,
     hand_mule_load: int = HAND_MULE_LOAD,
     rescue_water: bool = RESCUE_WATER,
+    strawberry_zone_crew: int = STRAWBERRY_ZONE_CREW,
 ) -> Actions:
     """Choose an action for every unit, and report what each one claimed.
 
@@ -801,6 +852,14 @@ def dispatch(
     stand-on-it pass, so it can never outrank a more urgent class nor walk a
     unit past work another unit is already standing on. It evaporates the
     moment its tile stops offering a task.
+
+    ``strawberry_zone_crew`` (0 by default, i.e. off -- see
+    ``STRAWBERRY_ZONE_CREW`` for the mechanism and the measured starvation it
+    answers) reserves that many fielded hands to tiles inside
+    ``strawberry_tiles``. A reserved unit is offered ONLY zone tasks, in all
+    three passes and every priority class, which is the one thing a priority
+    tier cannot buy: tiers decide which class runs first, and inside a class
+    the winner is whoever stands nearest.
     """
     units: list[tuple[int, int]] = [view.farmer, *view.hands]
     chosen: list[UnitAction] = [["PASS"] for _ in units]
@@ -853,12 +912,62 @@ def dispatch(
             seed_budgets[task.crop] -= 1
         assigned[i] = task
 
+    def nearest(pos: tuple[int, int], class_tasks: list[_Task], zone_only: bool) -> _Task | None:
+        """The closest still-takeable task in ``class_tasks``, or None.
+
+        ``zone_only`` is the whole of the strawberry_zone_crew reservation on
+        this side: at the default nothing is ever reserved, so it is always
+        False and this is exactly the greedy nearest scan it has always been.
+        """
+        best: _Task | None = None
+        best_dist = 10**9
+        for candidate in class_tasks:
+            if candidate.tile in claimed:
+                continue
+            if zone_only and candidate.tile not in strawberry_tiles:
+                continue
+            if candidate.uses_seed and seed_budgets[candidate.crop] <= 0:
+                continue
+            dist = abs(pos[0] - candidate.tile[0]) + abs(pos[1] - candidate.tile[1])
+            if dist < best_dist:
+                best, best_dist = candidate, dist
+        return best
+
     # Urgency classes are worked strictly in order (0 = most urgent .. 4 =
     # least): a unit claimed in an earlier class is unavailable to every
     # later one, however close it stands to that class's work.
     tasks_by_priority: dict[int, list[_Task]] = {p: [] for p in range(5)}
     for t in tasks:
         tasks_by_priority[t.priority].append(t)
+
+    # The zone crew, chosen ONCE for the turn ahead of the class loop (see
+    # STRAWBERRY_ZONE_CREW for why the knob exists and what each rule below
+    # is for). Picking it per class instead would let a reserved unit drift
+    # back out of the zone the moment some other class held nearer work,
+    # which is the behavior the knob exists to stop.
+    #
+    # Gated on the zone actually having work: with no zone task anywhere on
+    # the board there is nothing to reserve anyone FOR, so the crew is empty
+    # and every unit dispatches normally. That is the outer half of the
+    # fall-back; the inner half is the pass after the class loop, for a unit
+    # the zone ran out of tasks for mid-turn.
+    #
+    # frozenset() at the default, built from an empty slice on any board --
+    # `i in reserved` is then False for every unit, `zone_only` is always
+    # False, and the fall-back pass below never runs.
+    zone_tiles = {t.tile for t in tasks if t.tile in strawberry_tiles}
+    reserved: frozenset[int] = frozenset()
+    if strawberry_zone_crew > 0 and zone_tiles:
+
+        def zone_distance(i: int) -> int:
+            x, y = units[i]
+            return min(abs(x - tx) + abs(y - ty) for tx, ty in zone_tiles)
+
+        # Slot 0 excluded (the farmer is exempt); (distance, slot) orders
+        # nearest-first with an explicit lower-index tie-break; len(fielded)
+        # - 1 keeps one fielded unit general no matter how large the knob is.
+        crew = sorted((i for i in fielded if i > 0), key=lambda i: (zone_distance(i), i))
+        reserved = frozenset(crew[: max(0, min(strawberry_zone_crew, len(fielded) - 1))])
 
     for priority in range(5):
         class_tasks = tasks_by_priority[priority]
@@ -867,6 +976,11 @@ def dispatch(
 
         # Pass 1: a unit already standing on one of this class's task tiles
         # keeps it — never walk a closer unit past work another unit is on.
+        # A zone-reserved unit is the deliberate exception: it leaves even
+        # work underfoot, because "reserved" that lapses whenever a unit
+        # happens to be standing somewhere else is not a reservation, and
+        # Pass 1b would then keep re-granting that tile for the rest of the
+        # game. The cost is one free action, once, on the turn it turns away.
         by_tile = {t.tile: t for t in class_tasks}
         for i, pos in enumerate(units):
             if i not in fielded or i in assigned:
@@ -874,6 +988,8 @@ def dispatch(
             task = by_tile.get(pos)
             if task is not None and pos not in claimed:
                 if task.uses_seed and seed_budgets[task.crop] <= 0:
+                    continue
+                if i in reserved and pos not in strawberry_tiles:
                     continue
                 claim(i, task)
 
@@ -888,6 +1004,8 @@ def dispatch(
             tile = held.get(i)
             if tile is None or tile in claimed:
                 continue
+            if i in reserved and tile not in strawberry_tiles:
+                continue
             task = by_tile.get(tile)
             if task is None:
                 continue
@@ -896,22 +1014,32 @@ def dispatch(
             claim(i, task)
 
         # Pass 2: everyone else still available takes the nearest unclaimed
-        # task in this class.
+        # task in this class — the nearest unclaimed ZONE task, for a
+        # reserved unit, which is where the reservation actually earns its
+        # keep: this is the pass that has been handing the far zone's work
+        # to whichever unit happened to be closer.
         for i, pos in enumerate(units):
             if i not in fielded or i in assigned:
                 continue
-            best: _Task | None = None
-            best_dist = 10**9
-            for candidate in class_tasks:
-                if candidate.tile in claimed:
-                    continue
-                if candidate.uses_seed and seed_budgets[candidate.crop] <= 0:
-                    continue
-                dist = abs(pos[0] - candidate.tile[0]) + abs(pos[1] - candidate.tile[1])
-                if dist < best_dist:
-                    best, best_dist = candidate, dist
+            best = nearest(pos, class_tasks, i in reserved)
             if best is not None:
                 claim(i, best)
+
+    # Fall-back, inner half: a reserved unit the zone ran out of tasks for
+    # rejoins ordinary dispatch instead of standing in a fully-claimed zone
+    # doing nothing. Deliberately LAST, after every other unit has picked,
+    # so the reservation still costs the crew its choice of general work
+    # rather than quietly undoing itself; and still class-major, so a
+    # fallen-back unit takes the most urgent thing it can reach rather than
+    # whatever its own first class happened to offer.
+    if reserved:
+        for priority in range(5):
+            for i in sorted(reserved):
+                if i in assigned:
+                    continue
+                best = nearest(units[i], tasks_by_priority[priority], False)
+                if best is not None:
+                    claim(i, best)
 
     # Bounds on a batched feed fetch. The batch is off by default (see
     # FEED_BATCH_CAP for why it measures worse); these keep the knob safe to

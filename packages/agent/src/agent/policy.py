@@ -37,6 +37,7 @@ from agent.dispatch import (
     STRAWBERRY_PLANT_CUTOFF_DAY,
     STRAWBERRY_PLANT_DAILY_CAP,
     STRAWBERRY_PLANT_PRIORITY,
+    STRAWBERRY_ZONE_CREW,
     WHEAT_PLANT_HOUR_CUTOFF,
     WHEAT_PLANT_PRIORITY,
     dispatch,
@@ -223,6 +224,19 @@ _MAX_ZONE_FALLTHROUGH_MULTIPLIER = 10
 #: against a slot count.
 _MIN_HIRE_SLOT_FLOOR = 0
 _MAX_HIRE_SLOT_FLOOR = 10
+
+#: strawberry_zone_crew: the same reasoning as extra_hands and
+#: land_unlock_hand_burst above -- the engine caps nothing, so this is a
+#: deliberately conservative guard against a runaway CLI override rather
+#: than a modeled limit. 6 is generous headroom over anything the measured
+#: problem asks for: our champion fields 10 hands from day 10 on, so 6
+#: already hands the satellite more of the crew than the wheat/melon core
+#: keeps, and dispatch()'s own clamp (fielded - 1) makes every value above
+#: the fielded count inert anyway. 0 is the floor rather than 1 -- it is
+#: this knob's DEFAULT-NEUTRAL off value and must stay constructible, and
+#: negative has no meaning against a unit count.
+_MIN_STRAWBERRY_ZONE_CREW = 0
+_MAX_STRAWBERRY_ZONE_CREW = 6
 
 #: animal_buy_order: must be a permutation of plan.ANIMAL_BUY_ORDER itself --
 #: checked by sorted-list equality (not a set) so a duplicate (e.g. ("COW",
@@ -473,6 +487,32 @@ class PolicyConfig:
     # COLLECT_FERTILIZER -- real, ongoing competition, not an empty tier.
     # __post_init__ rejects anything outside dispatch's 0-4 priority range.
     strawberry_plant_priority: int = STRAWBERRY_PLANT_PRIORITY
+    # How many fielded HANDS work only tiles inside the strawberry zone --
+    # dispatch()'s own assignment loop, threaded through dispatch() the way
+    # rescue_water below is (no _field_tasks hop: the reservation is about
+    # who may take a task, not about which tasks exist). Defaults to
+    # dispatch.STRAWBERRY_ZONE_CREW.
+    #
+    # This is the knob strawberry_plant_priority above cannot be. A tier
+    # decides which CLASS runs first; inside a class the winner is whoever
+    # stands nearest, on exact Manhattan distance with no pathfinding to
+    # bend it -- so a far zone loses the same race at every tier. Trace
+    # 2026-09-11 (SW-framed zone): 606 PLANT STRAWBERRY tasks generated,
+    # 61 claimed, 3 executed, because there are always 17-27 nearer NW/NE
+    # tasks from hour 2 to 15 and the hour-20 cutoff then deletes the rest.
+    # Re-measured at n=8 (seeds 858100-858107 vs public:sokolovsky-v12),
+    # the cohort arm -- already running strawberry_plant_priority 2 --
+    # stands at NW 9.2 / NE 9.4 / SW 3.2 tiles on day 12 against a 36-tile
+    # target, and SW never moves off 3.2 again for thirteen days.
+    #
+    # 0 is DEFAULT-NEUTRAL: nothing is ever reserved and dispatch() is
+    # bit-identical to what it was before the knob existed. __post_init__
+    # rejects anything outside 0-6 -- see _MAX_STRAWBERRY_ZONE_CREW. See
+    # dispatch.STRAWBERRY_ZONE_CREW for the full mechanism, including the
+    # farmer exemption, the fielded-1 clamp that always leaves a general
+    # unit, and the fall-back to ordinary dispatch when the zone offers a
+    # reserved unit nothing.
+    strawberry_zone_crew: int = STRAWBERRY_ZONE_CREW
     # Share of the cash still uncommitted when the strawberry seed line runs
     # that the line may take (plan.STRAWBERRY_SEED_BUDGET_SHARE). Swept, not
     # assumed: 1.0 recovers the sizing that shipped before the 2026-08-19
@@ -599,6 +639,12 @@ class PolicyConfig:
         _MAX_ZONE_FALLTHROUGH_MULTIPLIER -- checked here for the same "loud
         at construction" reason as every other field above.
 
+        strawberry_zone_crew must land inside 0-6
+        (_MAX_STRAWBERRY_ZONE_CREW), the same kind of conservative guard as
+        extra_hands and land_unlock_hand_burst, with 0 allowed because 0 is
+        its off/default value -- checked here for the same "loud at
+        construction" reason as every other field above.
+
         hire_slot_floor must land inside 0-10 (market.MAX_ORDERS's own
         10-slot cap again, the same ceiling max_hires_per_turn takes), with 0
         allowed because 0 is its off/default value -- checked here for the
@@ -691,6 +737,14 @@ class PolicyConfig:
                 f"zone_fallthrough_multiplier must be within "
                 f"{_MIN_ZONE_FALLTHROUGH_MULTIPLIER}-{_MAX_ZONE_FALLTHROUGH_MULTIPLIER}, "
                 f"got {self.zone_fallthrough_multiplier!r}"
+            )
+
+        if not (
+            _MIN_STRAWBERRY_ZONE_CREW <= self.strawberry_zone_crew <= _MAX_STRAWBERRY_ZONE_CREW
+        ):
+            raise ValueError(
+                f"strawberry_zone_crew must be within {_MIN_STRAWBERRY_ZONE_CREW}-"
+                f"{_MAX_STRAWBERRY_ZONE_CREW}, got {self.strawberry_zone_crew!r}"
             )
 
         if not (_MIN_HIRE_SLOT_FLOOR <= self.hire_slot_floor <= _MAX_HIRE_SLOT_FLOOR):
@@ -1026,6 +1080,7 @@ def make_policy(
             feed_batch_cap=cfg.feed_batch_cap,
             hand_mule_load=cfg.hand_mule_load,
             rescue_water=cfg.rescue_water,
+            strawberry_zone_crew=cfg.strawberry_zone_crew,
         )
         unit_claims.clear()
         unit_claims.update(actions.claims)
