@@ -1868,8 +1868,11 @@ def test_strawberry_plant_cutoff_day_threads_from_policy_config_to_the_hands_act
     seeds, so none of them can be claimed and the PASS below is real.
     """
     unlocked = ("NW",)
-    zone = [t for t in strawberry_tiles(STRAWBERRY_REFERENCE_QUADRANTS, target=6) if t in
-            target_tiles(unlocked)]
+    zone = [
+        t
+        for t in strawberry_tiles(STRAWBERRY_REFERENCE_QUADRANTS, target=6)
+        if t in target_tiles(unlocked)
+    ]
     px, py = zone[-1]  # not (4, 4): raw_obs's farmer would claim the tile first
     assert (px, py) != (4, 4)
 
