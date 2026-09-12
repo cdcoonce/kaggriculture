@@ -227,3 +227,49 @@ unchanged. The registered P(advance) of 25% now looks generous, and the register
 instrument is still the screen rather than one 8-seed draw against one opponent.
 
 The predicted ordering held in the recon: COH_OPEN lands lowest, as registered.
+
+## ADDENDUM — SCREEN VERDICT (2026-09-12): NOT ADVANCED, and the cohort is measured NEGATIVE
+
+Run at BUILD `047420e` (main, `packages/` and `dist/` verified identical to the
+expression-checked tree), engine 1.32.7, band 878000, n = 64 per leader. Nine ledgers, no
+crash and no veto.
+
+| arm | pooled Δ own bank | se | 95% CI | opponent Δ (range) | pooled margin Δ |
+|---|---|---|---|---|---|
+| COH | **−$5,097** | 1,397 | [−$7,834, −$2,359] | −$940 to −$2,245 | −$3,629 |
+| COH_HALF | **−$5,900** | 1,470 | [−$8,782, −$3,019] | −$1,403 to −$2,713 | −$3,972 |
+| COH_OPEN | **−$10,444** | 1,486 | [−$13,357, −$7,532] | **+$10,550 to +$11,662** | −$21,459 |
+
+Every arm fails all three criteria, and every interval lies **wholly below zero**. **NOT
+ADVANCED.** No confirmation or guard ran; bands 879000 and 880000 are retired unused.
+
+**What this settles, which five earlier slices could not.** The cohort is not a failure of
+capability. It fills (20-25 tiles), it survives to day 16, missed-water deaths fall from 14.4
+a game to under 4, and strawberry itself earns **$18-26k a game** — the crop pays. The farm
+still ends **$5-10k poorer**. So the strawberry line closes on price rather than on a
+mechanism bar: at our labor level we cannot afford to grow it, because the trips it consumes
+and the animal products and fertilizer it displaces cost more than its revenue adds. The
+prior closures (`docs/recon/occupancy.md`, the 2026-08-28 and 2026-09-06 registrations) were
+about the satellite form; this one is about the **replacement** form that `occupancy.md`
+itself called untested, and it lands the same way.
+
+**COH_OPEN carries a separate finding worth more than its own verdict.** Playing the leaders'
+full opening — NE on day 6, sheep first, goose deferred — makes *the leaders* about **$11k
+richer per game** (opponent delta +$10,550 to +$11,662, margin delta −$21,459). Withdrawing
+our wheat and milk from the shared market hands them the prices. Imitating a stronger
+opponent's opening is not neutral: in a shared market it can be a transfer to them, and that
+is invisible to any instrument that reads only our own bank.
+
+**Predictions scorecard.**
+- **Wrong on direction.** I registered P(advance) at 25% and the arms came in significantly
+  negative, not marginal. The expression check's own recon had already argued lower and it is
+  recorded above; I should have weighted it harder than the registered number.
+- **Right on ordering, partly:** COH_OPEN was predicted lowest and is, by a wide margin.
+  COH_HALF was predicted highest and came second of three.
+- **Right that the screen would resolve the sign.** Dev-seed recon spanned −$18k to +$20k
+  across two 4-seed sets; at n=64 per leader the answer is unambiguous.
+
+**The scoreboard after seven slices**, pooled own-bank delta against shipped on the leader
+panel: START8_T20 +$2,282, SHEEP1 +$2,051, START10 +$1,873, H10 +$781, EH1 +$340,
+EH2 −$3,545, EH2_H10 −$3,586, **COH −$5,097, COH_HALF −$5,900, COH_OPEN −$10,444**. Nothing
+has reached +$4,000, and the strawberry and leader-tape lines are now closed by measurement.
