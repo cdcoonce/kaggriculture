@@ -1939,12 +1939,29 @@ def test_strawberry_plant_cutoff_day_threads_from_policy_config_to_the_zone_fall
     just moved to day 14 so the window is shut at the default.
     """
     zone = frozenset(target_tiles(("NW", "NE"))[:36])
-    view = make_view(step=14 * 24, unlocked_quadrants=("NW", "NE"))
 
-    shut = PolicyConfig(strawberry_plant_daily_cap=11)
-    assert policy._zone_fallthrough_tiles(view, shut, zone) == 36
+    def _at(day: int, **kwargs: int) -> int:
+        view = make_view(step=day * 24, unlocked_quadrants=("NW", "NE"))
+        config = PolicyConfig(strawberry_plant_daily_cap=11, **kwargs)
+        return policy._zone_fallthrough_tiles(view, config, zone)
 
-    still_open = PolicyConfig(strawberry_plant_daily_cap=11, strawberry_plant_cutoff_day=16)
-    assert policy._zone_fallthrough_tiles(view, still_open, zone) == 14, (
+    # This site's own day boundary, pinned at the default and at a shifted
+    # value. It is `view.day > cutoff`, the exact complement of the plant
+    # gate's `view.day <= cutoff`: on the cutoff day itself strawberry is
+    # still planting, so the two-day seed horizon is still held back, and only
+    # the day after does wheat get the whole zone. A `>=` here would hand the
+    # zone over one day early -- wheat buying seed for ground the dispatcher
+    # is still planting strawberry into, which is the double-count
+    # _zone_fallthrough_tiles' disjointness argument exists to prevent -- and
+    # nothing else in the suite can see that one-day slip.
+    assert _at(12) == 14  # 36 idle tiles - 2 * 11, the pinned formula above
+    assert _at(13) == 36
+    assert _at(16, strawberry_plant_cutoff_day=16) == 14
+    assert _at(17, strawberry_plant_cutoff_day=16) == 36
+
+    # And the threading itself: day 14 is past the default and inside a
+    # cutoff of 16, so the two configs must disagree.
+    assert _at(14) == 36
+    assert _at(14, strawberry_plant_cutoff_day=16) == 14, (
         "the fall-through read the module constant instead of the config's own cutoff"
     )
