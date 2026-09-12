@@ -153,6 +153,94 @@ HANDS_PER_TILES = 8  # roughly one hand per eight target tiles
 # the_market_order_cap_are_dropped_not_deferred (10 requested, 3 land).
 MAX_HIRES_PER_TURN = 4
 HUSBANDRY_HAND_THRESHOLD = 8  # placed animals at which chore load earns a dedicated extra hand
+# LAND_UNLOCK_HAND_BURST (PolicyConfig.land_unlock_hand_burst): a ONE-TURN
+# add-on to hands_target, applied only on a call that is submitting a
+# ["BUY_LAND"] order -- the turn the workable board grows. Added in the same
+# place extra_hands is, AFTER the max(HANDS_MIN, ...) floor and the husbandry
+# bonus, so the floor can never swallow it. There was never an implicit burst
+# term before this knob existed, so 0 is DEFAULT-NEUTRAL: the added term is
+# literally zero on every turn and every existing game is bit-for-bit
+# unchanged. Single source of truth for PolicyConfig.land_unlock_hand_burst's
+# own default (threaded policy.py -> plan_day(), the same pattern
+# NE_LAND_MIN_DAY and MAX_HIRES_PER_TURN above use), so the knob's
+# default can never drift out of sync with what this module does when the
+# knob is left alone.
+#
+# Diagnosis (eval/recon/2026-09-11-leader-opening-tape-855000.md: instrumented
+# play of the three public leaders, 8 seeds, zero seed-SD on the hands column
+# through day 15). Their hand count tracks NEWLY-UNLOCKED LAND, not a fixed
+# headcount: 0-4 through day 6, 7 the day after NE unlocks (day 7), and 14 the
+# SAME day SW unlocks (day 10), then oscillating 8-14. Our champion runs
+# 6,5,6,6,6,7,7,7,7,8 and then flat 10 from day 10 onward. So the gap is one
+# day wide and four hands deep, and it lands on the day the board roughly
+# doubles -- and only there: by days 13-15 the leaders are back at 8/9/9,
+# BELOW our flat 10, which is why this is a burst knob and not a higher
+# standing target.
+#
+# Why a one-day burst is cheap. Hands are DAILY rentals -- the engine's
+# _end_of_day sets farm["hands"] = [] and farm["hires_today"] = 0 -- and the
+# hire price is Fibonacci in the count already hired THAT DAY
+# (_hire_cost(n_already_today) = farmHandCostMult * fib(n), fib indexed
+# 1,1,2,3,5,...; the multiplier is 1 in every recorded config). The per-hire
+# ladder therefore runs 1,1,2,3,5,8,13,21,34,55,89,144,233,377: reaching 10
+# hands in a day costs $143 cumulative and reaching 14 costs $986, so the
+# leaders' extra four hands are about $843 -- paid once, on one day, and not
+# carried into any other day.
+#
+# This is NOT extra_hands. That knob raises the target EVERY day for the rest
+# of the game and is measured: +1 landed at +$340 and +2 at -$3,545 (pooled,
+# eval/prereg/2026-09-11-labor-slice2-extra-hands.md, NOT ADVANCED). Those
+# numbers price a permanent standing crew charge on a board whose size did
+# not change, and say nothing about a single turn on the day it doubles.
+#
+# Fires on ANY quadrant's purchase, deliberately. The mechanism is "the board
+# just grew", which is quadrant-agnostic, and all three BUY_LAND branches
+# (NE, SW, and the SE rung reachable only at max_owned_quadrants=4) grow it
+# by the same 24 tiles. Scoping it to SW alone -- where the measured gap
+# actually is -- would make the knob inert under exactly the arms it will be
+# run with: those set ne_land_min_day to 6, which moves NE to the day the
+# leaders' FIRST hand jump happens. The cost of the wider trigger is bounded
+# and worth stating: at the shipped ne_land_min_day of 0, NE is bought on
+# turn 0 of day 0 on the 24-tile board, where the base target is 3 and
+# hires_today is 0, so any burst >= 1 yields min(3 + burst, 4) = 4 instead of
+# 3 -- exactly one extra hand, costing fib(3) = $3. An arm that wants the SW
+# burst clean should pair this with ne_land_min_day anyway.
+#
+# What one turn can actually deliver -- READ THIS BEFORE SIZING AN ARM.
+# hire_count = min(max(0, hands_target - hires_today), max_hires_per_turn),
+# and decide() runs once per hour (24 turns a day) against a crew the engine
+# rebuilds from zero every morning. Two things eat the burst:
+#
+#   1. It fires on the turn the order is SUBMITTED, when active_tiles still
+#      describes the OLD board. The quadrant unlocks within that same turn,
+#      so by the next turn the base target has already climbed by roughly
+#      24 / HANDS_PER_TILES = 3 on its own. Only the part of the burst above
+#      that climb is new crew; the rest merely arrives a turn or two earlier
+#      than it would have anyway.
+#   2. The clamp bounds the one turn to max_hires_per_turn (4 by default),
+#      and the raised target is GONE by the next turn, so whatever the clamp
+#      refused is never asked for again.
+#
+# Measured (recon only, NOT a gate -- n=2 seeds, 855000-855001 vs
+# public:sokolovsky-v12, champion against champion+land_unlock_hand_burst=4,
+# tracing the real plan_day calls): the SW order lands on turn 1-2 of its
+# day with hires_today at 4-7 against a pre-unlock base target of 7. The
+# burst turn does fire -- 4 hires where the shipped arm asked for 0 -- but
+# the day's PEAK crew is 10 in BOTH arms, because the post-unlock base
+# target of 10 pulls the shipped arm to the same headcount a turn or two
+# later. So at the default cap this knob buys TIMING, not headcount. An arm
+# that wants to actually reach the leaders' 14 has to raise
+# max_hires_per_turn alongside it and set this near the top of its range;
+# anything less measures a one-turn head start and nothing more.
+#
+# Known limitation, deliberately not modeled here: the hire is paid out of
+# ENGINE cash at execution, not out of plan_day's `budget`, and _do_hire
+# silently returns when farm["money"] < cost. A burst asked for on a
+# cash-poor turn is therefore a silent partial no-op in the game -- some
+# rungs of the ladder fill and the rest vanish with no signal. plan_day
+# cannot see engine cash at hire time and stays pure rather than guessing at
+# it, so what this knob guarantees is the PLAN, not the fill.
+LAND_UNLOCK_HAND_BURST = 0
 
 # Animal breakeven purchase windows (engine-verified): cow $400, first yield
 # day 8 after PLACE, every 2 days; sheep $500, first yield day 6, every 3
@@ -242,6 +330,7 @@ def plan_day(
     animal_buy_order: tuple[str, ...] = ANIMAL_BUY_ORDER,
     max_hires_per_turn: int = MAX_HIRES_PER_TURN,
     extra_hands: int = 0,
+    land_unlock_hand_burst: int = LAND_UNLOCK_HAND_BURST,
 ) -> DayPlan:
     buys: list[list[object]] = []
     budget = money
@@ -391,9 +480,18 @@ def plan_day(
             buys.append(["BUY_LAND"])
             budget -= price
 
+    # Every BUY_LAND branch above (NE, SW, and the SE rung) has already run,
+    # so `buys` is the complete record of whether THIS call is unlocking a
+    # quadrant -- no cross-turn state needed. Same `any(b[0] == ...)` idiom
+    # the feed trigger above uses. At most one BUY_LAND can be present:
+    # _next_quadrant returns a single quadrant, so the three branches are
+    # mutually exclusive within one call.
+    buying_land = any(b[0] == "BUY_LAND" for b in buys)
     husbandry_hand = 1 if animals_placed >= HUSBANDRY_HAND_THRESHOLD else 0
     hands_target = (
-        max(HANDS_MIN, round(active_tiles / HANDS_PER_TILES) + husbandry_hand) + extra_hands
+        max(HANDS_MIN, round(active_tiles / HANDS_PER_TILES) + husbandry_hand)
+        + extra_hands
+        + (land_unlock_hand_burst if buying_land else 0)
     )
     hire_count = min(max(0, hands_target - hires_today), max_hires_per_turn)
 

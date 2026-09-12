@@ -55,6 +55,7 @@ from agent.plan import (
     ANIMAL_BUY_ORDER,
     FEED_RESERVE,
     GOOSE_MIN_DAY,
+    LAND_UNLOCK_HAND_BURST,
     MAX_HIRES_PER_TURN,
     NE_LAND_MIN_DAY,
     STRAWBERRY_SEED_BUDGET_SHARE,
@@ -179,6 +180,16 @@ _MAX_PLANT_HOUR_CUTOFF = 23
 #: upper bound, just without a hard mechanical ceiling to derive it from.
 _MIN_EXTRA_HANDS = 0
 _MAX_EXTRA_HANDS = 5
+
+#: land_unlock_hand_burst: the same reasoning as extra_hands just above --
+#: the engine caps nothing (only the rising Fibonacci hire cost within a
+#: day), so this is a deliberately conservative guard against a runaway CLI
+#: override rather than a modeled market limit. 8 is double the four-hand gap
+#: measured against the leaders on the SW-unlock day (14 of theirs against
+#: our 10) and is already past what a single turn can express anyway:
+#: plan_day clamps hire_count to max_hires_per_turn, whose own ceiling is 10.
+_MIN_LAND_UNLOCK_HAND_BURST = 0
+_MAX_LAND_UNLOCK_HAND_BURST = 8
 
 #: ne_land_min_day: the valid range of view.day across the 30-day game (see
 #: plan.LAND_LAST_BUY_DAY["NE"] == 24 for the corresponding *latest* day --
@@ -365,6 +376,35 @@ class PolicyConfig:
     # __post_init__ rejects anything outside 0-5 -- see _MAX_EXTRA_HANDS.
     extra_hands: int = 0
 
+    # A ONE-TURN crew burst on the turn plan_day submits a ["BUY_LAND"]
+    # order -- added to hands_target for that call only, on top of
+    # extra_hands and after the same HANDS_MIN floor, then clamped by
+    # max_hires_per_turn like any other hire request. Threaded through
+    # plan_day() the way every other planner knob is. Unlike extra_hands
+    # above (a flat all-game add-on that measured -$3,545 at +2), this raises
+    # the target on a single turn and then lets it fall straight back --
+    # hands are DAILY rentals, so the hands it does add persist only until
+    # the engine's _end_of_day empties farm["hands"].
+    #
+    # Diagnosis (eval/recon/2026-09-11-leader-opening-tape-855000.md, 8
+    # seeds, zero seed-SD on hands through day 15): the leaders' hand count
+    # tracks newly-unlocked land rather than a fixed headcount -- 0-4 through
+    # day 6, 7 the day after NE unlocks, and 14 the SAME day SW unlocks (day
+    # 10), then oscillating 8-14. Our champion runs 6,5,6,6,6,7,7,7,7,8 and
+    # then flat 10 from day 10 on, so the gap is one day wide and four hands
+    # deep, on the day the workable board roughly doubles. DEFAULT-NEUTRAL:
+    # 0 has no prior hardcoded behavior to reproduce (there was never an
+    # implicit burst term), so hands_target and every action are bit-for-bit
+    # unchanged at the default. __post_init__ rejects anything outside 0-8 --
+    # see _MAX_LAND_UNLOCK_HAND_BURST.
+    #
+    # Before sizing an eval arm, read LAND_UNLOCK_HAND_BURST's own comment in
+    # plan.py: at the default max_hires_per_turn of 4 this knob measures as
+    # TIMING rather than headcount (the day's peak crew came out identical
+    # with and without a burst of 4), so an arm that wants the leaders' 14
+    # hands has to raise max_hires_per_turn alongside it.
+    land_unlock_hand_burst: int = LAND_UNLOCK_HAND_BURST
+
     # Feed logistics. Both default to today's behavior. Raising
     # feed_batch_cap measures WORSE (PICKUP +56% for flat FEED); the cause is
     # that the batch drains the shed into unit inventories and doubles the
@@ -543,6 +583,10 @@ class PolicyConfig:
         conservative guard against a runaway CLI override, checked here for
         the same "loud at construction" reason as every other field above.
 
+        land_unlock_hand_burst must land inside 0-8
+        (_MAX_LAND_UNLOCK_HAND_BURST), the same kind of conservative guard
+        for the same reason.
+
         ne_land_min_day must land inside 0-29 (the valid range of view.day),
         checked here for the same "loud at construction" reason as every
         other field above.
@@ -614,6 +658,16 @@ class PolicyConfig:
             raise ValueError(
                 f"extra_hands must be within {_MIN_EXTRA_HANDS}-{_MAX_EXTRA_HANDS}, "
                 f"got {self.extra_hands!r}"
+            )
+
+        if not (
+            _MIN_LAND_UNLOCK_HAND_BURST
+            <= self.land_unlock_hand_burst
+            <= _MAX_LAND_UNLOCK_HAND_BURST
+        ):
+            raise ValueError(
+                f"land_unlock_hand_burst must be within {_MIN_LAND_UNLOCK_HAND_BURST}-"
+                f"{_MAX_LAND_UNLOCK_HAND_BURST}, got {self.land_unlock_hand_burst!r}"
             )
 
         if not (_MIN_NE_LAND_MIN_DAY <= self.ne_land_min_day <= _MAX_NE_LAND_MIN_DAY):
@@ -956,6 +1010,7 @@ def make_policy(
             animal_buy_order=cfg.animal_buy_order,
             max_hires_per_turn=cfg.max_hires_per_turn,
             extra_hands=cfg.extra_hands,
+            land_unlock_hand_burst=cfg.land_unlock_hand_burst,
         )
         actions = dispatch(
             view,
