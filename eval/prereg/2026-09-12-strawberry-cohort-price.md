@@ -194,3 +194,36 @@ M3b, and that remains an owner decision.
   the expression check runs on its own fresh seeds. Criterion 1's threshold was chosen with
   knowledge of the arms' measured fill on other seeds, and that is disclosed above rather
   than presented as independent.
+
+## ADDENDUM — EXPRESSION CHECK (2026-09-12): all three arms pass
+
+Run on `047420e`, engine 1.32.7, seeds 856000-856007 against
+`public:sokolovsky-v12` — the fresh seeds this document registered, not the set whose
+numbers set criterion 1's threshold. The weed scan left none of its births unexplained.
+Records: `eval/recon/2026-09-12-strawberry-cohort-expression-{ledger,weeds,flows,check}-856000.json`.
+
+| arm | standing d12 | standing d16 | missed-water deaths | WHEAT | STRAWBERRY | W+S | recon bank |
+|---|---|---|---|---|---|---|---|
+| shipped | 0.0 | 0.0 | 14.4 | 18,712 | 0 | 18,712 | 72,182 |
+| COH | 22.4 | 22.2 | 1.8 | 6,239 | 18,204 | 24,443 (+30.6%) | 66,460 |
+| COH_HALF | 20.6 | 20.4 | 3.1 | 6,338 | 19,323 | 25,661 (+37.1%) | 65,908 |
+| COH_OPEN | 25.1 | 24.9 | 2.5 | 3,464 | 26,159 | 29,624 (+58.3%) | 58,897 |
+
+All three clear every criterion: **C1** (20.4-24.9 tiles standing on day 16, against a bar of
+20, and each above 0.9 × its own day-12 count), **C2** (1.8-3.1 missed-water deaths a game
+against a 21.6 bar — shipped itself loses 14.4), and **C3** (combined wheat-plus-strawberry
+settled revenue up 30.6% to 58.3% against a +10% bar). **All three go to the screen at band
+878000.**
+
+**What the recon says, and why it is not the verdict.** The recon bank — one leader, one
+shared baseline, n=8, explicitly not gating — runs **−$5.7k (COH), −$6.3k (COH_HALF) and
+−$13.3k (COH_OPEN)** against shipped, even as combined wheat-plus-strawberry revenue rises
+$5.7-10.9k. The mechanism does exactly what the hypothesis claims and the bank still falls,
+which locates the cost **outside the two items C3 measures**: strawberry seed spend, and
+whatever the arms surrender in animal products and fertilizer. C3 was scoped on purpose to
+the items the mechanism trades between, so that a per-item wheat guardrail could not veto the
+slice by construction; the screen's own-bank rule is what prices the whole farm, and it is
+unchanged. The registered P(advance) of 25% now looks generous, and the registered
+instrument is still the screen rather than one 8-seed draw against one opponent.
+
+The predicted ordering held in the recon: COH_OPEN lands lowest, as registered.
