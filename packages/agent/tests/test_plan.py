@@ -1388,6 +1388,28 @@ def test_strawberry_seed_buy_stops_after_the_last_fully_productive_planting_day(
     assert _sb_buy(_sb_plan(day=13, empty_strawberry_tiles=30)) is None
 
 
+def test_strawberry_seed_line_cutoff_day_is_tunable_not_just_the_module_constant() -> None:
+    # The SAME threading trap test_dispatch.py names explicitly, on the other
+    # site that reads STRAWBERRY_PLANT_CUTOFF_DAY: this seed line. A cutoff
+    # threaded to the dispatcher's plant gate but left on the module constant
+    # here would open the planting window onto an empty shed, and the eval arm
+    # would measure a seed shortage rather than a longer window.
+    #
+    # Money and the daily cap are pinned exactly as
+    # test_strawberry_seed_buy_holds_two_days_of_the_planting_stagger above, so
+    # the quantity is the stagger's own 2 * 6 and neither the budget share nor
+    # the empty-zone bound is what decides it.
+    sized = {"money": 100_000.0, "empty_strawberry_tiles": 30, "strawberry_plant_daily_cap": 6}
+
+    assert _sb_buy(_sb_plan(day=12, **sized)) == ["BUY_SEED", "STRAWBERRY", 12]
+    assert _sb_buy(_sb_plan(day=14, **sized)) is None
+
+    extended = _sb_buy(_sb_plan(day=14, strawberry_plant_cutoff_day=16, **sized))
+    assert extended == ["BUY_SEED", "STRAWBERRY", 12], (
+        f"the seed line ignored strawberry_plant_cutoff_day=16 on day 14 (got {extended})"
+    )
+
+
 def test_strawberry_never_outbids_the_animal_pipeline() -> None:
     # Deliberate ordering: the animal pipeline is measured and shipped, and
     # replay evidence puts 40-69% of the strongest opponents' revenue in

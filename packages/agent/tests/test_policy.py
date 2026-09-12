@@ -1812,3 +1812,139 @@ def test_hire_slot_floor_threads_from_policy_config_to_the_market_list() -> None
     assert floored_market.count(["HIRE"]) == 4  # all four survive; a trailing buy pays for it
     assert ["BUY_PRODUCT", "WHEAT", 1] in default_market
     assert ["BUY_PRODUCT", "WHEAT", 1] not in floored_market
+
+
+# --- strawberry_plant_cutoff_day: the last day a fresh strawberry planting is
+# allowed anywhere in the chassis (kaggriculture, 2026-09-12) -----------------
+#
+# DEFAULT-NEUTRAL at dispatch.STRAWBERRY_PLANT_CUTOFF_DAY (12). The constant
+# is read at THREE sites -- dispatch.py's plant gate, plan.py's strawberry seed
+# line, and policy.py's own _zone_fallthrough_tiles -- and a knob that reached
+# only some of them would be worse than no knob at all, so each site gets its
+# own threading test below. See dispatch.py's constant for the measured SW /
+# cutoff collision (SW bought day 11-12, its standing strawberry frozen at 3.2
+# tiles for thirteen days) that the knob exists to price.
+
+
+def test_strawberry_plant_cutoff_day_default_pins_todays_behavior() -> None:
+    # Compared against dispatch's OWN constant, the same pattern
+    # test_goose_min_day_default_pins_todays_behavior above uses, so an edit to
+    # STRAWBERRY_PLANT_CUTOFF_DAY can never drift silently out of sync with
+    # this default.
+    config = PolicyConfig()
+    assert config.strawberry_plant_cutoff_day == 12
+    assert config.strawberry_plant_cutoff_day == dispatch.STRAWBERRY_PLANT_CUTOFF_DAY
+
+
+def test_strawberry_plant_cutoff_day_rejects_out_of_range_values() -> None:
+    # 0-29: the valid range of view.day across the 30-day game -- the same
+    # bound and "loud at construction" reasoning ne_land_min_day and
+    # goose_min_day use above.
+    with pytest.raises(ValueError, match="strawberry_plant_cutoff_day"):
+        PolicyConfig(strawberry_plant_cutoff_day=-1)
+    with pytest.raises(ValueError, match="strawberry_plant_cutoff_day"):
+        PolicyConfig(strawberry_plant_cutoff_day=30)
+
+    # Both ends of the range stay constructible: 0 shuts the window after day
+    # 0, 29 leaves it open for the whole game, and a bound that rejected
+    # either would make half the sweep unrunnable.
+    assert PolicyConfig(strawberry_plant_cutoff_day=0).strawberry_plant_cutoff_day == 0
+    assert PolicyConfig(strawberry_plant_cutoff_day=29).strawberry_plant_cutoff_day == 29
+
+
+def test_strawberry_plant_cutoff_day_threads_from_policy_config_to_the_hands_action() -> None:
+    """Site 1 of 3: dispatch.py's plant gate.
+
+    The knob has to reach the emitted hand actions through decide()'s own
+    dispatch() call, not just dispatch() in isolation (test_dispatch.py covers
+    the mechanism itself) -- mirrors
+    test_rescue_water_threads_from_policy_config_to_the_hands_action below.
+
+    cow/sheep/melon targets zeroed for the same reason that test zeroes them:
+    at their real defaults most of target_tiles(("NW",)) falls inside the
+    melon/pasture zone, and an empty pasture tile emits an unconditional
+    BUILD_PASTURE that would pull the hand off the tile under test. The board's
+    other empty tiles do generate PLANT WHEAT tasks, but raw_obs holds 0 WHEAT
+    seeds, so none of them can be claimed and the PASS below is real.
+    """
+    unlocked = ("NW",)
+    zone = [t for t in strawberry_tiles(STRAWBERRY_REFERENCE_QUADRANTS, target=6) if t in
+            target_tiles(unlocked)]
+    px, py = zone[-1]  # not (4, 4): raw_obs's farmer would claim the tile first
+    assert (px, py) != (4, 4)
+
+    obs = raw_obs(step=14 * 24, money=3000.0, unlocked_quadrants=unlocked)
+    obs["farms"][0]["hands"] = [[px, py]]
+    obs["private"]["inventories"] = [{}, {}]
+    obs["private"]["seeds"] = {"WHEAT": 0, "STRAWBERRY": 5}
+    isolated: dict[str, Any] = {
+        "cow_target": 0,
+        "sheep_target": 0,
+        "melon_tile_target": 0,
+        "strawberry_tile_target": 6,
+    }
+
+    default_action = make_policy(policy_config=PolicyConfig(**isolated))(obs, None)
+    assert default_action["hands"][0] == ["PASS"]
+
+    extended_action = make_policy(
+        policy_config=PolicyConfig(**isolated, strawberry_plant_cutoff_day=16)
+    )(obs, None)
+    assert extended_action["hands"][0] == ["PLANT", "STRAWBERRY"]
+
+
+def test_strawberry_plant_cutoff_day_threads_from_policy_config_to_the_seed_line() -> None:
+    """Site 2 of 3: plan.py's strawberry seed line -- the site with the
+    documented failure mode.
+
+    strawberry_plant_daily_cap once reached PolicyConfig and stopped at exactly
+    this line while _field_tasks read the module constant, and the screen
+    registered against it measured nothing. A cutoff threaded to the dispatcher
+    but not here would open the planting window onto an empty shed, so the arm
+    would price a seed shortage instead of a longer window.
+    """
+    obs = raw_obs(step=14 * 24, money=10_000.0, unlocked_quadrants=("NW", "NE"))
+    zone_kwargs: dict[str, Any] = {
+        "strawberry_tile_target": 6,
+        "melon_tile_target": 0,
+        "cow_target": 0,
+        "sheep_target": 0,
+    }
+
+    def _sb_seed(market: list[list[Any]]) -> list[Any] | None:
+        return next((o for o in market if o[:2] == ["BUY_SEED", "STRAWBERRY"]), None)
+
+    default_market = make_policy(policy_config=PolicyConfig(**zone_kwargs))(obs, None)["market"]
+    assert _sb_seed(default_market) is None
+
+    extended_market = make_policy(
+        policy_config=PolicyConfig(**zone_kwargs, strawberry_plant_cutoff_day=16)
+    )(obs, None)["market"]
+    assert _sb_seed(extended_market) is not None, (
+        "the seed line ignored strawberry_plant_cutoff_day and stopped buying on day 14"
+    )
+
+
+def test_strawberry_plant_cutoff_day_threads_from_policy_config_to_the_zone_fallthrough() -> None:
+    """Site 3 of 3: policy.py's own _zone_fallthrough_tiles, which hands wheat
+    the WHOLE empty zone the moment the window shuts.
+
+    Left on the module constant it would keep sizing wheat's seed line against
+    ground an extended strawberry window is still planting -- both lines buying
+    for the same squares, which is precisely the double-count the disjointness
+    argument in _zone_fallthrough_tiles' docstring exists to prevent.
+
+    Same 36-tile zone and cap 11 as
+    test_zone_fallthrough_tiles_formula_is_pinned_at_todays_multiplier above,
+    just moved to day 14 so the window is shut at the default.
+    """
+    zone = frozenset(target_tiles(("NW", "NE"))[:36])
+    view = make_view(step=14 * 24, unlocked_quadrants=("NW", "NE"))
+
+    shut = PolicyConfig(strawberry_plant_daily_cap=11)
+    assert policy._zone_fallthrough_tiles(view, shut, zone) == 36
+
+    still_open = PolicyConfig(strawberry_plant_daily_cap=11, strawberry_plant_cutoff_day=16)
+    assert policy._zone_fallthrough_tiles(view, still_open, zone) == 14, (
+        "the fall-through read the module constant instead of the config's own cutoff"
+    )
