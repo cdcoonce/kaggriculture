@@ -224,32 +224,57 @@ VALVE_SOFT_CAP = 10
 # itself: if the sells alone leave fewer than this many slots, the hires
 # that do not fit are dropped exactly as they are today.
 #
-# Raising it is not free even when nothing truncates. The engine spends each
-# order in list position, so a promoted HIRE draws its (Fibonacci-rising)
-# wage before a BUY_LAND or an animal buy behind it -- on a turn where cash
-# is the binding constraint, the purchase is what fails instead. That
-# trade-off is the knob's whole point; it is only a trade at a floor above 0.
+# BUY_LAND is the one buy a promotion may never displace, and it is hoisted
+# ahead of the promoted hires rather than merely left behind them. The engine
+# spends orders in LIST POSITION and both _do_hire and _do_buy_land silently
+# return when farm["money"] < cost -- no error, no retry, the order is simply
+# consumed and nothing happens. Hire cost is Fibonacci in the count already
+# hired that day (_hire_cost(n) = mult * fib(n): 1,1,2,3,5,8,13,21,34,55,89,
+# 144,233,377), so four promoted hires draw roughly 89+144+233+377 = $843
+# before a BUY_LAND behind them.
+#
+# Measured on the SW-unlock day (eval/recon 2026-09-11 leader opening tape):
+# plan_day only guarantees budget >= LAND_PRICES["SW"] (2000) + LAND_RESERVE
+# (500) = $2,500 when it decides to buy, and we hold about $2,520 that day.
+# Draw $843 of wages first and the purchase faces ~$1,657 against a $2,000
+# price -- it fails in silence. A lost hire is cheap and self-heals next turn;
+# a lost or delayed SW purchase is the strategic event of the mid-game, since
+# it is what roughly doubles the board. So land keeps ABSOLUTE priority, which
+# is what policy.decide's "Buys first, hires last ... rather than a purchase"
+# was already protecting. Every OTHER buy (animals, seeds, feed) stays
+# displaceable -- that is the trade the knob exists to make, and it still only
+# exists above the default.
 HIRE_SLOT_FLOOR = 0
 
 
 def _hire_first_buys(buys: list[list[object]], hire_slot_floor: int) -> list[list[object]]:
-    """Up to ``hire_slot_floor`` HIRE orders, then the rest of ``buys`` in order.
+    """Land, then up to ``hire_slot_floor`` HIRE orders, then the rest in order.
 
     A permutation of ``buys``, never a rewrite: nothing is added, dropped or
     duplicated to fill the floor, and the caller's own list is left alone
     (policy.decide reads the emitted orders back for MelonMarketMemory
     attribution). At the default the list is returned untouched.
+
+    BUY_LAND is hoisted ahead of every promoted hire and is never displaced by
+    one -- the engine spends orders in list position and a hire that drew its
+    wage first can leave the purchase short, where it fails in silence. Every
+    other buy stays displaceable; see ``HIRE_SLOT_FLOOR``. Matched on the verb
+    at index 0 rather than an exact literal, so a land order that later carries
+    an argument does not quietly fall back into the displaceable pile.
     """
     if hire_slot_floor <= 0:
         return buys
+    land: list[list[object]] = []
     promoted: list[list[object]] = []
     rest: list[list[object]] = []
     for order in buys:
-        if order == ["HIRE"] and len(promoted) < hire_slot_floor:
+        if order[:1] == ["BUY_LAND"]:
+            land.append(order)
+        elif order == ["HIRE"] and len(promoted) < hire_slot_floor:
             promoted.append(order)
         else:
             rest.append(order)
-    return promoted + rest
+    return land + promoted + rest
 
 
 def _capped_sell(item: str, shed: Mapping[str, int], cap: int, liquidating: bool) -> list[object]:
@@ -359,9 +384,11 @@ def build_orders(
     ProductCrashLatch`` instances -- see the module docstring's M2c section.
 
     ``hire_slot_floor`` reorders the BUY half only, promoting up to that many
-    HIRE orders ahead of the other buys so the 10-slot truncation lands on a
-    purchase instead. Sells are untouched at every value, and 0 (the default)
-    promotes nothing -- see ``HIRE_SLOT_FLOOR``.
+    HIRE orders ahead of the other buys so the 10-slot truncation lands on one
+    of those instead. BUY_LAND is exempt and leads the buy half outright -- it
+    is never displaced by a promoted hire, nor left behind one to be starved of
+    cash. Sells are untouched at every value, and 0 (the default) promotes
+    nothing -- see ``HIRE_SLOT_FLOOR``.
     """
     orders: list[list[object]] = []
     liquidating = day >= final_day

@@ -1077,9 +1077,9 @@ def test_hire_slot_floor_rescues_hires_the_ten_slot_cap_would_have_dropped() -> 
     # The land-unlock turn: 7 sells + 4 buys + 2 hires = 13 orders for 10
     # slots. At the default the trailing hires are exactly what the engine
     # never sees -- three buys survive and the crew does not grow this turn.
-    # At floor 2 the same two hires move ahead of the buys (still behind
-    # every sell), so the two buys that used to occupy slots 8-9 are the ones
-    # displaced instead.
+    # At floor 2 the same two hires move ahead of the OTHER buys (still behind
+    # every sell, and still behind the land purchase, which is exempt), so the
+    # two animal buys that used to occupy slots 9-10 are the ones displaced.
     buys = [*_LAND_UNLOCK_BUYS, ["HIRE"], ["HIRE"]]
 
     shipped = _busy_orders(buys)
@@ -1087,7 +1087,7 @@ def test_hire_slot_floor_rescues_hires_the_ten_slot_cap_would_have_dropped() -> 
     assert shipped.count(["HIRE"]) == 0
 
     floored = _busy_orders(buys, hire_slot_floor=2)
-    assert floored == [*_BUSY_SELLS, ["HIRE"], ["HIRE"], ["BUY_LAND", "SW"]]
+    assert floored == [*_BUSY_SELLS, ["BUY_LAND", "SW"], ["HIRE"], ["HIRE"]]
     assert floored.count(["HIRE"]) == 2
     displaced = [order for order in shipped if order not in floored]
     assert displaced == [["BUY", "COW"], ["BUY", "SHEEP"]]
@@ -1127,16 +1127,17 @@ def test_hire_slot_floor_above_the_hires_requested_promotes_only_what_exists() -
 
 def test_hire_slot_floor_cannot_win_a_slot_the_sells_already_took() -> None:
     # The floor is a claim on the buy half of the list, not on the cap: the
-    # seven sells leave three slots, so a floor of 10 against four requested
-    # hires still lands three and the fourth is dropped exactly as before --
-    # no IndexError, no list longer than the cap, no sell evicted to make
-    # room. The shortfall self-heals next turn (plan_day recomputes
-    # hands_target - hires_today fresh every turn).
+    # seven sells leave three slots, the exempt land purchase takes the first,
+    # so a floor of 10 against four requested hires lands two and the other
+    # two are dropped exactly as before -- no IndexError, no list longer than
+    # the cap, no sell evicted and no purchase starved to make room. The
+    # shortfall self-heals next turn (plan_day recomputes hands_target -
+    # hires_today fresh every turn); a dropped land purchase would not.
     buys = [*_LAND_UNLOCK_BUYS, ["HIRE"], ["HIRE"], ["HIRE"], ["HIRE"]]
     orders = _busy_orders(buys, hire_slot_floor=10)
-    assert orders == [*_BUSY_SELLS, ["HIRE"], ["HIRE"], ["HIRE"]]
+    assert orders == [*_BUSY_SELLS, ["BUY_LAND", "SW"], ["HIRE"], ["HIRE"]]
     assert len(orders) == MAX_ORDERS
-    assert orders.count(["HIRE"]) == 3
+    assert orders.count(["HIRE"]) == 2
 
 
 def test_hire_slot_floor_never_emits_more_orders_than_the_cap() -> None:
@@ -1145,12 +1146,16 @@ def test_hire_slot_floor_never_emits_more_orders_than_the_cap() -> None:
     # the same multiset of orders the caller handed over, never an invented
     # one (promotion reorders ``buys``, it does not duplicate an entry to
     # fill a floor).
+    # _LAND_UNLOCK_BUYS leads with a BUY_LAND, which is exempt from
+    # displacement and takes the first of the three surviving buy slots, so
+    # the promotable ceiling is two rather than three.
     buys = [*_LAND_UNLOCK_BUYS, *([["HIRE"]] * 6)]
+    promotable = MAX_ORDERS - len(_BUSY_SELLS) - 1
     for floor in range(MAX_ORDERS + 1):
         orders = _busy_orders(buys, hire_slot_floor=floor)
         assert len(orders) == MAX_ORDERS
         assert all(order in [*_BUSY_SELLS, *buys] for order in orders)
-        assert orders.count(["HIRE"]) == min(floor, MAX_ORDERS - len(_BUSY_SELLS))
+        assert orders.count(["HIRE"]) == min(floor, promotable)
 
 
 def test_hire_slot_floor_does_not_mutate_the_callers_buy_list() -> None:
@@ -1239,3 +1244,181 @@ def test_hire_slot_floor_default_reproduces_the_shipped_order_list_across_a_matr
 
     assert truncating > 0, "matrix never exercised the truncating regime"
     assert fitting > 0, "matrix never exercised the non-truncating regime"
+
+
+# --- hire_slot_floor: a land purchase is never what gets displaced -----------
+#
+# The engine spends orders in LIST POSITION and both _do_hire and _do_buy_land
+# silently return when farm["money"] < cost -- no error, no retry, the order is
+# simply consumed and nothing happens. Hire cost is Fibonacci in the count
+# already hired that day, so four promoted hires on the SW-unlock day draw
+# roughly 89 + 144 + 233 + 377 = $843 before the BUY_LAND behind them. plan_day
+# only guarantees budget >= LAND_PRICES["SW"] (2000) + LAND_RESERVE (500) =
+# $2,500 when it decides to buy, and we hold about $2,520 on that day, so the
+# land purchase is left facing ~$1,657 against a $2,000 price and fails in
+# silence.
+#
+# A lost hire is cheap and self-heals next turn. A lost SW purchase is the
+# strategic event of the mid-game -- it roughly doubles the board -- so land
+# keeps ABSOLUTE priority over a promoted hire. Every other buy (animals,
+# seeds, feed) stays displaceable: that is the trade the knob exists to make.
+#
+# Emitted order above the default:
+#   [sells] [BUY_LAND] [up to k promoted HIREs] [other buys] [remaining HIREs]
+# The last two segments are the caller's own order, and policy.decide always
+# appends HIRE at the tail of ``buys`` (policy.decide: buys = list(plan.buys)
+# then buys.extend([["HIRE"]] * plan.hire_count)), so in production the "other
+# buys then remaining hires" split is exactly what comes out.
+
+
+# plan_day emits the land order as a bare ``["BUY_LAND"]`` with no argument
+# (plan.py, all three of the NE/SW/SE sites), and at most one per turn --
+# _next_quadrant is pure over two parameters plan_day never reassigns, so the
+# three quadrant gates are mutually exclusive. _LAND_UNLOCK_BUYS above carries
+# the argument-bearing ``["BUY_LAND", "SW"]`` instead; both shapes are
+# protected, and test_hire_slot_floor_protects_a_land_order_whatever_shape_it
+# _carries pins that the guard is on the verb, not on an exact literal.
+_LAND_TURN_BUYS: list[list[object]] = [
+    ["BUY_LAND"],
+    ["BUY_ANIMAL", "COW", 1],
+    ["BUY_SEED", "WHEAT", 5],
+]
+
+
+def _quiet_orders(buys: list[list[object]], **kwargs: object) -> list[list[object]]:
+    """build_orders on an empty shed: no sell line qualifies, so the emitted
+    list IS the permuted buy half and the segment order is readable directly."""
+    return build_orders(
+        shed={},
+        prices={},
+        day=6,
+        hour=0,
+        wheat_reserve=0,
+        buys=buys,
+        **kwargs,  # type: ignore[arg-type]
+    )
+
+
+def test_hire_slot_floor_never_displaces_a_land_purchase() -> None:
+    # The live case: the busy-turn sells leave three buy slots, and a floor of
+    # 4 asks for more hires than that. Before land priority, all three
+    # surviving slots went to hires and the BUY_LAND was truncated away
+    # entirely -- the $2,000 purchase lost to $843 of wages plus a silent drop.
+    buys: list[list[object]] = [*_LAND_TURN_BUYS, *([["HIRE"]] * 4)]
+
+    orders = _busy_orders(buys, hire_slot_floor=4)
+
+    assert ["BUY_LAND"] in orders, f"the land purchase was truncated away: {orders}"
+    hires = [i for i, order in enumerate(orders) if order == ["HIRE"]]
+    assert hires, "fixture promoted no hires -- the test would pass vacuously"
+    assert orders.index(["BUY_LAND"]) < min(hires), (
+        f"a promoted hire drew its wage ahead of the land purchase: {orders}"
+    )
+
+
+def test_hire_slot_floor_still_displaces_an_animal_buy() -> None:
+    # The knob has to keep doing its job: exempting land must not turn into
+    # exempting every buy. With no land order in the turn, three hires at
+    # floor 3 take all three surviving slots and the animal/seed buys are the
+    # ones the cap eats -- unchanged from the shipped promotion behavior.
+    buys: list[list[object]] = [
+        ["BUY_ANIMAL", "COW", 1],
+        ["BUY_SEED", "WHEAT", 5],
+        ["BUY_SEED", "MELON", 3],
+        *([["HIRE"]] * 3),
+    ]
+
+    orders = _busy_orders(buys, hire_slot_floor=3)
+
+    assert orders == [*_BUSY_SELLS, ["HIRE"], ["HIRE"], ["HIRE"]]
+    assert ["BUY_ANIMAL", "COW", 1] not in orders
+
+
+def test_hire_slot_floor_emits_land_then_promoted_hires_then_the_other_buys() -> None:
+    # The whole segment order on one turn, read off an empty shed so nothing
+    # truncates and every segment is visible: land, then the k promoted hires,
+    # then the other buys in the caller's order, then the hires that did not
+    # make the floor.
+    buys: list[list[object]] = [*_LAND_TURN_BUYS, *([["HIRE"]] * 3)]
+
+    orders = _quiet_orders(buys, hire_slot_floor=2)
+
+    assert orders == [
+        ["BUY_LAND"],
+        ["HIRE"],
+        ["HIRE"],
+        ["BUY_ANIMAL", "COW", 1],
+        ["BUY_SEED", "WHEAT", 5],
+        ["HIRE"],
+    ]
+
+
+def test_hire_slot_floor_keeps_multiple_land_orders_in_their_original_order() -> None:
+    # plan_day cannot emit two land orders in one turn (the NE/SW/SE gates are
+    # mutually exclusive -- see the section comment), so this pins totality
+    # rather than a live case: if that ever changes, the hoist must stay a
+    # stable partition and not reverse or interleave the purchases.
+    buys: list[list[object]] = [
+        ["BUY_LAND", "NE"],
+        ["BUY_SEED", "WHEAT", 5],
+        ["BUY_LAND", "SW"],
+        ["HIRE"],
+        ["HIRE"],
+    ]
+
+    orders = _quiet_orders(buys, hire_slot_floor=2)
+
+    assert orders == [
+        ["BUY_LAND", "NE"],
+        ["BUY_LAND", "SW"],
+        ["HIRE"],
+        ["HIRE"],
+        ["BUY_SEED", "WHEAT", 5],
+    ]
+
+
+def test_hire_slot_floor_protects_a_land_order_whatever_shape_it_carries() -> None:
+    # The guard reads the verb at index 0, not an exact literal: production
+    # emits the bare ``["BUY_LAND"]`` today, and an argument added later (a
+    # quadrant, a tile) must not silently drop the order back into the
+    # displaceable pile. Both shapes lead their turn's promoted hires.
+    for land in (["BUY_LAND"], ["BUY_LAND", "SW"]):
+        buys: list[list[object]] = [land, ["BUY_SEED", "WHEAT", 5], ["HIRE"], ["HIRE"]]
+        orders = _quiet_orders(buys, hire_slot_floor=2)
+        assert orders == [land, ["HIRE"], ["HIRE"], ["BUY_SEED", "WHEAT", 5]], (
+            f"land shape {land} was not protected: {orders}"
+        )
+
+
+def test_land_priority_is_still_a_permutation_of_the_callers_buys() -> None:
+    # Nothing invented, nothing lost: the hoist partitions ``buys`` into land /
+    # promoted / rest and concatenates, so every legal floor over every buy
+    # shape must emit the same multiset the caller handed over. Compared on
+    # repr because these are heterogeneous lists (``["HIRE"]`` against
+    # ``["BUY_SEED", "WHEAT", 5]``) and sorted() needs a total order. Every
+    # case stays at or under MAX_ORDERS so truncation cannot mask a loss.
+    buy_shapes: list[list[list[object]]] = [
+        [],
+        [["BUY_LAND"]],
+        [["HIRE"]],
+        list(_LAND_TURN_BUYS),
+        [["BUY_LAND"], ["BUY_LAND", "SW"], ["BUY_SEED", "WHEAT", 5]],
+        [["BUY_SEED", "WHEAT", 5], ["HIRE"], ["BUY_LAND"], ["HIRE"], ["BUY_ANIMAL", "COW", 1]],
+    ]
+    for base, hire_count, floor in product(buy_shapes, (0, 1, 3), range(MAX_ORDERS + 1)):
+        buys: list[list[object]] = [*base, *([["HIRE"]] * hire_count)]
+        assert len(buys) <= MAX_ORDERS  # otherwise truncation, not the hoist, decides
+        orders = _quiet_orders(buys, hire_slot_floor=floor)
+        assert sorted(map(repr, orders)) == sorted(map(repr, buys)), (
+            f"hire_slot_floor={floor} was not a permutation of {buys}: {orders}"
+        )
+
+
+def test_land_priority_does_not_fire_at_the_default_floor() -> None:
+    # The exemption lives behind the same ``<= 0`` early-out as the promotion:
+    # at the default the caller's list is emitted untouched, land included,
+    # even when a hoist would have reordered it.
+    buys: list[list[object]] = [["BUY_ANIMAL", "COW", 1], ["BUY_LAND"], ["HIRE"]]
+
+    assert _quiet_orders(buys) == buys
+    assert _quiet_orders(buys, hire_slot_floor=0) == buys
