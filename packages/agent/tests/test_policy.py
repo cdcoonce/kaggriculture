@@ -6,7 +6,7 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
-from agent import dispatch, plan, policy
+from agent import dispatch, market, plan, policy
 from agent.constants import (
     LAND_ORDER,
     PASTURE_REFERENCE_QUADRANTS,
@@ -1667,3 +1667,66 @@ def test_rescue_water_threads_from_policy_config_to_the_hands_action() -> None:
         obs, None
     )
     assert overridden_action["hands"][0] == ["WATER"]
+
+
+# --- hire_slot_floor: keep the first k HIRE orders out of the truncation ---
+#
+# market.py's own hire_slot_floor tests (test_market.py) cover the mechanism
+# and carry the default-neutrality proof; these three prove the knob threads
+# PolicyConfig -> decide() -> build_orders, the same "defaults pin the module
+# constant" / "out-of-range rejected" / "threading reaches the real action"
+# trio every other knob above gets.
+
+
+def test_hire_slot_floor_default_pins_todays_behavior() -> None:
+    # Compared against the module's OWN constant, the same pattern
+    # test_rescue_water_default_pins_todays_behavior above uses, so an edit
+    # to market.HIRE_SLOT_FLOOR can never drift silently out of sync with
+    # this default.
+    config = PolicyConfig()
+    assert config.hire_slot_floor == 0
+    assert config.hire_slot_floor == market.HIRE_SLOT_FLOOR
+
+
+def test_hire_slot_floor_rejects_out_of_range_values() -> None:
+    # 0-10, mirroring max_hires_per_turn's own bound in market.MAX_ORDERS --
+    # a floor above 10 could never claim more slots than the whole order list
+    # has. 0 is the floor rather than 1 (max_hires_per_turn's) because 0 is
+    # this knob's own DEFAULT-NEUTRAL off value, and 10 is accepted at the
+    # top: both ends of the legal range are constructible.
+    with pytest.raises(ValueError, match="hire_slot_floor"):
+        PolicyConfig(hire_slot_floor=-1)
+    with pytest.raises(ValueError, match="hire_slot_floor"):
+        PolicyConfig(hire_slot_floor=11)
+
+    assert PolicyConfig(hire_slot_floor=0).hire_slot_floor == 0
+    assert PolicyConfig(hire_slot_floor=10).hire_slot_floor == 10
+
+
+def test_hire_slot_floor_threads_from_policy_config_to_the_market_list() -> None:
+    """The knob has to reach the emitted market orders through decide()'s
+    build_orders call, not just build_orders in isolation (test_market.py's
+    hire_slot_floor tests cover the mechanism itself) -- mirrors
+    test_max_hires_per_turn_threads_from_policy_config_to_the_market_list
+    above.
+
+    Deliberately the SAME fixture as
+    test_hires_beyond_the_market_order_cap_are_dropped_not_deferred above:
+    a busy turn whose three sells and four buys leave the tail of the list
+    short, so the default plan's fourth HIRE is the order the cap eats.
+    Exact quantities empirically verified against this fixture before being
+    pinned here.
+    """
+    obs = raw_obs(step=3 * 24, money=6000.0, unlocked_quadrants=("NW", "NE"))
+    obs["private"]["shed"] = {"FERTILIZER": 3, "EGG": 2, "WHEAT": 2}
+
+    default_market = make_policy()(obs, None)["market"]
+    assert len(default_market) == 10
+    assert default_market.count(["HIRE"]) == 3  # 4 asked for, the last one truncated away
+    assert default_market[-1] == ["HIRE"]
+
+    floored_market = make_policy(policy_config=PolicyConfig(hire_slot_floor=4))(obs, None)["market"]
+    assert len(floored_market) == 10
+    assert floored_market.count(["HIRE"]) == 4  # all four survive; a trailing buy pays for it
+    assert ["BUY_PRODUCT", "WHEAT", 1] in default_market
+    assert ["BUY_PRODUCT", "WHEAT", 1] not in floored_market

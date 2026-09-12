@@ -13,8 +13,12 @@ window (``MELON_MILK_WOOL_BATCH_BLOCKED_HOURS``), so it reproduces the pre-M2b
 
 from __future__ import annotations
 
+from itertools import product
+
 from agent.market import (
     FERT_MIN_PRICE,
+    HIRE_SLOT_FLOOR,
+    MAX_ORDERS,
     MELON_MILK_WOOL_BATCH_BLOCKED_HOURS,
     MELON_MILK_WOOL_BATCH_EXEMPT_DAY,
     MELON_MIN_PRICE,
@@ -987,3 +991,251 @@ def test_default_fert_reserve_leaves_the_shipped_sell_path_untouched() -> None:
     ) == build_orders(
         shed=shed, prices=prices, day=6, hour=0, wheat_reserve=3, buys=[], fert_reserve=0
     )
+
+
+# --- hire_slot_floor: keep the first k HIRE orders out of the truncation ---
+#
+# MAX_ORDERS caps the WHOLE per-turn list at 10 and the engine silently drops
+# the overflow (_process_market slices every queue to maxMarketOrdersPerTurn
+# before it reads a single order). policy.decide packs HIRE orders at the very
+# tail of ``buys`` on purpose -- "Buys first, hires last" -- so the truncation
+# eats hires rather than a purchase. On the busiest turn of the game (a
+# land-unlock day: seven sell lines, a BUY_LAND, and the animal buys) that
+# costs the whole turn's hiring, and the agent runs ~10 hands on the SW-unlock
+# day where the public leaders run 14.
+#
+# hire_slot_floor promotes up to k HIRE orders ahead of the OTHER buys --
+# never ahead of a sell -- so the drop lands on a buy instead. 0 is
+# DEFAULT-NEUTRAL and emits the pre-knob list exactly; see market.
+# HIRE_SLOT_FLOOR for the full mechanism.
+
+
+def test_hire_slot_floor_default_is_zero_so_shipped_behavior_is_unchanged() -> None:
+    # Pinned against the module constant, the same pattern
+    # test_rescue_water_default_is_off_so_shipped_behavior_is_unchanged uses
+    # in test_dispatch.py, so an edit can never drift silently out of sync
+    # with build_orders' own default.
+    assert HIRE_SLOT_FLOOR == 0
+
+
+# The busy-turn fixture the promotion tests share: seven sell lines (melon,
+# strawberry, milk, wool, fertilizer, egg, wheat -- every sell this function
+# can emit, verified against the live sell half by
+# test_full_sell_priority_order_is_melon_milk_wool_fertilizer_egg_wheat and
+# the strawberry tests above), leaving exactly three of the ten slots for
+# buys. Prices sit above every floor and hour 0 is outside the batching
+# window, so no sell line drops out and the truncation is the only thing
+# deciding what survives.
+_BUSY_SHED = {
+    "MELON": 5,
+    "STRAWBERRY": 5,
+    "MILK": 5,
+    "WOOL": 5,
+    "FERTILIZER": 5,
+    "EGG": 2,
+    "WHEAT": 10,
+}
+_BUSY_PRICES = {
+    "MELON": 250.0,
+    "STRAWBERRY": 300.0,
+    "MILK": 160.0,
+    "WOOL": 200.0,
+    "FERTILIZER": 100.0,
+    "WHEAT": 25.0,
+    "EGG": 50.0,
+}
+_BUSY_SELLS = [
+    ["SELL", "MELON", 2],
+    ["SELL", "STRAWBERRY", 2],
+    ["SELL", "MILK", 4],
+    ["SELL", "WOOL", 4],
+    ["SELL", "FERTILIZER", 4],
+    ["SELL", "EGG", 99999],
+    ["SELL", "WHEAT", 10],
+]
+_LAND_UNLOCK_BUYS: list[list[object]] = [
+    ["BUY_LAND", "SW"],
+    ["BUY", "COW"],
+    ["BUY", "SHEEP"],
+    ["BUY_SEED", "WHEAT", 5],
+]
+
+
+def _busy_orders(buys: list[list[object]], **kwargs: object) -> list[list[object]]:
+    return build_orders(
+        shed=_BUSY_SHED,
+        prices=_BUSY_PRICES,
+        day=6,
+        hour=0,
+        wheat_reserve=0,
+        buys=buys,
+        **kwargs,  # type: ignore[arg-type]
+    )
+
+
+def test_hire_slot_floor_rescues_hires_the_ten_slot_cap_would_have_dropped() -> None:
+    # The land-unlock turn: 7 sells + 4 buys + 2 hires = 13 orders for 10
+    # slots. At the default the trailing hires are exactly what the engine
+    # never sees -- three buys survive and the crew does not grow this turn.
+    # At floor 2 the same two hires move ahead of the buys (still behind
+    # every sell), so the two buys that used to occupy slots 8-9 are the ones
+    # displaced instead.
+    buys = [*_LAND_UNLOCK_BUYS, ["HIRE"], ["HIRE"]]
+
+    shipped = _busy_orders(buys)
+    assert shipped == [*_BUSY_SELLS, ["BUY_LAND", "SW"], ["BUY", "COW"], ["BUY", "SHEEP"]]
+    assert shipped.count(["HIRE"]) == 0
+
+    floored = _busy_orders(buys, hire_slot_floor=2)
+    assert floored == [*_BUSY_SELLS, ["HIRE"], ["HIRE"], ["BUY_LAND", "SW"]]
+    assert floored.count(["HIRE"]) == 2
+    displaced = [order for order in shipped if order not in floored]
+    assert displaced == [["BUY", "COW"], ["BUY", "SHEEP"]]
+
+
+def test_hire_slot_floor_keeps_every_sell_ahead_of_a_promoted_hire() -> None:
+    # The index-0 law is about SELLS: an order at an earlier slot fully
+    # executes, moving the price, before either player's later order (see the
+    # module docstring). A promoted hire that jumped a sell would hand that
+    # slot -- and the price it moves -- to the opponent, so the promotion is
+    # confined to the buy half of the list and must stay there at every legal
+    # floor, including one large enough to ask for more hires than exist.
+    buys = [*_LAND_UNLOCK_BUYS, ["HIRE"], ["HIRE"], ["HIRE"], ["HIRE"]]
+    for floor in range(MAX_ORDERS + 1):
+        orders = _busy_orders(buys, hire_slot_floor=floor)
+        sells = [i for i, order in enumerate(orders) if order[0] == "SELL"]
+        hires = [i for i, order in enumerate(orders) if order == ["HIRE"]]
+        assert sells == list(range(len(_BUSY_SELLS))), (
+            f"hire_slot_floor={floor} disturbed the sell half: {orders}"
+        )
+        assert not hires or min(hires) > max(sells), (
+            f"hire_slot_floor={floor} promoted a hire ahead of a sell: {orders}"
+        )
+
+
+def test_hire_slot_floor_above_the_hires_requested_promotes_only_what_exists() -> None:
+    # A floor larger than the turn's own hire_count is not an error and does
+    # not reserve empty slots: it promotes the hires that exist and leaves
+    # the rest of the buys in the caller's order behind them. 7 sells + 1
+    # buy + 2 hires = 10 fits exactly, so nothing is dropped either -- only
+    # reordered.
+    buys: list[list[object]] = [["BUY_SEED", "WHEAT", 5], ["HIRE"], ["HIRE"]]
+    orders = _busy_orders(buys, hire_slot_floor=10)
+    assert orders == [*_BUSY_SELLS, ["HIRE"], ["HIRE"], ["BUY_SEED", "WHEAT", 5]]
+    assert len(orders) == MAX_ORDERS
+
+
+def test_hire_slot_floor_cannot_win_a_slot_the_sells_already_took() -> None:
+    # The floor is a claim on the buy half of the list, not on the cap: the
+    # seven sells leave three slots, so a floor of 10 against four requested
+    # hires still lands three and the fourth is dropped exactly as before --
+    # no IndexError, no list longer than the cap, no sell evicted to make
+    # room. The shortfall self-heals next turn (plan_day recomputes
+    # hands_target - hires_today fresh every turn).
+    buys = [*_LAND_UNLOCK_BUYS, ["HIRE"], ["HIRE"], ["HIRE"], ["HIRE"]]
+    orders = _busy_orders(buys, hire_slot_floor=10)
+    assert orders == [*_BUSY_SELLS, ["HIRE"], ["HIRE"], ["HIRE"]]
+    assert len(orders) == MAX_ORDERS
+    assert orders.count(["HIRE"]) == 3
+
+
+def test_hire_slot_floor_never_emits_more_orders_than_the_cap() -> None:
+    # Every legal floor, against a request that overflows the cap from both
+    # halves at once, must still emit a list the engine reads in full -- and
+    # the same multiset of orders the caller handed over, never an invented
+    # one (promotion reorders ``buys``, it does not duplicate an entry to
+    # fill a floor).
+    buys = [*_LAND_UNLOCK_BUYS, *([["HIRE"]] * 6)]
+    for floor in range(MAX_ORDERS + 1):
+        orders = _busy_orders(buys, hire_slot_floor=floor)
+        assert len(orders) == MAX_ORDERS
+        assert all(order in [*_BUSY_SELLS, *buys] for order in orders)
+        assert orders.count(["HIRE"]) == min(floor, MAX_ORDERS - len(_BUSY_SELLS))
+
+
+def test_hire_slot_floor_does_not_mutate_the_callers_buy_list() -> None:
+    # policy.decide hands over a list it built this turn and then reads the
+    # emitted orders back for MelonMarketMemory attribution; a promotion that
+    # reordered that list in place would be an invisible side effect on the
+    # caller's own data.
+    buys = [*_LAND_UNLOCK_BUYS, ["HIRE"], ["HIRE"]]
+    snapshot = [list(order) for order in buys]
+    _busy_orders(buys, hire_slot_floor=2)
+    assert buys == snapshot
+
+
+def test_hire_slot_floor_default_reproduces_the_shipped_order_list_across_a_matrix() -> None:
+    """The no-op proof: at the default, every emitted list is still exactly
+    the pre-knob composition -- this turn's sells, then ``buys`` in the
+    caller's own order, truncated at MAX_ORDERS.
+
+    Written as an identity against the function's own sell half rather than
+    a golden table: the right-hand side passes ``buys=[]``, which leaves the
+    promotion path nothing to reorder, so it re-derives what
+    ``orders.extend(buys); return orders[:MAX_ORDERS]`` did before this knob
+    existed without re-deriving (or freezing) a single sell rule. Any
+    promotion that fires at the default -- or any lost truncation -- breaks
+    the identity on the truncating cases below.
+
+    The matrix sweeps the inputs that decide which sells exist and whether
+    the cap bites at all: shed contents, prices above and below every floor,
+    normal/ramp/liquidation days, in- and out-of-batching-window hours, the
+    wheat feed reserve, all three valve tiers, buy-list length, and hire
+    count. Both regimes are asserted covered at the end, so a fixture drift
+    that quietly stopped truncating anything can never leave this test
+    passing vacuously.
+    """
+    sheds: list[dict[str, int]] = [
+        {},
+        {"WHEAT": 10, "EGG": 2, "FERTILIZER": 3},
+        dict(_BUSY_SHED),
+        {"MELON": 40, "MILK": 40, "WOOL": 40, "FERTILIZER": 40, "WHEAT": 40, "EGG": 40},
+    ]
+    price_sets: list[dict[str, float]] = [
+        dict(_BUSY_PRICES),
+        # Under every floor: the sell half shrinks to the floorless lines
+        # (egg, wheat) except where liquidation or a valve tier waives them.
+        {
+            "MELON": 10.0,
+            "STRAWBERRY": 10.0,
+            "MILK": 10.0,
+            "WOOL": 10.0,
+            "FERTILIZER": 1.0,
+            "WHEAT": 1.0,
+            "EGG": 1.0,
+        },
+    ]
+    # (day, hour): a normal day inside and outside the batching window, a
+    # mid-game hour, both melon ramp days, and the liquidation day itself.
+    day_hours = [(6, 0), (6, 6), (12, 12), (27, 0), (28, 0), (29, 0)]
+    buy_lines: list[list[list[object]]] = [
+        [],
+        [["BUY_SEED", "WHEAT", 5]],
+        list(_LAND_UNLOCK_BUYS),
+    ]
+    truncating = 0
+    fitting = 0
+    for shed, prices, (day, hour), valve_tier, reserve, base_buys, hire_count in product(
+        sheds, price_sets, day_hours, (0, 1, 2), (0, 3), buy_lines, (0, 1, 2, 4, 10)
+    ):
+        buys: list[list[object]] = [*base_buys, *([["HIRE"]] * hire_count)]
+        case = dict(
+            shed=shed,
+            prices=prices,
+            day=day,
+            hour=hour,
+            wheat_reserve=reserve,
+            valve_tier=valve_tier,
+        )
+        sells = build_orders(buys=[], **case)  # type: ignore[arg-type]
+        emitted = build_orders(buys=buys, **case)  # type: ignore[arg-type]
+        assert emitted == [*sells, *buys][:MAX_ORDERS], (
+            f"default hire_slot_floor changed the order list for {case} with buys={buys}"
+        )
+        if len(sells) + len(buys) > MAX_ORDERS:
+            truncating += 1
+        else:
+            fitting += 1
+
+    assert truncating > 0, "matrix never exercised the truncating regime"
+    assert fitting > 0, "matrix never exercised the non-truncating regime"
