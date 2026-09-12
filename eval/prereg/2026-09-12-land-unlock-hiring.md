@@ -277,3 +277,62 @@ engine's one-action-per-unit-per-turn rule, and hiring by this document.
 
 CONFIRMED plus a passing GUARD authorizes an upload **decision** only. The next
 upload evicts M3b and that remains an owner decision.
+
+## ADDENDUM — EXPRESSION CHECK (2026-09-12): SLOTS VETOED, BURST FAILS, BURST_CAP passes alone
+
+Run on `a24aeee` (#155's pre-merge SHA, squash-merged as `20427d6`; `packages_dirty:
+false`), engine 1.32.7, seeds 858000-858007 against `public:sokolovsky-v12`.
+Record: `eval/recon/2026-09-12-land-unlock-hiring-check-858000.json`.
+
+| arm | SW day | hands @ SW day | peak hands d0-14 | recon bank |
+|---|---|---|---|---|
+| shipped | 9.50 | 9.75 | 10.00 | 73,331 |
+| SLOTS | 9.88 | 10.00 | 10.00 | 71,940 |
+| BURST | 9.00 | 10.00 | 10.00 | 61,826 |
+| BURST_CAP | 9.00 | **11.00** | **11.00** | 71,325 |
+
+Criterion 1 is read against its **registered anchor of 10** — shipped's value measured
+before these arms existed — and not against shipped's 9.75 in this run. The anchor was
+fixed in advance precisely so a noisy baseline could not manufacture a pass, and it is
+honoured here even though the looser reading would have passed two more arms.
+
+**SLOTS is VETOED by criterion 4, and the veto is the finding.** `hire_slot_floor=4`
+alone slips the SW purchase from day 9 to day 10 on **four of eight seeds** (858002,
+858003, 858005, 858007) — and it does so *with* `BUY_LAND` already exempted from
+displacement. The exemption works; the mechanism is not order position but cash.
+Protecting hire orders from truncation means more hires actually settle, the daily
+Fibonacci wage bill rises, cash accumulates more slowly, and `plan_day`'s
+`budget >= 2000 + LAND_RESERVE` gate trips a day later. **The knob buys hands by
+spending land.** That is the same cash constraint criterion 4 was written to catch,
+arriving through a channel the registration did not anticipate: it predicted the hazard
+as an order-position failure and got it as a wage-accumulation failure.
+
+**BURST fails criterion 1 at 10.00 against the anchor of 10**, and the reason is in the
+adjacent column: peak hands over days 0-14 is **10.00 for BURST and 10.00 for shipped**,
+identical. The burst changed nothing about headcount. It fires, and the hires it requests
+displace hires the base target would have made anyway — exactly what the build recon
+found at n=2 and what this check confirms at n=8 on fresh seeds.
+
+**BURST_CAP passes both criteria and goes to the screen alone**, at 11.00 hands against
+shipped's 9.75 and an unslipped SW day. It reached **11, not the leaders' 14** — the
+cash ceiling the registration named: after a $2,000 land purchase we hold roughly $520
+against rungs of ~$89/$144/$233/$377, which buys about one hand. The registration
+predicted "about two"; the measurement says one.
+
+**Reported, not gating.** Every arm's recon bank is at or below shipped's (71,940 /
+61,826 / 71,325 vs 73,331), and BURST alone is $11.5k below it. This is n=8 against one
+leader on a shared baseline and it decides nothing — the screen at n=64 across three
+leaders is the instrument. It points the same way the cash argument does.
+
+**Predictions scorecard (the check).**
+- **Right that BURST fails criterion 1** (registered 80%). Right for the registered
+  reason, too: no headcount gain, peak identical at 10.00.
+- **Right that BURST_CAP passes narrowly and is cash-limited** (registered 60%), and
+  right about the mechanism; **wrong on the size** — I said about two extra hands, it
+  bought one.
+- **Wrong about SLOTS.** I registered 75% that it would pass, on the grounds that hires
+  demonstrably are dropped by the cap. They are, and protecting them still costs more
+  than it earns, because the wage is daily and the land gate is a threshold.
+- **Right that the binding constraint is cash rather than labor** (registered 85%). Every
+  arm that added a hand paid for it somewhere else, and the one that added the most hands
+  is the one that slipped the purchase.
