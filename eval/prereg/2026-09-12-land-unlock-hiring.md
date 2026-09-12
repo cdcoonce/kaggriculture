@@ -1,0 +1,279 @@
+# Pre-registration: the land-unlock hiring burst
+
+Date: 2026-09-12
+Candidate: `champion` with the arms' knobs. Both knobs ship default-neutral and
+are independently proven no-ops at their defaults, so the build under test is
+`main` itself plus two dormant fields.
+Status: REGISTERED — the expression check runs only after this document has
+merged. The screen runs only if an arm passes the check.
+Authorization: owner decision 2026-09-12 (dispatch rewrite), taken after nine slices
+closed without an advance.
+Instrument: own bank against the public-leader panel, CALIBRATED in
+`eval/prereg/2026-09-11-panel-instrument-calibration.md`.
+
+## What this slice is, after two mechanisms were dropped on evidence
+
+The owner's decision named three mechanisms. Two are dropped before any code, each
+for a reason found in the repo rather than discovered by running it.
+
+**DROPPED — midnight reachability.** Already built, pre-registered, gated and
+refuted, on branch `perf/day-boundary-guard` (`a44dc9d`, `d2b92ba`, `f8689ed`),
+which never reached `main`. The implementation is exactly the filter this slice
+would have written: a `_day_budget` of `HOURS_PER_DAY - view.hour`, a
+`if dist + 1 > budget: continue` in dispatch's nearest-task pass, the farmer
+exempted, four tests including the off-by-one boundary. It works mechanically —
+orphaned steps fell 838 -> 638 (19.3% -> 15.1% of movement). It does not pay:
+`f8689ed` records "mean -1,084, median -2,223, ci_lower -4,212, mde_80 4,684,
+n_regressed 11/20" and the diagnosis **"the freed turns go to idle rather than to
+work, so there is nothing for the money to come from"** (idle rose 4.1% -> 5.1%,
+productive share 31.7% -> 31.9%). The waste is real; removing it does not convert
+to money against a crew the labor slices measured saturated. Not re-opened here.
+
+**DROPPED — pairing plantings with same-day watering.** Not implementable and
+largely already present. The engine applies exactly one action per unit per turn:
+`_apply_unit_action` reads `op = action[0]` and every branch returns, so a
+`["PLANT","WATER"]` action parses as `op="PLANT", crop="WATER"`, and since
+`"WATER" not in CROPS` it is a silent no-op that plants nothing and waters
+nothing. Separately, `_Task` has no multi-action field and no such concept exists
+anywhere in the codebase. What the mechanism wanted is already delivered by
+dispatch's Pass 1 ("a unit already standing on one of this class's task tiles
+keeps it"): PLANT does not move the unit, so next turn Pass 1 claims the
+resulting priority-0 WATER task before any distance comparison runs. There is no
+walking to save.
+
+**KEPT, and it is the real lever.** The hiring gap, in two coupled parts.
+
+### M1 — the burst (`plan.py`)
+
+The leaders' hand count tracks newly-unlocked land rather than a fixed headcount:
+0-4 hands through day 6, 7 the day after NE unlocks, **14 the same day SW unlocks
+(day 10)**, then oscillating 8-14 (`eval/recon/2026-09-11-leader-opening-tape-855000.md:65,132-136`,
+exact across leaders and seeds through day 15). Ours is flat at 10 from day 10
+onward. We field 10 on the day the workable board roughly doubles.
+
+**This is not `extra_hands`, and the distinction is the whole hypothesis.** Hands
+are daily rentals — `_end_of_day` empties `farm["hands"]` and resets
+`hires_today` — and hire cost is Fibonacci in the count already hired that day.
+A day's cumulative cost is ~$143 to reach 10 hands and ~$986 to reach 14: about
+**$843, once**. `extra_hands=2` raises the target *every* day for the rest of the
+game and measured **−$3,545**; `extra_hands=1` measured +$340. Those are flat
+all-game knobs and are not evidence about a one-day burst. `plan_day` already
+knows in the same call whether it is submitting a `BUY_LAND`, so the trigger
+needs no new cross-turn state.
+
+### M2 — hire slot floor (`market.py` / `policy.py`)
+
+`market.MAX_ORDERS = 10` caps the whole per-turn order list and the engine
+silently drops the overflow (`market.py:100`, truncated at `market.py:426`).
+`build_orders` appends sells, then buys, then hires last (`policy.py:941-944`,
+"Buys first, hires last"), and `test_hires_beyond_the_market_order_cap_are_dropped_not_deferred`
+(`test_policy.py:1395-1416`) proves the drop is silent rather than deferred.
+
+## The registered interaction prediction
+
+**M1 fires on exactly the turn M2 protects.** The burst triggers on the turn that
+submits the SW `BUY_LAND` — which is itself an order competing for the same ten
+slots, on the busiest turn of the game. So M1 alone is predicted to be partly or
+wholly self-defeating: it raises `hire_count`, and the cap silently eats the
+extra HIRE orders it generates. This is registered in advance, not discovered
+afterward, and it is why BURST_SLOTS is an arm rather than a follow-up.
+
+## Reasons to doubt, on record, before any data
+
+0. **THE HAND GAP IS A SYMPTOM OF A CASH GAP, and this is the reason to expect
+   the slice to fail.** The same recon row that shows the leaders fielding 14
+   hands to our 10 on the SW-unlock day also shows them holding **$7,425 against
+   our $2,520** (`eval/recon/2026-09-11-leader-opening-tape-855000.md:65`) —
+   about three times the cash. After a $2,000 land purchase we hold roughly $520,
+   and the Fibonacci rungs from the 11th to the 14th hand cost about $843
+   (89 + 144 + 233 + 377). **We cannot afford the leaders' crew on that day even
+   with every order slot free and the target raised.** The burst is therefore
+   expected to be cash-limited rather than slot-limited or policy-limited, and
+   the honest form of this slice is that it measures how much of the gap is
+   mechanical (slots, target) versus how much is simply that the leaders are
+   richer by then. Expression criterion 1 is sized to fail cheaply if the answer
+   is "almost none", before the screen spends a single game.
+
+1. **The freed-labor channel is already refuted once.** The day-boundary guard
+   removed real waste and the turns went idle. If the farm cannot use the labor
+   it already has, four more hands for one day may go idle too. The difference
+   this slice bets on is timing: the burst lands on the day the board doubles,
+   when there is new ground to work, whereas the guard fired on ordinary days.
+   If MID's "freed turns go idle" generalizes, this slice fails the same way.
+2. **Cash.** `LAND_RESERVE` keeps only $500 after a $2,000 SW purchase, and the
+   engine's `_do_hire` silently returns when money is short. The burst may be a
+   partial no-op exactly when it fires. REPORTED as a recon quantity.
+3. **More hands has measured negative twice.** EH2 −$3,545, EH1 +$340. The
+   one-day-versus-all-game distinction is a real mechanical difference, not a
+   rationalization — but it is a distinction this project has never measured.
+4. **Every arm here has raised the opponents' banks more than ours.** These are
+   production levers, so the confirmation-stage margin guard is the likely
+   binding constraint, exactly as it was for STACK3 (−$2,622 against > −$2,000).
+5. **The instrument cannot see the population that scores us.** The ladder pairs
+   on similar skill rating; against this panel every arm to date wins 0-2% of 128
+   games. Own bank is calibrated to rank our own variants, and that is all it is
+   used for here.
+
+## Registered arms — values TODO pending the built knobs
+
+- **SLOTS** — `hire_slot_floor=4`. Isolates "are hires actually dropped by the
+  cap, and does protecting them pay", with no change to the target.
+- **BURST** — `land_unlock_hand_burst=4`. Isolates the burst at the shipped hire
+  cap. Per the build recon below this arm is expected to change *timing* and not
+  headcount; it is registered so that expectation is measured rather than
+  assumed.
+- **BURST_CAP** — `land_unlock_hand_burst=4` + `max_hires_per_turn=10` +
+  `hire_slot_floor=4`. **The only arm that can express the strategy at all.**
+  The burst raises the target, the raised cap lets the turn actually place the
+  hires, and the floor keeps them out of the truncation. Registered because an
+  arm that cannot express its hypothesis measures nothing: BURST alone is
+  bounded by `max_hires_per_turn=4`, and the build recon already showed that
+  bound binding.
+
+`max_hires_per_turn=10` is not a free addition — it is H10, independently
+measured at **+$781** (95% CI [−$1,234, +$2,797]). BURST_CAP therefore carries a
+known mildly-positive component, and its verdict must be read against H10's
++$781 rather than against zero. Stated here so the comparison cannot be chosen
+after the numbers land.
+
+## Disclosure: recon that predates these criteria
+
+The two knobs' build carried a mechanism recon (n=2, seeds 855000-855001 against
+`public:sokolovsky-v12`, tracing real `plan_day` calls), and its result is known
+before this document's criteria were written. Disclosed rather than buried:
+
+- The burst turn fires as designed — 4 hires requested where shipped asks 0.
+- **Peak `hires_today` on the unlock day is 10 in both arms.** The burst applies
+  on the turn the order is *submitted*, while `active_tiles` still describes the
+  old board, so roughly 3 of the 4 merely pre-empt the climb the next turn's base
+  target makes anyway; and `max_hires_per_turn=4` bounds the turn while the
+  raised target is gone by the next, so the clamped remainder is never
+  re-requested.
+- The leaders' 14 is a **one-day spike**: on days 13-15 they run 8/9/9, *below*
+  our flat 10. We do not carry a headcount deficit.
+
+Every criterion below is anchored on quantities measured before these arms
+existed — shipped's own 10 hands on the unlock day, and the leaders' 14 — not on
+any observed value of an arm. That is the same anchoring rule
+`eval/prereg/2026-09-12-stack-measured-positives.md` used for its criterion 1.
+
+## Expression check (pre-launch recon; a precondition)
+
+Criteria fixed here, before any arm data exists:
+
+1. **M1 fires:** mean hands on the SW-unlock day rises above the shipped 10.
+2. **M2 fires:** HIRE orders emitted that survive truncation rise on the
+   unlock turn against shipped.
+3. **The interaction is measured, not assumed:** report hands-on-unlock-day for
+   BURST and BURST_SLOTS separately. If BURST alone does not raise hands while
+   BURST_SLOTS does, the cap was the binding constraint, as predicted.
+4. **THE LAND PURCHASE MUST NOT SLIP.** The SW unlock day for every arm must be
+   no later than shipped's on every recon seed. This is a hard veto, not a
+   reported quantity. The engine spends market orders **in list position** and
+   `_do_buy_land` silently returns when money is short, so an arm that puts
+   hires in front of a purchase on a cash-bound turn converts a dropped hire
+   into a failed land buy with no error anywhere. `hire_slot_floor` exempts
+   `["BUY_LAND"]` from displacement specifically to make this impossible, and
+   this criterion is the check that the exemption actually holds in play rather
+   than only in unit tests. An arm that slips SW is dropped outright.
+
+5. **Degenerate guardrail:** the arm still sells at least one unit of every item
+   shipped sells at least 10 units of, and `buys` is unchanged — the burst must
+   never cause or suppress a land purchase.
+
+6. **Cash, reported:** mean farm money at the moment of the SW purchase, and the
+   number of HIRE orders that were requested versus actually settled on that
+   turn. This is what separates "slots were the constraint" from "cash was the
+   constraint" (doubt 0), and it is the quantity that tells the writeup which.
+
+An arm failing a criterion cannot express its hypothesis and is dropped before
+any run. Amendment is by changing values, never by relaxing a criterion, and is
+disclosed.
+
+## Registered design
+
+Money gate: candidate `champion` with the arm's `--agent-config`, baseline
+`champion` at shipped defaults, against `public:sokolovsky-v12`,
+`public:rayk-v11`, `public:kaito-v4`.
+
+- **Screen:** band **884000**, n = **64** per leader.
+- **Confirmation:** selected arm only, band **885000**, n = **128** per leader.
+- **Guard:** confirmed arm against `frozen:m3b_live_b6ce655`, band **886000**, n = 64.
+
+All three bands verified unused by every ledger in `eval/gates/` (272 files
+checked 2026-09-12: no `seed_base` >= 884000 anywhere) and claimed by no earlier
+registration. 900000-901249 remain reserved for #119.
+
+## Decision rule (fixed before launch)
+
+Per arm and leader i, take `mean_delta_i`, `stderr_i` and `opponent_mean_delta_i`
+from the ledger; pool as the simple mean with pooled se `sqrt(sum stderr_i^2)/3`;
+intervals are estimate +/- 1.96 x se. The ledger's `passed` field is not the verdict.
+
+**INVALID** if the engine is not 1.32.7, a knob is absent, the expression check
+has not passed, or any run records a crash-type veto or a `baseline_degenerate` /
+`opponent_degenerate` veto. A `candidate_degenerate` veto is a result, not an
+invalidity.
+
+**SCREEN — an arm ADVANCES** only if, at band 884000: pooled own-bank delta
+**>= +$4,000** (about +40 Elo on the ladder-derived slope); pooled 95% lower
+bound **> $0**; and no single leader's point estimate below **−$2,000**.
+
+**SELECTION:** among advancing arms, the highest pooled lower bound.
+
+**CONFIRMED** only if the selected arm, at band 885000 n=128, has pooled delta
+**>= +$4,000**, pooled lower bound **> +$1,000**, and pooled **margin delta**
+**> −$2,000**.
+
+**GUARD:** the confirmed arm's own-bank delta against `frozen:m3b_live_b6ce655`
+must have a point estimate **> −$2,000**.
+
+**NOT ADVANCED / NOT CONFIRMED** otherwise. No arm substitution, band reuse, or
+threshold change after launch.
+
+REPORTED, NOT GATING: per arm the gap and the margin delta; hands-by-day for the
+selected arm; and the idle share, so this slice can say whether the burst's labor
+went to work or to idle the way the day-boundary guard's did.
+
+## Registered predictions
+
+Stated before the expression check runs, so the scorecard is honest either way.
+
+- **BURST fails expression criterion 1 — 80%.** The build recon already showed
+  peak `hires_today` unchanged at 10 on the unlock day, because the burst lands
+  on the submission turn while `active_tiles` still describes the old board and
+  `max_hires_per_turn=4` bounds that turn. At the shipped cap this knob buys
+  timing, not headcount.
+- **BURST_CAP passes criterion 1, but narrowly — 60%.** It raises target and cap
+  together, which is the only combination that can place the hires. The reason it
+  might still fail is cash: after a $2,000 land purchase we hold roughly $520
+  against Fibonacci rungs of ~$89/$144/$233/$377, so the affordable burst is
+  about **two** hands, not four.
+- **SLOTS passes criterion 2 — 75%.** Hires demonstrably are dropped by the cap
+  (`test_hires_beyond_the_market_order_cap_are_dropped_not_deferred`: 10
+  requested, 3 land), so protecting the first few should raise settled hires on
+  contended turns. Whether that is worth money is a separate question.
+- **No arm advances at the screen — 92%.** Two affordable hands on one day of a
+  thirty-day game, against a +$4,000 bar (~+40 Elo on the ladder-derived slope).
+  The largest effect this project has ever measured is +$3,637 and it came from
+  a whole-game crop-and-herd change, not a one-day crew nudge.
+- **If an arm does clear the bar, its margin delta is negative — 80%.** Every arm
+  measured in this project has raised the opponents' banks by more than ours.
+- **The finding that survives is about cash, not labor — 85%.** The leaders field
+  14 hands on the unlock day because they hold **$7,425 to our $2,520**, and they
+  run 8/9/9 on days 13-15, *below* our flat 10. If that is what the numbers say,
+  the hiring line closes and the open question moves upstream of the dispatcher
+  entirely, to why day 10 finds us $4,900 poorer.
+
+## Consequence for the record
+
+Whatever this returns, the two knobs are default-neutral and stay shipped-off.
+A NOT LAUNCHED here closes the last mechanism named in the 2026-09-12 owner
+decision, which would make the dispatch-rewrite branch closed in all three of its
+parts — midnight reachability by the 2026-08-16 gate, plant/water pairing by the
+engine's one-action-per-unit-per-turn rule, and hiring by this document.
+
+## Consequence
+
+CONFIRMED plus a passing GUARD authorizes an upload **decision** only. The next
+upload evicts M3b and that remains an owner decision.
