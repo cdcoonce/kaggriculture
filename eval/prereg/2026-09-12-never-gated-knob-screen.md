@@ -212,3 +212,49 @@ M3b (our best live bot), and that remains an owner decision.
   from 9ac8180. The file was renamed from `2026-09-12-market-knob-screen.md`. Arms whose
   mechanism the committed guardrails would veto by construction are named above and deferred
   to a successor rather than admitted by loosening a guardrail.
+
+## ADDENDUM — EXPRESSION CHECK (2026-09-12): only SHEEP1 passes
+
+Run on `4c3e3ec`, engine 1.32.7, seeds 855000-855007 against `public:sokolovsky-v12`. The
+settlement conserved exactly (max |residual| 0.0 across all 64 episode-seat pairs) and the
+shipped arm reproduced its recorded $66,163 mean to the dollar, so these are the games the
+registration was written against. Records:
+`eval/recon/2026-09-12-market-knob-expression-breakdown-855000.json` and
+`…-check-855000.json`.
+
+Settled revenue by item, our seat, mean over 8 seeds:
+
+| arm | WHEAT | WOOL | MILK | EGG | FERTILIZER | our mean bank |
+|---|---|---|---|---|---|---|
+| shipped | 20,471 | 9,876 | 25,878 | 2,834 | 14,080 | 66,163 |
+| RW | 14,382 | 18,011 | 18,999 | 2,735 | 13,757 | 62,852 |
+| RW_H10 | 14,104 | 13,422 | 20,635 | 2,841 | 13,752 | 60,263 |
+| SHEEP1 | 20,511 | 17,903 | 21,586 | 2,765 | 13,796 | 70,176 |
+
+- **RW fails C1 and C2.** Its targeted item moved the wrong way: wheat settled revenue
+  **fell 29.7%** where the criterion needed a 10% rise, and milk fell 26.6% against a 25%
+  bar. Rescue watering saves plants and costs more wheat than it saves, because the trips
+  come out of the same crew that plants and harvests.
+- **RW_H10 fails C1**: wheat fell 31.1%. Putting the crew on the farm an hour earlier did
+  not pay for the rescue trips.
+- **SHEEP1 passes all three**: wool **+81.3%**, worst other-item drop 16.6% (milk), and no
+  item stopped selling.
+
+**Only SHEEP1 goes to the screen**, at band 875000. RW and RW_H10 are dropped before any
+run, on their own registered criterion.
+
+**Predictions scorecard.**
+- **Wrong on both rescue-water arms.** I predicted each would pass with wheat revenue up;
+  wheat fell about 30% in both. The mechanism is real — deaths do fall — but its sign on
+  wheat revenue is the opposite of what I registered.
+- **Right that SHEEP1 passes**, and right about the direction (wool up, milk down).
+- **The recon bank also runs against my registered range for SHEEP1** (−$1,000 to +$1,500):
+  it reads +$4,013 against this one leader on a shared baseline. That is not a result and
+  not gating — one opponent, one shared baseline, n=8 — but it sits exactly at the screen's
+  +$4,000 bar, which is why the n=64 screen against all three leaders is worth running.
+
+**Recorded, not a verdict.** Both rescue-water arms also raise wool by about 82%, the same
+size as the arm built to raise wool. That points at labor reallocation rather than anything
+about water: a rescue trip is priority 0 and displaces the lowest-priority bulk work, which
+is planting. It is a hypothesis, not a measurement, and it changes nothing here — both arms
+are dropped on their registered criterion regardless.

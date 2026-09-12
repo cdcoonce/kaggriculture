@@ -84,6 +84,13 @@ ALL_ARMS: dict[str, dict[str, Any]] = {
         "strawberry_plant_priority": 2,
         "strawberry_fert_reserve": "planted",
     },
+    # The never-gated knob screen's arms
+    # (eval/prereg/2026-09-12-never-gated-knob-screen.md). Each names one
+    # traded item and one direction; the registered expression check reads
+    # that item's settled flow out of this instrument's per-item table.
+    "RW": {"rescue_water": True},
+    "RW_H10": {"rescue_water": True, "max_hires_per_turn": 10},
+    "SHEEP1": {"animal_buy_order": ["SHEEP", "COW"]},
 }
 
 # Known-good means for OUR seat (seat 0), averaged over the 8 seeds, from a
