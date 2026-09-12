@@ -1,0 +1,132 @@
+{
+ "identity": {
+  "script": "tools/recon-scripts/revenue_breakdown.py",
+  "cwd": "/Users/cdcoonce/Developer/GitHub/kaggriculture/.claude/worktrees/mk-registration",
+  "git_sha": "4c3e3eca23836745a11392d1c0f66e5b727efd26",
+  "git_dirty_packages": false,
+  "engine": "1.32.7",
+  "candidate": "champion",
+  "opponent": "public:sokolovsky-v12",
+  "our_seat": 0,
+  "opponent_seat": 1,
+  "starting_money": 3000.0,
+  "seeds": [
+   855000,
+   855001,
+   855002,
+   855003,
+   855004,
+   855005,
+   855006,
+   855007
+  ],
+  "arms": {
+   "shipped": {},
+   "RW": {
+    "rescue_water": true
+   },
+   "RW_H10": {
+    "rescue_water": true,
+    "max_hires_per_turn": 10
+   },
+   "SHEEP1": {
+    "animal_buy_order": [
+     "SHEEP",
+     "COW"
+    ]
+   }
+  },
+  "workers": 6,
+  "timestamp_utc": "2026-09-12T17:38:02Z",
+  "checker": "tools/recon-scripts/market_knob_check.py",
+  "record": "/private/tmp/claude-501/-Users-cdcoonce-Developer-GitHub-the-vault/44ca31c2-6966-4b54-bb4a-b28adf7fe08c/scratchpad/mk_breakdown.json"
+ },
+ "criteria": {
+  "C1_directional_min": 0.1,
+  "C2_collateral_max_drop": 0.25,
+  "C2_exempt_below": 100.0,
+  "C3_units_floor": 10,
+  "targets": {
+   "RW": [
+    "WHEAT",
+    "up"
+   ],
+   "RW_H10": [
+    "WHEAT",
+    "up"
+   ],
+   "SHEEP1": [
+    "WOOL",
+    "up"
+   ]
+  }
+ },
+ "verdicts": {
+  "RW": {
+   "pass": false,
+   "target": [
+    "WHEAT",
+    "up"
+   ],
+   "criteria": {
+    "C1_mechanism": {
+     "pass": false,
+     "detail": "WHEAT settled revenue $14,382 vs shipped $20,471 = -29.7% (needs +10% or more up)"
+    },
+    "C2_collateral": {
+     "pass": false,
+     "detail": "worst other-item revenue drop 26.6% (MILK) (needs <= 25%)"
+    },
+    "C3_degenerate": {
+     "pass": true,
+     "detail": "no item's sales stopped"
+    }
+   }
+  },
+  "RW_H10": {
+   "pass": false,
+   "target": [
+    "WHEAT",
+    "up"
+   ],
+   "criteria": {
+    "C1_mechanism": {
+     "pass": false,
+     "detail": "WHEAT settled revenue $14,104 vs shipped $20,471 = -31.1% (needs +10% or more up)"
+    },
+    "C2_collateral": {
+     "pass": true,
+     "detail": "worst other-item revenue drop 20.3% (MILK) (needs <= 25%)"
+    },
+    "C3_degenerate": {
+     "pass": true,
+     "detail": "no item's sales stopped"
+    }
+   }
+  },
+  "SHEEP1": {
+   "pass": true,
+   "target": [
+    "WOOL",
+    "up"
+   ],
+   "criteria": {
+    "C1_mechanism": {
+     "pass": true,
+     "detail": "WOOL settled revenue $17,903 vs shipped $9,876 = +81.3% (needs +10% or more up)"
+    },
+    "C2_collateral": {
+     "pass": true,
+     "detail": "worst other-item revenue drop 16.6% (MILK) (needs <= 25%)"
+    },
+    "C3_degenerate": {
+     "pass": true,
+     "detail": "no item's sales stopped"
+    }
+   }
+  }
+ },
+ "arms_cleared": [
+  "SHEEP1"
+ ]
+}
