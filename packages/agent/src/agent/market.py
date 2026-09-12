@@ -196,6 +196,86 @@ STRAWBERRY_SELL_CAP = 2
 # module docstring's M2c section.
 VALVE_SOFT_CAP = 10
 
+# How many HIRE orders are promoted ahead of the OTHER buys in the emitted
+# list. MAX_ORDERS above caps the WHOLE per-turn list at 10 and the engine
+# drops the overflow without a word (_process_market slices each player's
+# queue to maxMarketOrdersPerTurn before it reads a single order), so the
+# tail of a busy turn's list is simply never submitted. policy.decide packs
+# HIRE last on purpose -- "Buys first, hires last: if the 10-slot cap ever
+# truncates, it drops trailing hires (which self-heal next turn) rather than
+# a purchase" -- which makes hiring the first casualty of exactly the turns
+# that need the crew most: a land-unlock day carries seven sell lines, a
+# BUY_LAND and the animal buys, and the agent runs ~10 hands on the
+# SW-unlock day where the public leaders run 14.
+#
+# "Self-heal next turn" is true and still expensive. The engine evicts every
+# hand at midnight and the morning crew is rebuilt from scratch (units on the
+# farm at hours 0/1/2/3 measured at 1/5/9/11 -- see plan.MAX_HIRES_PER_TURN),
+# so a turn whose hires were truncated away is an hour of that ramp spent,
+# not deferred.
+#
+# 0 is DEFAULT-NEUTRAL and emits the pre-knob list byte for byte: no
+# promotion happens at all, so ``buys`` reaches the cap in the caller's own
+# order. Above 0, up to this many HIRE orders move ahead of the non-HIRE
+# buys -- never ahead of a SELL, since the index-0 law is about sells (an
+# earlier slot fully executes, moving the price, before either player's
+# later order) and a hire that jumped one would hand that race to the
+# opponent. The floor is a claim on the BUY half of the list, not on the cap
+# itself: if the sells alone leave fewer than this many slots, the hires
+# that do not fit are dropped exactly as they are today.
+#
+# BUY_LAND is the one buy a promotion may never displace, and it is hoisted
+# ahead of the promoted hires rather than merely left behind them. The engine
+# spends orders in LIST POSITION and both _do_hire and _do_buy_land silently
+# return when farm["money"] < cost -- no error, no retry, the order is simply
+# consumed and nothing happens. Hire cost is Fibonacci in the count already
+# hired that day (_hire_cost(n) = mult * fib(n): 1,1,2,3,5,8,13,21,34,55,89,
+# 144,233,377), so four promoted hires draw roughly 89+144+233+377 = $843
+# before a BUY_LAND behind them.
+#
+# Measured on the SW-unlock day (eval/recon 2026-09-11 leader opening tape):
+# plan_day only guarantees budget >= LAND_PRICES["SW"] (2000) + LAND_RESERVE
+# (500) = $2,500 when it decides to buy, and we hold about $2,520 that day.
+# Draw $843 of wages first and the purchase faces ~$1,657 against a $2,000
+# price -- it fails in silence. A lost hire is cheap and self-heals next turn;
+# a lost or delayed SW purchase is the strategic event of the mid-game, since
+# it is what roughly doubles the board. So land keeps ABSOLUTE priority, which
+# is what policy.decide's "Buys first, hires last ... rather than a purchase"
+# was already protecting. Every OTHER buy (animals, seeds, feed) stays
+# displaceable -- that is the trade the knob exists to make, and it still only
+# exists above the default.
+HIRE_SLOT_FLOOR = 0
+
+
+def _hire_first_buys(buys: list[list[object]], hire_slot_floor: int) -> list[list[object]]:
+    """Land, then up to ``hire_slot_floor`` HIRE orders, then the rest in order.
+
+    A permutation of ``buys``, never a rewrite: nothing is added, dropped or
+    duplicated to fill the floor, and the caller's own list is left alone
+    (policy.decide reads the emitted orders back for MelonMarketMemory
+    attribution). At the default the list is returned untouched.
+
+    BUY_LAND is hoisted ahead of every promoted hire and is never displaced by
+    one -- the engine spends orders in list position and a hire that drew its
+    wage first can leave the purchase short, where it fails in silence. Every
+    other buy stays displaceable; see ``HIRE_SLOT_FLOOR``. Matched on the verb
+    at index 0 rather than an exact literal, so a land order that later carries
+    an argument does not quietly fall back into the displaceable pile.
+    """
+    if hire_slot_floor <= 0:
+        return buys
+    land: list[list[object]] = []
+    promoted: list[list[object]] = []
+    rest: list[list[object]] = []
+    for order in buys:
+        if order[:1] == ["BUY_LAND"]:
+            land.append(order)
+        elif order == ["HIRE"] and len(promoted) < hire_slot_floor:
+            promoted.append(order)
+        else:
+            rest.append(order)
+    return land + promoted + rest
+
 
 def _capped_sell(item: str, shed: Mapping[str, int], cap: int, liquidating: bool) -> list[object]:
     qty = shed[item] if liquidating else min(shed[item], cap)
@@ -287,6 +367,7 @@ def build_orders(
     milk_crashed: bool = False,
     wool_milk_sell_cap: int = WOOL_MILK_SELL_CAP,
     front_run_products: frozenset[str] = frozenset(),
+    hire_slot_floor: int = HIRE_SLOT_FLOOR,
 ) -> list[list[object]]:
     """Sells first (crashables at index 0, melon leading), then buys, capped at 10.
 
@@ -301,6 +382,13 @@ def build_orders(
     ``policy.decide``'s shed-fill computation, ``wool_crashed``/
     ``milk_crashed`` from a caller-owned pair of ``agent.state.
     ProductCrashLatch`` instances -- see the module docstring's M2c section.
+
+    ``hire_slot_floor`` reorders the BUY half only, promoting up to that many
+    HIRE orders ahead of the other buys so the 10-slot truncation lands on one
+    of those instead. BUY_LAND is exempt and leads the buy half outright -- it
+    is never displaced by a promoted hire, nor left behind one to be starved of
+    cash. Sells are untouched at every value, and 0 (the default) promotes
+    nothing -- see ``HIRE_SLOT_FLOOR``.
     """
     orders: list[list[object]] = []
     liquidating = day >= final_day
@@ -422,5 +510,5 @@ def build_orders(
     if wheat_for_sale > 0:
         orders.append(["SELL", "WHEAT", wheat_for_sale])
 
-    orders.extend(buys)
+    orders.extend(_hire_first_buys(buys, hire_slot_floor))
     return orders[:MAX_ORDERS]

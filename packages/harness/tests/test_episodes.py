@@ -424,6 +424,36 @@ class TestResolveAgent:
         with pytest.raises(ValueError, match="zone_fallthrough_multiplier"):
             resolve_agent("champion", {"zone_fallthrough_multiplier": 11})
 
+    def test_agent_config_flows_hire_slot_floor_to_policy_config(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # The JSON-shaped-config wiring proof for hire_slot_floor
+        # (kaggriculture, 2026-09-12): a CLI --agent-config
+        # '{"hire_slot_floor": 4}' must reach make_policy as an actual
+        # PolicyConfig with the field set, not get silently dropped --
+        # mirrors test_agent_config_flows_zone_fallthrough_multiplier_to_
+        # policy_config above.
+        import agent.policy as policy_module
+
+        captured: dict[str, object] = {}
+
+        def fake_make_policy(clock: object = None, policy_config: object = None) -> object:
+            captured["policy_config"] = policy_config
+            return lambda obs, config=None: {"farmer": ["PASS"], "hands": [], "market": []}
+
+        monkeypatch.setattr(policy_module, "make_policy", fake_make_policy)
+        resolve_agent("champion", {"hire_slot_floor": 4})
+
+        config = captured["policy_config"]
+        assert isinstance(config, policy_module.PolicyConfig)
+        assert config.hire_slot_floor == 4
+
+    def test_agent_config_rejects_an_out_of_range_hire_slot_floor(self) -> None:
+        with pytest.raises(ValueError, match="hire_slot_floor"):
+            resolve_agent("champion", {"hire_slot_floor": -1})
+        with pytest.raises(ValueError, match="hire_slot_floor"):
+            resolve_agent("champion", {"hire_slot_floor": 11})
+
     def test_frozen_spec_raises_on_a_knob_its_own_build_never_had(self) -> None:
         """The guard that matters, kept. A frozen package that predates the
         knob it is handed must reject it LOUDLY, naming the frozen package --

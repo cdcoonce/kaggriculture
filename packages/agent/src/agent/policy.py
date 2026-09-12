@@ -43,6 +43,7 @@ from agent.dispatch import (
 )
 from agent.market import (
     FERT_MIN_PRICE,
+    HIRE_SLOT_FLOOR,
     MILK_MIN_PRICE,
     STRAWBERRY_MIN_PRICE,
     VALVE_SOFT_CAP,
@@ -203,6 +204,15 @@ _MAX_GOOSE_MIN_DAY = 29
 _MIN_ZONE_FALLTHROUGH_MULTIPLIER = 0
 _MAX_ZONE_FALLTHROUGH_MULTIPLIER = 10
 
+#: hire_slot_floor: the same market.MAX_ORDERS ceiling max_hires_per_turn
+#: takes its own upper bound from -- a floor above 10 could never claim more
+#: slots than the whole per-turn order list has. The lower bound is 0, not 1:
+#: 0 is this knob's DEFAULT-NEUTRAL off value (no promotion at all), so it is
+#: the one setting that must stay constructible, and negative has no meaning
+#: against a slot count.
+_MIN_HIRE_SLOT_FLOOR = 0
+_MAX_HIRE_SLOT_FLOOR = 10
+
 #: animal_buy_order: must be a permutation of plan.ANIMAL_BUY_ORDER itself --
 #: checked by sorted-list equality (not a set) so a duplicate (e.g. ("COW",
 #: "COW")) is rejected too, not just an unknown species. Anything else would
@@ -323,6 +333,22 @@ class PolicyConfig:
     # hiring, and above 10 can never fit more HIRE orders than the market
     # list has slots for in one turn regardless.
     max_hires_per_turn: int = MAX_HIRES_PER_TURN
+    # The other end of that same 10-slot cap. max_hires_per_turn decides how
+    # many HIRE orders decide() ASKS for; this decides how many of them
+    # survive the truncation on a turn that asks for more orders than the
+    # engine will read. decide() appends HIRE at the tail of ``buys`` ("Buys
+    # first, hires last", below), so on the busiest turns -- a land-unlock
+    # day: seven sell lines, a BUY_LAND, the animal buys -- the hires are the
+    # whole of what gets dropped, and the agent runs ~10 hands on the
+    # SW-unlock day where the public leaders run 14. Raising this promotes up
+    # to that many HIRE orders ahead of the OTHER buys (never ahead of a
+    # sell) so a purchase pays for the overflow instead; see market.
+    # HIRE_SLOT_FLOOR for the full mechanism, including why a promoted hire
+    # also spends its wage before the buys behind it. DEFAULT-NEUTRAL: 0
+    # promotes nothing, so ``buys`` reaches the cap in exactly the order
+    # decide() built it, byte for byte as before this knob existed.
+    # __post_init__ rejects anything outside 0-10 -- see _MAX_HIRE_SLOT_FLOOR.
+    hire_slot_floor: int = HIRE_SLOT_FLOOR
 
     # Labor SUPPLY, not dispatch priority (kaggriculture diagnosis,
     # 2026-09-11 continuation of the three labor knobs above): even with
@@ -529,6 +555,11 @@ class PolicyConfig:
         _MAX_ZONE_FALLTHROUGH_MULTIPLIER -- checked here for the same "loud
         at construction" reason as every other field above.
 
+        hire_slot_floor must land inside 0-10 (market.MAX_ORDERS's own
+        10-slot cap again, the same ceiling max_hires_per_turn takes), with 0
+        allowed because 0 is its off/default value -- checked here for the
+        same "loud at construction" reason as every other field above.
+
         animal_buy_order gets the same list-to-tuple coercion as
         strawberry_frame_quadrants above (JSON has no tuple type, so a CLI
         --agent-config override arrives as a list -- unhashable, and never
@@ -606,6 +637,12 @@ class PolicyConfig:
                 f"zone_fallthrough_multiplier must be within "
                 f"{_MIN_ZONE_FALLTHROUGH_MULTIPLIER}-{_MAX_ZONE_FALLTHROUGH_MULTIPLIER}, "
                 f"got {self.zone_fallthrough_multiplier!r}"
+            )
+
+        if not (_MIN_HIRE_SLOT_FLOOR <= self.hire_slot_floor <= _MAX_HIRE_SLOT_FLOOR):
+            raise ValueError(
+                f"hire_slot_floor must be within {_MIN_HIRE_SLOT_FLOOR}-"
+                f"{_MAX_HIRE_SLOT_FLOOR}, got {self.hire_slot_floor!r}"
             )
 
         animal_order = tuple(self.animal_buy_order)
@@ -940,6 +977,9 @@ def make_policy(
 
         # Buys first, hires last: if the 10-slot cap ever truncates, it drops
         # trailing hires (which self-heal next turn) rather than a purchase.
+        # cfg.hire_slot_floor (0 by default, i.e. never) is what inverts that
+        # for the first k hires -- build_orders does the promotion, so this
+        # list stays in its original "hires last" order either way.
         buys: list[list[object]] = list(plan.buys)
         buys.extend([["HIRE"]] * plan.hire_count)
         any_animal_owned = goose or cows_owned > 0 or sheep_owned > 0
@@ -981,6 +1021,7 @@ def make_policy(
             front_run_products=(
                 clone_pressure_products(view) if cfg.clone_front_run else frozenset()
             ),
+            hire_slot_floor=cfg.hire_slot_floor,
         )
         # Clamped to what we actually held, not just what we asked for --
         # build_orders' own _capped_sell already enforces this (an order for
