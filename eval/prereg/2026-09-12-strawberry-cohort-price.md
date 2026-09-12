@@ -1,0 +1,196 @@
+# Pre-registration: price the surviving strawberry cohort
+
+Date: 2026-09-12
+Candidate: `champion` with the strawberry-cohort knobs. **No new agent code**: every knob
+here shipped by 2026-09-11 (#128, #130, #140), so each arm is an `--agent-config` override
+and the build under test is `main` itself.
+Status: REGISTERED — runs launch only after (1) this document has merged and (2) the
+expression check below has passed. The runner asserts engine 1.32.7, that `PolicyConfig`
+carries every arm's knob at its shipped default, and that the band is unused.
+Authorization: owner decision 2026-09-11 (leader-style rebuild, own code). This is a
+successor inside that line, not a new one.
+Instrument: own bank against the public-leader panel, CALIBRATED in
+`eval/prereg/2026-09-11-panel-instrument-calibration.md`.
+
+## Why this is a new question and not a relitigation
+
+`eval/prereg/2026-09-11-leader-tape-slice1.md` was NOT LAUNCHED because no arm cleared a
+**leader-likeness** bar: 27 standing strawberry tiles on day 12, which is 75% of the
+leaders' 36. Its arms reached 23.5-25.5 and the verdict stands.
+
+But that slice never asked what those arms are worth, and **no money gate has ever priced a
+surviving cohort of that size**:
+
+| measurement | cohort | fate |
+|---|---|---|
+| strawberry slice 1 (gated, n=64) | 15-22 tiles, planted from day 8, with deaths | best arm +$2,282, NOT ADVANCED |
+| strawberry slice 2 (withdrawn) | 16.2 of 22, decaying to 13.9 by day 16 | never gated |
+| the 2026-08-29 31-tile build | 31 tiles, no rescue watering, pre-frame/priority fixes | banked far less than shipped |
+| **leader-tape arms (2026-09-11)** | **23.5-25.5 tiles, ~100% survival to day 16** | **never gated** |
+
+**The prior closures are stronger than that table alone suggests, and they belong here.**
+`docs/recon/occupancy.md` records that strawberry sized as a satellite on a labor-saturated
+farm is "strictly negative -- it takes crew away from wheat and gives back less, and the
+zone never fills (peak 13 of 16)".
+`eval/prereg/2026-08-28-fallthrough-production-vs-price.md` concludes "every strawberry arm
+is catastrophically worse than the shipped agent. The strawberry line is closed", and
+`eval/prereg/2026-09-06-strawberry-replacement-screen.md` closes "the strawberry thesis in
+both its forms". Those are real verdicts against this crop, and this slice does not get to
+ignore them.
+
+**But `occupancy.md` draws the distinction itself, and it was written before today.**
+Immediately after the sentence quoted above, under the heading "Why every strawberry arm
+measured dead", it says the strong opponent "does not run strawberry as a satellite. It runs
+it as ~45% of the farm, **replacing** wheat rather than supplementing it, which lowers total
+labor demand per tile-day held instead of raising it", and concludes: "That is a different
+intervention from anything screened so far, and the existing negative results do not bear on
+it." Every closure above measured the satellite form — tiles added on top of a full wheat
+rush. **The arms below are the replacement form**: wheat collapses to 1-4 standing tiles
+while strawberry takes 24-25. So the prior negatives are evidence about a different
+intervention, by our own recon's reckoning.
+
+What distinguishes this hypothesis from every one of them is also a measured fact rather
+than an argument: **the cohort now fills and survives.** Each closure above was measured on a zone
+that never filled (peak 13-14 of 16), or on a 31-tile build whose plants died, or on a
+satellite bolted onto a full wheat rush. The arms below stand at 23.5-25.5 tiles on day 12
+and are still standing on day 16. If the crop is genuinely unprofitable at our labor level,
+this slice is where that gets measured on a cohort that actually exists, instead of one that
+never grew.
+
+Three things landed on 2026-09-11 that none of the earlier gated arms had: planting ahead of
+wheat (`strawberry_plant_priority`), a fertilizer reserve counted on planted tiles rather
+than the target (`strawberry_fert_reserve`), and rescue watering (`rescue_water`), which took
+missed-water deaths from about 28 a game to about 1. The expression check measured the
+result: a cohort that fills by day 12 and is still standing on day 16, which no gated arm
+has ever had.
+
+The sizes at stake are large in both directions. Strawberry sells at $171-209 a unit, and a
+24-tile cohort yielding 5.4-6.5 units a tile is roughly $22-33k of revenue. Against that,
+the 31-tile zone measured wheat down $7.3-10.3k, seed spend up $2-3k, and the leader-tape
+probes measured the SW land purchase slipping to day 11-12. Dev-seed recon spans **−$18k to
++$20k across two different 4-seed sets**, which is exactly the situation an n=64 screen
+exists to resolve.
+
+**Hypothesis:** a strawberry cohort of at least 20 tiles that survives to day 16 banks more
+against the leaders than the shipped wheat farm.
+
+## Registered arms
+
+Each arm is one of the leader-tape arms, unchanged, because those are the configurations
+whose cohort has been measured:
+
+- **COH**: `{"strawberry_tile_target": 36, "strawberry_frame_quadrants": ["NW","NE","SW"], "strawberry_start_day": 3, "strawberry_plant_daily_cap": 11, "strawberry_plant_priority": 2, "strawberry_fert_reserve": "planted", "strawberry_seed_budget_share": 1.0, "rescue_water": true}`
+- **COH_HALF**: `{"strawberry_tile_target": 36, "strawberry_frame_quadrants": ["NW","NE","SW"], "strawberry_start_day": 3, "strawberry_plant_daily_cap": 11, "strawberry_plant_priority": 2, "strawberry_fert_reserve": "planted", "rescue_water": true}`
+- **COH_OPEN**: `{"strawberry_tile_target": 36, "strawberry_frame_quadrants": ["NW","NE","SW"], "strawberry_start_day": 3, "strawberry_plant_daily_cap": 11, "strawberry_plant_priority": 2, "strawberry_fert_reserve": "planted", "strawberry_seed_budget_share": 1.0, "rescue_water": true, "ne_land_min_day": 6, "animal_buy_order": ["SHEEP","COW"], "goose_min_day": 7}`
+
+## Expression check (pre-launch recon; a precondition)
+
+Run `tools/recon-scripts/early_cash_ledger.py` and `tools/recon-scripts/weed_provenance.py`
+on the build's tree, reference `{}` first and then every arm, on seeds **856000-856007**
+against `public:sokolovsky-v12` — **fresh seeds**, not the 855000-855007 set whose numbers
+are quoted above. Then `tools/recon-scripts/leader_tape_check.py LEDGER --weeds SCAN`
+reports the measurements, and the criteria below are evaluated from its record.
+
+1. **Cohort exists and survives (positive mechanism):** mean standing strawberry tiles at
+   the end of day 16 >= **20**, and >= **0.9 ×** the day-12 mean.
+2. **Watering guardrail:** mean plant deaths from missed watering <= **1.5 ×** shipped's, by
+   the engine's two-unwatered-days rule, as in the leader-tape slice.
+3. **Mechanism-matched collateral guardrail:** combined **WHEAT + STRAWBERRY** settled
+   revenue rises by at least **10%** against shipped, measured by
+   `tools/recon-scripts/revenue_breakdown.py`. A per-item wheat guardrail would veto this
+   slice by construction, because trading wheat land for strawberry land **is** the
+   mechanism; the sum is the honest form of the same question.
+
+**Disclosure on criterion 1, in full.** I chose the number 20 already knowing these arms
+measure 23.5-25.5 on the 855000-855007 seeds. It is anchored on the prior *gated* arms,
+which held 15-22 tiles planted late and dying, so a cohort of 20 standing on day 16 is
+materially different from anything a money gate has already priced. It is a definition of
+the hypothesis, not a leader-likeness test — the leader-likeness bar is what the previous
+slice failed, and that verdict stands untouched. Nothing advances on criterion 1: the money
+rule below is the only thing that decides.
+
+An arm failing a criterion is dropped before any run. If none passes, this document is
+amended by building, never by relaxing a criterion.
+
+## Registered design
+
+Money gate: candidate `champion` with the arm's `--agent-config`, **baseline `champion` at
+shipped defaults**, against each of `public:sokolovsky-v12`, `public:rayk-v11`,
+`public:kaito-v4`.
+
+- **Screen:** band **878000**, n = **64** seeds per leader.
+- **Confirmation:** the selected arm only, band **879000**, n = **128** per leader.
+- **Guard:** the confirmed arm against `frozen:m3b_live_b6ce655`, band **880000**, n = 64.
+
+Bands verified unused by every ledger in `eval/gates/` and claimed by no earlier
+registration.
+
+## Decision rule (fixed before launch)
+
+Identical to the four prior slices, restated so this document stands alone.
+
+Per arm and leader *i*, take `mean_delta_i`, `stderr_i` and `opponent_mean_delta_i` from the
+ledger; pool as the simple mean with pooled se `sqrt(sum stderr_i²)/3`; intervals are
+estimate ± 1.96 × se. The ledger's `passed` field is not the verdict.
+
+**INVALID** if the engine is not 1.32.7, a knob is absent, the expression check has not
+passed, or any run records a crash-type veto (`candidate_crash`, `baseline_crash`,
+`opponent_crash`, `canary_crash`) or a `baseline_degenerate` / `opponent_degenerate` veto. A
+`candidate_degenerate` veto is a result, not an invalidity: the games are deterministic, so
+that arm simply does not advance, confirm, or pass the guard.
+
+**SCREEN — an arm ADVANCES** only if, at band 878000: pooled own-bank delta **>= +$4,000**;
+pooled 95% lower bound **> $0**; and no single leader's point estimate below **−$2,000**.
+
+**SELECTION:** among advancing arms, the highest pooled lower bound.
+
+**CONFIRMED** only if the selected arm, at band 879000 n=128, has pooled delta
+**>= +$4,000**, pooled lower bound **> +$1,000**, and a pooled **margin delta**
+(`mean_delta_i − opponent_mean_delta_i`, simple mean) **> −$2,000**.
+
+**GUARD:** the confirmed arm's own-bank delta against `frozen:m3b_live_b6ce655` must have a
+point estimate **> −$2,000**.
+
+**NOT ADVANCED / NOT CONFIRMED** otherwise. No arm substitution, band reuse, or threshold
+change after launch.
+
+REPORTED, NOT GATING: per arm, the gap and the margin delta; for the selected arm, the
+settled-flow breakdown by item against shipped, the realized strawberry price per unit, and
+standing strawberry by quadrant and day.
+
+## Registered predictions
+
+- All three arms pass the expression check: the cohort and its survival are already
+  measured, and rescue watering holds deaths near 1 a game.
+- **The screen resolves a question the dev seeds could not.** Recon spans −$18k to +$20k
+  across two 4-seed sets; at n=64 per leader the pooled se has been about $1,000 in every
+  prior slice, so this measures the sign at last.
+- **COH_HALF has the highest point estimate**, −$1k to +$6k: it keeps early cash for the
+  herd and buys SW a day sooner than COH.
+- **COH_OPEN lands lowest**, −$10k to +$2k: delaying NE costs our wheat economy more than
+  the leaders' herd start returns.
+- **P(any arm advances) about 25%.** That number moved twice while this document was
+  drafted and the reasoning is recorded rather than tidied away: 30% first, cut to 20% after
+  re-reading the three closures cited above, then settled at 25% once `occupancy.md`'s own
+  satellite-versus-replacement distinction was verified — those closures measured the
+  satellite form, and these arms are the replacement form the same file calls untested.
+  Against that: the dev-seed recon for these very arms ran −$8.4k to −$18.0k on the more
+  recent of its two 4-seed sets, the strawberry offsets are real (wheat displacement, seed
+  spend, an SW purchase slipping to day 11-12, a labor budget rescue watering now also draws
+  on), and three registrations have closed this crop before. The case for running it is not
+  that it will win; it is that a filled, surviving, wheat-replacing cohort has never been
+  priced, and five slices have failed to settle it.
+- If no arm advances, the strawberry line is closed by measurement rather than by a
+  mechanism bar, which is what five slices have failed to settle.
+
+## Consequence
+
+CONFIRMED plus a passing GUARD authorizes an upload **decision** only. The next upload evicts
+M3b, and that remains an owner decision.
+
+## Amendment history
+
+- (this commit) full registration: arms, criteria, bands and predictions, committed before
+  the expression check runs on its own fresh seeds. Criterion 1's threshold was chosen with
+  knowledge of the arms' measured fill on other seeds, and that is disclosed above rather
+  than presented as independent.
