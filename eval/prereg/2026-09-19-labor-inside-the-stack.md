@@ -193,3 +193,97 @@ Nothing in this document authorises an upload.
   before the expression check runs. Criterion 1's threshold is anchored on labor slice 2's
   measured crew-hour rise (9.9 -> 10.9) and criterion 3's on STACK3's measured fill (16.1),
   not on any measurement of these arms, which have never been run.
+
+## ADDENDUM — SCREEN VERDICT (2026-09-19): NOT ADVANCED, and the reference arm did not replicate
+
+Run at `main` = `6d49bd4`, whose `packages/` and `dist/` are byte-identical to the registered
+build `c43d8ed` (the one commit between them is this document; the check's tooling landed
+after the runs, at `2af7377`).
+Engine 1.32.7, band 888000, n = 64 per leader, clean tree. The six ledgers are
+`eval/gates/2026-09-19T17-06-21Z` through `…T17-21-35Z-*-money.json`, with no crash and no
+veto.
+
+| arm | Sokolovsky | rayk | kaito | pooled Δ (se) | 95% CI | margin Δ | verdict |
+|---|---|---|---|---|---|---|---|
+| S3 | −$1,606 | −$846 | −$1,155 | −$1,203 ($1,119) | [−$3,395, +$990] | +$457 | NOT ADVANCED (fails 1, 2) |
+| S3EH1 | +$641 | −$356 | −$47 | +$79 ($1,088) | [−$2,054, +$2,212] | −$343 | NOT ADVANCED (fails 1, 2) |
+
+Neither arm advances. There is no confirmation run, no guard run, and no upload decision.
+**Labor-inside-the-stack is NOT ADVANCED.**
+
+**The headline is the replication failure, not the arm.** STACK3 measured **+$3,637**
+(se $1,174) at band 881000. `S3` is that configuration verbatim — verified byte-identical
+against `ALL_ARMS["STACK3"]` before launch — and at band 888000 it measures **−$1,203**. The
+gap is **−$4,840**. The correct denominator for the difference of two independent estimates
+is the se of that difference, `sqrt($1,174² + $1,119²)` = **$1,622**, which puts the gap at
+**2.98 se** (two-sided p ≈ 0.003). An earlier draft of this addendum divided by a single arm's
+pooled se and reported "more than four pooled se"; that was wrong, and overstated the
+improbability by about two orders of magnitude. Corrected, this is still a genuine replication
+failure and still the most interesting thing in the screen — but it is a 1-in-340 event, not a
+1-in-50,000 one.
+
+That reinterprets the result which motivated this slice. "+$3,637, short by $363" reads as a
+near-miss that one more idea could close; the same arm at a fresh band is negative. The
+near-miss was substantially band luck.
+
+This registration predicted the symmetric case and the logic is identical: "a NOT ADVANCED arm
+re-measured at a fresh band clearing a bar it previously missed would itself be evidence the
+instrument is noisier than the pooled se implies, and would be reported." It landed in the
+other direction. It is reported.
+
+**The instrument does resolve its own bar.** An earlier draft of this addendum claimed the
+opposite, and the claim was a category error worth recording. Every run here reports `mde_80`
+between **$4,526 and $5,137**, and setting that against the +$4,000 bar appears to show a
+design that cannot detect what it is scored on. It does not. `harness.stats` computes the
+stored `mde_80` as `mde_multiplier(n) * stderr` for a **single leader's** run at n=64. The
+quantity this registration scores is the **pooled** delta across three leaders, whose se is
+`sqrt(sum stderr_i²)/3` — smaller by √3. The matching pooled `mde_80` is **$2,815 for S3** and
+**$2,739 for S3EH1** ($2,791 / $2,716 using the pooled degrees of freedom), comfortably inside
+the +$4,000 bar. The same correction applies to the run that motivated this slice: STACK3's
+stored per-leader `mde_80` was $5,098–$5,159, but its pooled `mde_80` was **$2,955**. That
+screen was adequately powered too.
+
+The consequence runs opposite to what the erroneous reading implied: the prior NOT ADVANCED
+closures are **not** weakened. At n=64 per leader across three leaders this design detects a
+true +$4,000 effect with better than 80% power, and those closures mean what they said.
+
+What the ledger does not record is a pooled `mde_80` — only the per-leader one — which is what
+made the misreading easy to commit and hard to catch. That is a reporting gap in
+`harness.stats`, filed separately.
+
+**The mechanism is real and too small.** The within-band contrast, which this slice was
+designed to isolate, is **S3EH1 − S3 = +$1,282** pooled, positive at all three leaders. The
+expression check's reading holds up: the hand is bought (hire spend +$1,942), strawberry holds
+(16.0 → 16.4 tiles at day 12), and collateral rises rather than falls (+$5,429). The hand does
+what the hypothesis said it would. It is worth about a fifth of the bar.
+
+**Predictions scorecard.**
+- Criterion 2 was named as the likely failure at P=0.55 and **passed** (+$1,942 against
+  +$1,500). The call to single it out was right; the outcome fell on the favourable side.
+- The prediction "both arms pass the expression check on criteria 1 and 3" was
+  mis-specified: S3 is the reference arm and is not scored against the criteria. Only S3EH1
+  is scored. Recorded as an error in the registration, not reinterpreted.
+- **S3 was predicted to replicate at +$2,000 to +$5,000 and landed at −$1,203**, far outside
+  the range. This is the largest prediction miss the project has recorded.
+- S3EH1 was predicted at −$1,000 to +$5,500 and landed at +$79, inside the range at its low
+  end.
+- P(S3EH1 advances) was 20%; it did not advance. P(S3 advances) was 15%; it did not.
+
+**What it means (recorded, not a verdict).** The prereg said that if neither arm advanced,
+"the labor+strawberry interaction is closed by measurement alongside both main effects." That
+claim stands as written. The interaction is real, directionally positive at all three leaders,
+and worth **+$1,282** — about a fifth of the bar — on a design whose pooled `mde_80` is about
+$2,750. This is a measured smallness, not an unresolved question. Eleven slices are closed on
+that basis and stay closed.
+
+The one thing genuinely left open is the **between-band gap**: the same configuration measured
+at two bands differs by 2.98 se, p ≈ 0.003. Nothing in the per-seed error model anticipates
+that, and a band-level variance component would explain it. It changes no verdict in this
+document and licenses re-opening no closed slice; it is filed as its own question.
+
+The consequence for the 2026-09-28 freeze is that shipping the existing pair is the
+evidence-backed choice rather than the fallback. A new upload evicts M3b for a candidate whose
+best measured contribution is +$1,282 against a +$4,000 bar, on a design with the power to
+have found more had there been more to find. Mechanically no upload is constructible in any
+case: `submit.py` requires a passing promotion-type ledger entry and none exists for any
+commit newer than the already-live `a344ab1`. That remains an owner decision.
