@@ -7,12 +7,14 @@ from agent.constants import PASTURE_TILE_TARGET, target_tiles
 from agent.dispatch import (
     HAND_MULE_LOAD,
     RESCUE_WATER,
+    STRAWBERRY_PLANT_CUTOFF_DAY,
     STRAWBERRY_PLANT_DAILY_CAP,
     STRAWBERRY_PLANT_PRIORITY,
     WHEAT_PLANT_HOUR_CUTOFF,
     WHEAT_PLANT_PRIORITY,
     dispatch,
 )
+from agent.view import FarmView
 from viewfactory import built_pasture, make_view, pasture, plant, strawberry
 
 NW_TILES = target_tiles(("NW",))
@@ -1032,6 +1034,168 @@ def test_strawberry_plant_priority_is_tunable_not_just_the_module_constant() -> 
     )
     assert urgent.claims[1] == far_strawberry, (
         "a strictly more urgent priority class still lost the race to distance"
+    )
+
+
+# --- strawberry_plant_cutoff_day: the last day a fresh PLANT STRAWBERRY task
+# is issued (kaggriculture, 2026-09-12) --------------------------------------
+#
+# DEFAULT-NEUTRAL at dispatch.STRAWBERRY_PLANT_CUTOFF_DAY (12), so every
+# shipped game plants on exactly the days it planted before.
+#
+# Diagnosis (n=8, seeds 858100-858107 vs public:sokolovsky-v12, on a 36-tile
+# NW/NE/SW strawberry arm): the SW quadrant is gated behind the animal
+# pipeline in plan.py -- animals_done needs both species' targets met or their
+# windows closed, and SHEEP_LAST_BUY_DAY is 11 -- so SW is bought around day
+# 11-12 and its zone tiles become plantable on the LAST legal planting day.
+# Standing strawberry in SW reaches 3.2 tiles on day 12 and does not move
+# again for thirteen days, because the cutoff forbids further planting; the
+# 36-tile target peaks at 21.9 standing tiles against the public leader's 36
+# held from day 11 through day 20. Days 13-19 still yield, at a declining
+# fraction of the four ticks -- 12 is the last FULLY productive planting day,
+# not the last productive one -- so this knob is what lets an eval arm price
+# that tail.
+
+
+_CUTOFF_ZONE = frozenset({(0, 0), (1, 0), (2, 0)})
+
+
+def _cutoff_view(day: int) -> FarmView:
+    """Three empty tiles along the north edge with a hand standing on each.
+
+    Every OTHER NW target tile holds an age-1 wheat plant, which the
+    dispatcher deliberately gives no task at all (one dry day is safe and age
+    1 is outside the yield window) -- the same isolation
+    test_strawberry_zone_falls_through_to_wheat_once_its_window_closes uses.
+    That leaves the three tiles under test as the only work on the board, so
+    what each hand does is decided by the plant gate rather than by a
+    nearest-tile race or by what was left of wheat's daily quota. The farmer
+    starts loaded, which routes it to the shed and out of the field race.
+    """
+    tiles = make_view().tiles
+    for x, y in NW_TILES:
+        if (x, y) not in _CUTOFF_ZONE:
+            tiles[y][x] = plant(planted_day=day - 1, watered_today=False)
+    return make_view(
+        step=day * 24,
+        hands=sorted(_CUTOFF_ZONE),
+        tiles=tiles,
+        seeds=9,
+        strawberry_seeds=9,
+        inventories=[{"WHEAT": 1}, {}, {}, {}],
+    )
+
+
+def test_strawberry_plant_cutoff_day_defaults_to_todays_day_twelve_window() -> None:
+    # The shipped agent must be bit-identical until a gate says otherwise, so
+    # this pins both halves of that claim across the boundary, on a matrix of
+    # days spanning it, with and without a zone, three units each:
+    #   - the actions the default actually produces, as literals, so a changed
+    #     default or a flipped comparison shows up right here;
+    #   - full Actions equality between passing the default explicitly and not
+    #     passing it at all, so the new parameter cannot perturb anything on
+    #     its own.
+    # The no-zone column is not filler: the same empty ground is plain wheat
+    # ground there, and the strawberry cutoff must not reach it on ANY day.
+    expected_in_zone = {
+        11: ["PLANT", "STRAWBERRY"],
+        12: ["PLANT", "STRAWBERRY"],
+        13: ["PLANT", "WHEAT"],
+        14: ["PLANT", "WHEAT"],
+        20: ["PLANT", "WHEAT"],
+    }
+    for day, in_zone in expected_in_zone.items():
+        view = _cutoff_view(day)
+        for zone in (_CUTOFF_ZONE, frozenset()):
+            wanted = [in_zone if zone else ["PLANT", "WHEAT"]] * 3
+            omitted = dispatch(view, NW_TILES, frozenset(), frozenset(), zone)
+            assert omitted.hands == wanted, (
+                f"day {day}, zone={bool(zone)}: shipped behavior moved "
+                f"(got {omitted.hands}, want {wanted})"
+            )
+            explicit = dispatch(
+                view,
+                NW_TILES,
+                frozenset(),
+                frozenset(),
+                zone,
+                strawberry_plant_cutoff_day=STRAWBERRY_PLANT_CUTOFF_DAY,
+            )
+            assert explicit == omitted, (
+                f"day {day}, zone={bool(zone)}: the knob at its own default moved the output"
+            )
+
+
+def test_strawberry_plant_cutoff_day_extends_the_window_past_the_default() -> None:
+    # The measured point of the knob. SW's zone tiles only become plantable
+    # around day 11-12, so the arm that matters is the one that keeps planting
+    # after 12: day 14 falls through to wheat at the default and issues a real
+    # PLANT STRAWBERRY at 16.
+    view = _cutoff_view(14)
+    default = dispatch(view, NW_TILES, frozenset(), frozenset(), _CUTOFF_ZONE)
+    assert default.hands == [["PLANT", "WHEAT"]] * 3
+
+    raised = dispatch(
+        view, NW_TILES, frozenset(), frozenset(), _CUTOFF_ZONE, strawberry_plant_cutoff_day=16
+    )
+    assert raised.hands == [["PLANT", "STRAWBERRY"]] * 3, (
+        f"strawberry_plant_cutoff_day=16 should still plant strawberry on day 14 "
+        f"(got {raised.hands})"
+    )
+
+
+def test_strawberry_plant_cutoff_day_gate_stays_inclusive_of_the_cutoff_itself() -> None:
+    # The gate is `view.day <= cutoff`: the cutoff day itself still plants, the
+    # day after does not. Pinned at the default AND at a shifted value, so the
+    # semantics travel with the knob instead of being a property of the number
+    # 12 -- a `<` for `<=` slip fails both halves.
+    def _crop(day: int, **kwargs: int) -> list[object]:
+        return dispatch(
+            _cutoff_view(day), NW_TILES, frozenset(), frozenset(), _CUTOFF_ZONE, **kwargs
+        ).hands[0]
+
+    assert _crop(STRAWBERRY_PLANT_CUTOFF_DAY) == ["PLANT", "STRAWBERRY"]
+    assert _crop(STRAWBERRY_PLANT_CUTOFF_DAY + 1) == ["PLANT", "WHEAT"]
+    assert _crop(16, strawberry_plant_cutoff_day=16) == ["PLANT", "STRAWBERRY"]
+    assert _crop(17, strawberry_plant_cutoff_day=16) == ["PLANT", "WHEAT"]
+
+
+def test_strawberry_plant_cutoff_day_is_read_from_the_argument_not_the_module_constant() -> None:
+    # THE THREADING TRAP, pinned deliberately and named so.
+    #
+    # strawberry_plant_daily_cap once reached PolicyConfig and stopped at
+    # plan.py's seed-purchase target while _field_tasks kept reading the
+    # module constant, so every eval arm that "swept the cap" actually planted
+    # at the default and only varied how many seeds got bought -- a whole
+    # registered screen measuring nothing, with a green suite the entire time.
+    # This test fails if _field_tasks reads STRAWBERRY_PLANT_CUTOFF_DAY
+    # instead of its argument, in BOTH directions, so neither a raise nor a
+    # lower can be silently ignored.
+    lowered = dispatch(
+        _cutoff_view(10),
+        NW_TILES,
+        frozenset(),
+        frozenset(),
+        _CUTOFF_ZONE,
+        strawberry_plant_cutoff_day=8,
+    )
+    assert lowered.hands == [["PLANT", "WHEAT"]] * 3, (
+        f"day 10 planted strawberry under a cutoff of 8: the gate read the module "
+        f"constant ({STRAWBERRY_PLANT_CUTOFF_DAY}), not its argument (got {lowered.hands})"
+    )
+
+    raised = dispatch(
+        _cutoff_view(20),
+        NW_TILES,
+        frozenset(),
+        frozenset(),
+        _CUTOFF_ZONE,
+        strawberry_plant_cutoff_day=20,
+    )
+    assert raised.hands == [["PLANT", "STRAWBERRY"]] * 3, (
+        f"day 20 refused to plant strawberry under a cutoff of 20: the gate read the "
+        f"module constant ({STRAWBERRY_PLANT_CUTOFF_DAY}), not its argument "
+        f"(got {raised.hands})"
     )
 
 

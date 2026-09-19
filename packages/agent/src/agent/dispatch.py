@@ -139,6 +139,34 @@ STRAWBERRY_MAINTENANCE_AGES = (2, 4, 6, 8)
 # time and day 20 yields nothing at all. 12 is therefore the last *fully*
 # productive planting day, and the cutoff is set there rather than at the
 # first-yield boundary.
+#
+# Single source of truth for PolicyConfig.strawberry_plant_cutoff_day, which
+# defaults to THIS constant (threaded policy.py -> dispatch() -> _field_tasks,
+# and policy.py -> plan_day's strawberry seed line, and read directly off the
+# config by policy.py's own _zone_fallthrough_tiles) rather than a duplicated
+# literal, so the knob's default can never drift out of sync with what the
+# module does when the knob is left alone.
+#
+# The knob exists because "last FULLY productive" and "last productive" are
+# not the same day, and the difference is now load-bearing. The SW quadrant is
+# gated behind the animal pipeline (plan.py's animals_done needs both species'
+# targets met or their windows closed, and SHEEP_LAST_BUY_DAY is 11), so SW is
+# bought around day 11-12 -- its zone tiles become plantable on the LAST legal
+# planting day, and this gate shuts on them immediately.
+#
+# Diagnosis (n=8, seeds 858100-858107 vs public:sokolovsky-v12, on a 36-tile
+# NW/NE/SW strawberry arm): standing strawberry in SW reaches 3.2 tiles on day
+# 12 and does not move again for thirteen days -- 3.2 on day 12, 3.2 on day
+# 20, 3.2 on day 25 -- because this cutoff forbids further planting there. The
+# 36-tile target peaks at 21.9 standing tiles all told, against the public
+# leader's 36 held from day 11 through day 20 and $41,849 of strawberry
+# revenue to our best arm's $18,118. Per-tile-day yield is comparable (0.45
+# theirs against 0.34-0.40 ours), so the deficit is TILES, not plant care, and
+# reserving dispatch units to the zone does not touch it -- that was built and
+# measured, and it moves SW by nothing, because no assignment logic can plant
+# locked ground. Days 13-19 do still yield, at a declining fraction of the
+# four ticks; this knob is what lets an eval arm price that tail against the
+# tiles it would buy.
 STRAWBERRY_PLANT_CUTOFF_DAY = 12
 # Sized to fill a zone of any plausible size well inside the cutoff rather
 # than to melon's 2/day stagger. Melon's flat cap is what strands its zone:
@@ -469,6 +497,7 @@ def _field_tasks(
     strawberry_tiles: frozenset[tuple[int, int]] = frozenset(),
     strawberry_plant_daily_cap: int = STRAWBERRY_PLANT_DAILY_CAP,
     strawberry_plant_priority: int = STRAWBERRY_PLANT_PRIORITY,
+    strawberry_plant_cutoff_day: int = STRAWBERRY_PLANT_CUTOFF_DAY,
     wheat_plant_priority: int = WHEAT_PLANT_PRIORITY,
     wheat_plant_hour_cutoff: int = WHEAT_PLANT_HOUR_CUTOFF,
     rescue_water: bool = RESCUE_WATER,
@@ -513,7 +542,10 @@ def _field_tasks(
         5 get no task.
       3 an empty melon tile to plant, gated on
         ``day <= MELON_PLANT_CUTOFF_DAY`` as well as hour <= 20 and melon's
-        own daily cap.
+        own daily cap. Melon keeps its own module constant here: it is a
+        SEPARATE literal from strawberry's ``strawberry_plant_cutoff_day``
+        and does not follow that knob, exactly as melon's and strawberry's
+        ``hour <= 20`` gates are separate from ``wheat_plant_hour_cutoff``.
       4 a weed to dig (shared with wheat — a weed is a weed either way).
 
     Pasture tiles (positions in ``pasture_tiles``) see ``_pasture_task``'s
@@ -610,7 +642,7 @@ def _field_tasks(
                     melon_budget -= 1
             elif is_strawberry:
                 if (
-                    view.day <= STRAWBERRY_PLANT_CUTOFF_DAY
+                    view.day <= strawberry_plant_cutoff_day
                     and view.hour <= 20
                     and strawberry_budget > 0
                 ):
@@ -630,7 +662,8 @@ def _field_tasks(
                     # idle ground: melon reserves its whole zone all game
                     # against a flat 2/day cap, which is what strands ~110
                     # tile-days at melon 20 and makes 22/24 gate worse than
-                    # 16-20. Strawberry's window CLOSES (day 12, after which a
+                    # 16-20. Strawberry's window CLOSES (at
+                    # strawberry_plant_cutoff_day, 12 by default, after which a
                     # planting cannot bank a full four ticks), and a tile that
                     # finished its cycle and was dug re-enters as empty ground
                     # well after that -- so once the window is shut, or the
@@ -780,6 +813,7 @@ def dispatch(
     prior_claims: dict[int, tuple[int, int]] | None = None,
     strawberry_plant_daily_cap: int = STRAWBERRY_PLANT_DAILY_CAP,
     strawberry_plant_priority: int = STRAWBERRY_PLANT_PRIORITY,
+    strawberry_plant_cutoff_day: int = STRAWBERRY_PLANT_CUTOFF_DAY,
     wheat_plant_priority: int = WHEAT_PLANT_PRIORITY,
     wheat_plant_hour_cutoff: int = WHEAT_PLANT_HOUR_CUTOFF,
     feed_batch_cap: int = FEED_BATCH_CAP,
@@ -833,6 +867,7 @@ def dispatch(
         strawberry_tiles,
         strawberry_plant_daily_cap,
         strawberry_plant_priority,
+        strawberry_plant_cutoff_day,
         wheat_plant_priority,
         wheat_plant_hour_cutoff,
         rescue_water,
