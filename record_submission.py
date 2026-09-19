@@ -14,7 +14,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from harness.ledger import find_passing_promotion
+from harness.ledger import find_passing_promotion, promotion_refusal_reason
 from harness.submissions import SubmissionRecord, read_submission, write_submission
 
 
@@ -51,13 +51,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--manifest", default="dist/MANIFEST.txt")
     args = parser.parse_args(argv)
 
-    promotion = find_passing_promotion(Path(args.gates_dir), args.candidate_sha)
+    gates_dir = Path(args.gates_dir)
+    promotion = find_passing_promotion(gates_dir, args.candidate_sha)
     if promotion is None:
-        print(
-            f"no passing champion promotion found in {args.gates_dir} "
-            f"for candidate {args.candidate_sha}",
-            file=sys.stderr,
-        )
+        print(promotion_refusal_reason(gates_dir, args.candidate_sha), file=sys.stderr)
         return 1
 
     bundle_sha256 = args.bundle_sha256

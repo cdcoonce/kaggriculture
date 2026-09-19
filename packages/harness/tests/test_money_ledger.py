@@ -8,7 +8,13 @@ from dataclasses import fields
 from pathlib import Path
 
 from harness.gate import MoneyGateResult, run_money_gate
-from harness.ledger import find_passing_promotion, json_float, write_ledger, write_money_ledger
+from harness.ledger import (
+    find_passing_promotion,
+    json_float,
+    promotion_refusal_reason,
+    write_ledger,
+    write_money_ledger,
+)
 from harness.stats import MoneyVerdict
 
 TINY_CONFIG = {"episodeSteps": 48}
@@ -210,6 +216,12 @@ class TestSubmissionGateStaysHonest:
         path = _write(tmp_path, _sample_money_result())
         payload = json.loads(path.read_text(encoding="utf-8"))
         payload["identity"]["candidate"] = "champion"
+        # Also swap the opponent for a non-trivial one: `_sample_money_result`
+        # uses "builtin:pass" for unrelated reasons (a cheap deterministic
+        # bot), and issue #166 would otherwise exclude it here too, breaking
+        # this test's positive control below for a reason unrelated to what
+        # it is checking (the gate_type filter, not the opponent filter).
+        payload["identity"]["opponent"] = "zoo:pass"
         payload["verdict"]["passed"] = True
         path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
@@ -241,6 +253,145 @@ class TestSubmissionGateStaysHonest:
             json.dumps(legacy, indent=2), encoding="utf-8"
         )
         assert find_passing_promotion(gates, "deadbeef") is not None
+
+
+def _write_promotion_entry(
+    gates_dir: Path, *, filename: str, candidate_sha: str, opponent: str
+) -> Path:
+    """A minimal, schema-legal ``gate_type == "promotion"`` entry, passing, for
+    ``candidate_sha`` against ``opponent``. Issue #166 fixtures only need
+    ``identity`` + ``verdict.passed``; see
+    ``test_find_passing_promotion_does_not_keyerror_on_a_money_entry`` above
+    for the precedent of a hand-built legacy-shaped entry.
+    """
+    gates_dir.mkdir(parents=True, exist_ok=True)
+    entry = {
+        "schema_version": 1,
+        "identity": {
+            "candidate": "champion",
+            "candidate_commit": candidate_sha,
+            "opponent": opponent,
+            "gate_type": "promotion",
+            "extra_config": None,
+        },
+        "verdict": {"passed": True},
+        "seed_manifest": {"seed_base": 0, "n_seeds": 1, "seeds": [0]},
+        "rows": [],
+    }
+    path = gates_dir / filename
+    path.write_text(json.dumps(entry, indent=2), encoding="utf-8")
+    return path
+
+
+class TestFindPassingPromotionExcludesTrivialOpponents:
+    """Issue #166: a promotion gate is a win-rate gate, and a `builtin:*` or
+    `TUNABLE_SPECS` opponent is beaten at rate 1.0 (or is not an external
+    result at all) regardless of the candidate's real strength. These are the
+    acceptance-criteria fixtures, red before the opponent filter existed."""
+
+    def test_refuses_a_sha_carrying_only_a_passing_builtin_starter_entry(
+        self, tmp_path: Path
+    ) -> None:
+        # Acceptance criterion 1. This is the exact loophole named in the
+        # issue: `builtin:starter` is a do-nothing baseline beaten at rate
+        # 1.0 by every champion build in the corpus.
+        gates = tmp_path / "gates"
+        _write_promotion_entry(
+            gates, filename="a.json", candidate_sha="cafef00d", opponent="builtin:starter"
+        )
+        assert find_passing_promotion(gates, "cafef00d") is None
+
+    def test_refuses_a_sha_carrying_only_a_passing_tunable_spec_entry(self, tmp_path: Path) -> None:
+        # The second, independently-occurring instance from the issue: an
+        # opponent of "champion" is a same-codebase config-vs-config
+        # comparison (TUNABLE_SPECS), not an external result.
+        gates = tmp_path / "gates"
+        _write_promotion_entry(
+            gates, filename="a.json", candidate_sha="fbfc258", opponent="champion"
+        )
+        assert find_passing_promotion(gates, "fbfc258") is None
+
+    def test_refuses_a_sha_carrying_only_a_passing_champion_unshelled_entry(
+        self, tmp_path: Path
+    ) -> None:
+        gates = tmp_path / "gates"
+        _write_promotion_entry(
+            gates, filename="a.json", candidate_sha="fbfc258", opponent="champion-unshelled"
+        )
+        assert find_passing_promotion(gates, "fbfc258") is None
+
+    def test_accepts_a_passing_entry_against_a_zoo_opponent(self, tmp_path: Path) -> None:
+        # Acceptance criterion 2: the fix must not become a blanket refusal.
+        # `zoo:*` is neither `builtin:*` nor a TUNABLE_SPECS value.
+        gates = tmp_path / "gates"
+        path = _write_promotion_entry(
+            gates, filename="a.json", candidate_sha="deadbeef", opponent="zoo:pass"
+        )
+        assert find_passing_promotion(gates, "deadbeef") == path
+
+    def test_accepts_a_passing_entry_against_a_frozen_opponent(self, tmp_path: Path) -> None:
+        # `frozen:*` is `is_tunable()` for A/B-at-the-same-knob purposes, but
+        # it is NOT a `TUNABLE_SPECS` member and it IS an external result —
+        # explicitly not excluded (Acceptance criterion 2, Anti-scope).
+        gates = tmp_path / "gates"
+        path = _write_promotion_entry(
+            gates, filename="a.json", candidate_sha="deadbeef", opponent="frozen:m3b_live_b6ce655"
+        )
+        assert find_passing_promotion(gates, "deadbeef") == path
+
+    def test_falls_through_a_trivial_entry_to_find_a_real_one(self, tmp_path: Path) -> None:
+        # The fix filters the candidate set; it does not just refuse
+        # whichever entry glob() happens to return first.
+        gates = tmp_path / "gates"
+        _write_promotion_entry(
+            gates,
+            filename="2026-09-19T00-00-00Z-champion-vs-builtin_pass-promotion.json",
+            candidate_sha="deadbeef",
+            opponent="builtin:pass",
+        )
+        real = _write_promotion_entry(
+            gates,
+            filename="2026-09-19T00-00-01Z-champion-vs-zoo_pass-promotion.json",
+            candidate_sha="deadbeef",
+            opponent="zoo:pass",
+        )
+        assert find_passing_promotion(gates, "deadbeef") == real
+
+    def test_refusal_reason_names_the_excluded_opponent(self, tmp_path: Path) -> None:
+        # Acceptance criterion 3, verified by substring assertion.
+        gates = tmp_path / "gates"
+        _write_promotion_entry(
+            gates, filename="a.json", candidate_sha="cafef00d", opponent="builtin:starter"
+        )
+        reason = promotion_refusal_reason(gates, "cafef00d")
+        assert "builtin:starter" in reason
+        assert "excluded" in reason
+
+    def test_refusal_reason_names_every_excluded_opponent_when_more_than_one(
+        self, tmp_path: Path
+    ) -> None:
+        gates = tmp_path / "gates"
+        _write_promotion_entry(
+            gates, filename="a.json", candidate_sha="cafef00d", opponent="builtin:starter"
+        )
+        _write_promotion_entry(
+            gates, filename="b.json", candidate_sha="cafef00d", opponent="champion"
+        )
+        reason = promotion_refusal_reason(gates, "cafef00d")
+        assert "builtin:starter" in reason
+        assert "champion" in reason
+        assert "excluded" in reason
+
+    def test_refusal_reason_is_generic_when_nothing_matches_at_all(self, tmp_path: Path) -> None:
+        # No candidate/sha match at all -- not "an entry existed but was
+        # excluded" -- so the message must not claim an opponent was excluded.
+        gates = tmp_path / "gates"
+        _write_promotion_entry(
+            gates, filename="a.json", candidate_sha="othersha", opponent="builtin:starter"
+        )
+        reason = promotion_refusal_reason(gates, "cafef00d")
+        assert "excluded" not in reason
+        assert "cafef00d" in reason
 
 
 class TestWriteLedgerDidNotDrift:

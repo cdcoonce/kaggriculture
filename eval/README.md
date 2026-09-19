@@ -154,6 +154,10 @@ changed shops.
 
 ## Promotion policy (documented, not enforced in code)
 
+- `harness.ledger.find_passing_promotion` now code-enforces opponent
+  triviality — refusing a `builtin:*` or `TUNABLE_SPECS` opponent regardless
+  of `verdict.passed` (issue #166) — while the multi-tape intersection–union
+  bar below remains operator discipline, not code-enforced.
 - Screen at `--n-seeds 20` on one seed band; confirm at `--n-seeds 64` on a
   **disjoint** band. Two independent passes drop a truly-zero change's
   false-pass rate to ~5e-5.
