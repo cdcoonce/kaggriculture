@@ -193,3 +193,71 @@ Nothing in this document authorises an upload.
   before the expression check runs. Criterion 1's threshold is anchored on labor slice 2's
   measured crew-hour rise (9.9 -> 10.9) and criterion 3's on STACK3's measured fill (16.1),
   not on any measurement of these arms, which have never been run.
+
+## ADDENDUM — SCREEN VERDICT (2026-09-19): NOT ADVANCED, and the reference arm did not replicate
+
+Run at `main` = `6d49bd4`, whose `packages/` and `dist/` are byte-identical to the registered
+build `c43d8ed` (the two intervening commits are this document and the check's tooling).
+Engine 1.32.7, band 888000, n = 64 per leader, clean tree. The six ledgers are
+`eval/gates/2026-09-19T17-06-21Z` through `…T17-21-35Z-*-money.json`, with no crash and no
+veto.
+
+| arm | Sokolovsky | rayk | kaito | pooled Δ (se) | 95% CI | margin Δ | verdict |
+|---|---|---|---|---|---|---|---|
+| S3 | −$1,606 | −$846 | −$1,155 | −$1,203 ($1,119) | [−$3,395, +$990] | +$457 | NOT ADVANCED (fails 1, 2) |
+| S3EH1 | +$641 | −$356 | −$47 | +$79 ($1,088) | [−$2,054, +$2,212] | −$343 | NOT ADVANCED (fails 1, 2) |
+
+Neither arm advances. There is no confirmation run, no guard run, and no upload decision.
+**Labor-inside-the-stack is NOT ADVANCED.**
+
+**The headline is the replication failure, not the arm.** STACK3 measured **+$3,637**
+(se $1,174) at band 881000. `S3` is that configuration verbatim — verified byte-identical
+against `ALL_ARMS["STACK3"]` before launch — and at band 888000 it measures **−$1,203**. The
+gap is **−$4,840**, more than four pooled se. This is not a small band effect.
+
+That reinterprets the result which motivated this slice. "+$3,637, short by $363" reads as a
+near-miss that one more idea could close; the same arm at a fresh band is negative. The
+near-miss was substantially band luck.
+
+This registration predicted the symmetric case and the logic is identical: "a NOT ADVANCED arm
+re-measured at a fresh band clearing a bar it previously missed would itself be evidence the
+instrument is noisier than the pooled se implies, and would be reported." It landed in the
+other direction. It is reported.
+
+**The instrument cannot resolve its own bar.** Every run in this screen reported `mde_80`
+between **$4,525 and $5,137** — the minimum effect detectable at 80% power is larger than the
++$4,000 bar those runs are scored against. At n=64 per leader this design cannot reliably
+detect the effect it is asked to detect. That is the plausible common cause of both the
+replication gap here and the thinness of the prior closures, and it bears on every slice
+measured this way, not only this one.
+
+**The mechanism is real and too small.** The within-band contrast, which this slice was
+designed to isolate, is **S3EH1 − S3 = +$1,282** pooled, positive at all three leaders. The
+expression check's reading holds up: the hand is bought (hire spend +$1,942), strawberry holds
+(16.0 → 16.4 tiles at day 12), and collateral rises rather than falls (+$5,429). The hand does
+what the hypothesis said it would. It is worth about a fifth of the bar.
+
+**Predictions scorecard.**
+- Criterion 2 was named as the likely failure at P=0.55 and **passed** (+$1,942 against
+  +$1,500). The call to single it out was right; the outcome fell on the favourable side.
+- The prediction "both arms pass the expression check on criteria 1 and 3" was
+  mis-specified: S3 is the reference arm and is not scored against the criteria. Only S3EH1
+  is scored. Recorded as an error in the registration, not reinterpreted.
+- **S3 was predicted to replicate at +$2,000 to +$5,000 and landed at −$1,203**, far outside
+  the range. This is the largest prediction miss the project has recorded.
+- S3EH1 was predicted at −$1,000 to +$5,500 and landed at +$79, inside the range at its low
+  end.
+- P(S3EH1 advances) was 20%; it did not advance. P(S3 advances) was 15%; it did not.
+
+**What it means (recorded, not a verdict).** The prereg said that if neither arm advanced,
+"the labor+strawberry interaction is closed by measurement alongside both main effects." That
+claim is now weaker than it was written. The interaction's point estimate is positive
+(+$1,282) and small, but an instrument whose `mde_80` exceeds its bar cannot close a +$4,000
+question by failing to find one. What is established is narrower: the interaction is real,
+directionally positive, and not large enough to be worth an eviction — and the prior NOT
+ADVANCED verdicts are weaker evidence of absence than their intervals suggest.
+
+The consequence for the 2026-09-28 freeze is that shipping the existing pair is now the
+evidence-backed choice rather than the fallback. A new upload evicts M3b for a candidate whose
+best measured contribution is +$1,282, measured on an instrument that has just failed to
+reproduce its own headline result. That remains an owner decision.
