@@ -1,0 +1,2049 @@
+{
+  "identity": {
+    "script": "tools/recon-scripts/revenue_breakdown.py",
+    "cwd": "/Users/cdcoonce/Developer/GitHub/kaggriculture/.claude/worktrees/midnight",
+    "git_sha": "a24aeeeaed8d43a0e321c60b18d99de406e5551a",
+    "git_dirty_packages": false,
+    "engine": "1.32.7",
+    "candidate": "champion",
+    "opponent": "public:sokolovsky-v12",
+    "our_seat": 0,
+    "opponent_seat": 1,
+    "starting_money": 3000.0,
+    "seeds": [
+      858100,
+      858101,
+      858102,
+      858103,
+      858104,
+      858105,
+      858106,
+      858107
+    ],
+    "arms": {
+      "shipped": {},
+      "T20": {
+        "strawberry_tile_target": 20,
+        "strawberry_plant_daily_cap": 10,
+        "strawberry_start_day": 8
+      },
+      "COH": {
+        "strawberry_tile_target": 36,
+        "strawberry_frame_quadrants": [
+          "NW",
+          "NE",
+          "SW"
+        ],
+        "strawberry_start_day": 3,
+        "strawberry_plant_daily_cap": 11,
+        "strawberry_plant_priority": 2,
+        "strawberry_fert_reserve": "planted",
+        "strawberry_seed_budget_share": 1.0,
+        "rescue_water": true
+      }
+    },
+    "workers": 6,
+    "timestamp_utc": "2026-09-12T21:36:17Z"
+  },
+  "validation": {
+    "conservation_max_abs_residual": 0.0,
+    "conservation_violations": [],
+    "final_money_seat0_means": {
+      "shipped": 70028.875,
+      "T20": 69759.875,
+      "COH": 61323.375
+    },
+    "final_money_seat0_expected": {
+      "shipped": 66163,
+      "START8": 72725,
+      "START10": 74047,
+      "T20": 73122,
+      "SW25_FIX": 64324
+    },
+    "final_money_seat0_validated": false
+  },
+  "per_arm_per_seed": {
+    "shipped": {
+      "858100": {
+        "seat_0_ours": {
+          "revenue": {
+            "FERTILIZER": 14132.0,
+            "EGG": 2912.0,
+            "WHEAT": 23065.0,
+            "MILK": 41976.0,
+            "MELON": 12862.0,
+            "WOOL": 3602.0
+          },
+          "buy_product_cost": {
+            "WHEAT": 9810.0
+          },
+          "fixed_spend": {
+            "BUY_ANIMAL:GOOSE": 300.0,
+            "BUY_LAND": 3000.0,
+            "BUY_SEED:MELON": 1280.0,
+            "BUY_SEED:WHEAT": 2020.0,
+            "HIRE": 3117.0,
+            "BUY_ANIMAL:COW": 2400.0,
+            "BUY_ANIMAL:SHEEP": 2000.0
+          },
+          "final_money": 77622.0,
+          "units": {
+            "FERTILIZER": 263,
+            "EGG": 54,
+            "WHEAT": 610,
+            "MILK": 177,
+            "MELON": 96,
+            "WOOL": 102
+          }
+        },
+        "seat_1_opponent": {
+          "revenue": {
+            "WHEAT": 17105.0,
+            "FERTILIZER": 10760.0,
+            "WOOL": 7446.0,
+            "MILK": 46084.0,
+            "MELON": 18909.0,
+            "STRAWBERRY": 18100.0
+          },
+          "buy_product_cost": {
+            "WHEAT": 6190.0
+          },
+          "fixed_spend": {
+            "HIRE": 7155.0,
+            "BUY_ANIMAL:COW": 2800.0,
+            "BUY_ANIMAL:SHEEP": 2000.0,
+            "BUY_SEED:MELON": 1360.0,
+            "BUY_SEED:WHEAT": 1430.0,
+            "BUY_SEED:STRAWBERRY": 3700.0,
+            "BUY_LAND": 3000.0
+          },
+          "final_money": 93769.0,
+          "units": {
+            "WHEAT": 438,
+            "FERTILIZER": 197,
+            "WOOL": 130,
+            "MILK": 191,
+            "MELON": 102,
+            "STRAWBERRY": 278
+          }
+        },
+        "calls": 3716,
+        "filled": 3520,
+        "rejected": 196
+      },
+      "858101": {
+        "seat_0_ours": {
+          "revenue": {
+            "FERTILIZER": 14404.0,
+            "EGG": 3044.0,
+            "WHEAT": 23096.0,
+            "MILK": 6493.0,
+            "MELON": 12862.0,
+            "WOOL": 14434.0
+          },
+          "buy_product_cost": {
+            "WHEAT": 9755.0
+          },
+          "fixed_spend": {
+            "BUY_ANIMAL:GOOSE": 300.0,
+            "BUY_LAND": 3000.0,
+            "BUY_SEED:MELON": 1280.0,
+            "BUY_SEED:WHEAT": 2050.0,
+            "HIRE": 3117.0,
+            "BUY_ANIMAL:COW": 2400.0,
+            "BUY_ANIMAL:SHEEP": 2000.0
+          },
+          "final_money": 53431.0,
+          "units": {
+            "FERTILIZER": 263,
+            "EGG": 54,
+            "WHEAT": 620,
+            "MILK": 177,
+            "MELON": 96,
+            "WOOL": 102
+          }
+        },
+        "seat_1_opponent": {
+          "revenue": {
+            "WHEAT": 16229.0,
+            "FERTILIZER": 10343.0,
+            "WOOL": 20845.0,
+            "MILK": 3688.0,
+            "MELON": 18909.0,
+            "STRAWBERRY": 59466.0
+          },
+          "buy_product_cost": {
+            "WHEAT": 6191.0
+          },
+          "fixed_spend": {
+            "HIRE": 7155.0,
+            "BUY_ANIMAL:COW": 2800.0,
+            "BUY_ANIMAL:SHEEP": 2000.0,
+            "BUY_SEED:MELON": 1360.0,
+            "BUY_SEED:WHEAT": 1430.0,
+            "BUY_SEED:STRAWBERRY": 3700.0,
+            "BUY_LAND": 3000.0
+          },
+          "final_money": 104844.0,
+          "units": {
+            "WHEAT": 436,
+            "FERTILIZER": 182,
+            "WOOL": 130,
+            "MILK": 161,
+            "MELON": 102,
+            "STRAWBERRY": 269
+          }
+        },
+        "calls": 3678,
+        "filled": 3477,
+        "rejected": 201
+      },
+      "858102": {
+        "seat_0_ours": {
+          "revenue": {
+            "FERTILIZER": 14131.0,
+            "EGG": 3044.0,
+            "WHEAT": 22012.0,
+            "MILK": 33471.0,
+            "MELON": 12892.0,
+            "WOOL": 12909.0
+          },
+          "buy_product_cost": {
+            "WHEAT": 9678.0
+          },
+          "fixed_spend": {
+            "BUY_ANIMAL:GOOSE": 300.0,
+            "BUY_LAND": 3000.0,
+            "BUY_SEED:MELON": 1280.0,
+            "BUY_SEED:WHEAT": 2050.0,
+            "HIRE": 3117.0,
+            "BUY_ANIMAL:COW": 2400.0,
+            "BUY_ANIMAL:SHEEP": 2000.0
+          },
+          "final_money": 77634.0,
+          "units": {
+            "FERTILIZER": 263,
+            "EGG": 54,
+            "WHEAT": 592,
+            "MILK": 177,
+            "MELON": 96,
+            "WOOL": 102
+          }
+        },
+        "seat_1_opponent": {
+          "revenue": {
+            "WHEAT": 16581.0,
+            "FERTILIZER": 10760.0,
+            "WOOL": 18774.0,
+            "MILK": 35945.0,
+            "MELON": 18909.0,
+            "STRAWBERRY": 66940.0
+          },
+          "buy_product_cost": {
+            "WHEAT": 6168.0
+          },
+          "fixed_spend": {
+            "HIRE": 7155.0,
+            "BUY_ANIMAL:COW": 2800.0,
+            "BUY_ANIMAL:SHEEP": 2000.0,
+            "BUY_SEED:MELON": 1360.0,
+            "BUY_SEED:WHEAT": 1430.0,
+            "BUY_SEED:STRAWBERRY": 3700.0,
+            "BUY_LAND": 3000.0
+          },
+          "final_money": 143296.0,
+          "units": {
+            "WHEAT": 438,
+            "FERTILIZER": 197,
+            "WOOL": 130,
+            "MILK": 191,
+            "MELON": 102,
+            "STRAWBERRY": 278
+          }
+        },
+        "calls": 3698,
+        "filled": 3504,
+        "rejected": 194
+      },
+      "858103": {
+        "seat_0_ours": {
+          "revenue": {
+            "FERTILIZER": 14132.0,
+            "EGG": 2954.0,
+            "WHEAT": 20697.0,
+            "MILK": 35916.0,
+            "MELON": 12892.0,
+            "WOOL": 3602.0
+          },
+          "buy_product_cost": {
+            "WHEAT": 9213.0
+          },
+          "fixed_spend": {
+            "BUY_ANIMAL:GOOSE": 300.0,
+            "BUY_LAND": 3000.0,
+            "BUY_SEED:MELON": 1280.0,
+            "BUY_SEED:WHEAT": 2020.0,
+            "HIRE": 3117.0,
+            "BUY_ANIMAL:COW": 2400.0,
+            "BUY_ANIMAL:SHEEP": 2000.0
+          },
+          "final_money": 69863.0,
+          "units": {
+            "FERTILIZER": 263,
+            "EGG": 54,
+            "WHEAT": 598,
+            "MILK": 177,
+            "MELON": 96,
+            "WOOL": 102
+          }
+        },
+        "seat_1_opponent": {
+          "revenue": {
+            "WHEAT": 14455.0,
+            "FERTILIZER": 10759.0,
+            "WOOL": 7446.0,
+            "MILK": 38859.0,
+            "MELON": 18909.0,
+            "STRAWBERRY": 68028.0
+          },
+          "buy_product_cost": {
+            "WHEAT": 5922.0
+          },
+          "fixed_spend": {
+            "HIRE": 7155.0,
+            "BUY_ANIMAL:COW": 2800.0,
+            "BUY_ANIMAL:SHEEP": 2000.0,
+            "BUY_SEED:MELON": 1360.0,
+            "BUY_SEED:WHEAT": 1430.0,
+            "BUY_SEED:STRAWBERRY": 3700.0,
+            "BUY_LAND": 3000.0
+          },
+          "final_money": 134089.0,
+          "units": {
+            "WHEAT": 438,
+            "FERTILIZER": 197,
+            "WOOL": 130,
+            "MILK": 191,
+            "MELON": 102,
+            "STRAWBERRY": 278
+          }
+        },
+        "calls": 3703,
+        "filled": 3507,
+        "rejected": 196
+      },
+      "858104": {
+        "seat_0_ours": {
+          "revenue": {
+            "FERTILIZER": 14134.0,
+            "EGG": 2932.0,
+            "WHEAT": 17551.0,
+            "MILK": 5810.0,
+            "MELON": 12877.0,
+            "WOOL": 20667.0
+          },
+          "buy_product_cost": {
+            "WHEAT": 7878.0
+          },
+          "fixed_spend": {
+            "BUY_ANIMAL:GOOSE": 300.0,
+            "BUY_LAND": 3000.0,
+            "BUY_SEED:MELON": 1280.0,
+            "BUY_SEED:WHEAT": 1960.0,
+            "HIRE": 3117.0,
+            "BUY_ANIMAL:COW": 2400.0,
+            "BUY_ANIMAL:SHEEP": 2000.0
+          },
+          "final_money": 55036.0,
+          "units": {
+            "FERTILIZER": 263,
+            "EGG": 54,
+            "WHEAT": 622,
+            "MILK": 177,
+            "MELON": 96,
+            "WOOL": 102
+          }
+        },
+        "seat_1_opponent": {
+          "revenue": {
+            "WHEAT": 10886.0,
+            "FERTILIZER": 10758.0,
+            "WOOL": 26693.0,
+            "MILK": 4030.0,
+            "MELON": 18909.0,
+            "STRAWBERRY": 7618.0
+          },
+          "buy_product_cost": {
+            "WHEAT": 5350.0
+          },
+          "fixed_spend": {
+            "HIRE": 7155.0,
+            "BUY_ANIMAL:COW": 2800.0,
+            "BUY_ANIMAL:SHEEP": 2000.0,
+            "BUY_SEED:MELON": 1360.0,
+            "BUY_SEED:WHEAT": 1430.0,
+            "BUY_SEED:STRAWBERRY": 3700.0,
+            "BUY_LAND": 3000.0
+          },
+          "final_money": 55099.0,
+          "units": {
+            "WHEAT": 438,
+            "FERTILIZER": 197,
+            "WOOL": 130,
+            "MILK": 191,
+            "MELON": 102,
+            "STRAWBERRY": 278
+          }
+        },
+        "calls": 3719,
+        "filled": 3525,
+        "rejected": 194
+      },
+      "858105": {
+        "seat_0_ours": {
+          "revenue": {
+            "FERTILIZER": 14132.0,
+            "EGG": 3210.0,
+            "WHEAT": 22046.0,
+            "MILK": 16170.0,
+            "MELON": 12856.0,
+            "WOOL": 10699.0
+          },
+          "buy_product_cost": {
+            "WHEAT": 9854.0
+          },
+          "fixed_spend": {
+            "BUY_ANIMAL:GOOSE": 300.0,
+            "BUY_LAND": 3000.0,
+            "BUY_SEED:MELON": 1280.0,
+            "BUY_SEED:WHEAT": 1990.0,
+            "HIRE": 3117.0,
+            "BUY_ANIMAL:COW": 2400.0,
+            "BUY_ANIMAL:SHEEP": 2000.0
+          },
+          "final_money": 58172.0,
+          "units": {
+            "FERTILIZER": 263,
+            "EGG": 54,
+            "WHEAT": 575,
+            "MILK": 177,
+            "MELON": 90,
+            "WOOL": 102
+          }
+        },
+        "seat_1_opponent": {
+          "revenue": {
+            "WHEAT": 17500.0,
+            "FERTILIZER": 10759.0,
+            "WOOL": 16952.0,
+            "MILK": 14325.0,
+            "MELON": 18909.0,
+            "STRAWBERRY": 8067.0
+          },
+          "buy_product_cost": {
+            "WHEAT": 6247.0
+          },
+          "fixed_spend": {
+            "HIRE": 7155.0,
+            "BUY_ANIMAL:COW": 2800.0,
+            "BUY_ANIMAL:SHEEP": 2000.0,
+            "BUY_SEED:MELON": 1360.0,
+            "BUY_SEED:WHEAT": 1430.0,
+            "BUY_SEED:STRAWBERRY": 3700.0,
+            "BUY_LAND": 3000.0
+          },
+          "final_money": 61820.0,
+          "units": {
+            "WHEAT": 438,
+            "FERTILIZER": 197,
+            "WOOL": 130,
+            "MILK": 191,
+            "MELON": 102,
+            "STRAWBERRY": 278
+          }
+        },
+        "calls": 3670,
+        "filled": 3474,
+        "rejected": 196
+      },
+      "858106": {
+        "seat_0_ours": {
+          "revenue": {
+            "FERTILIZER": 14135.0,
+            "EGG": 2519.0,
+            "WHEAT": 20074.0,
+            "MILK": 43805.0,
+            "MELON": 13646.0,
+            "WOOL": 8024.0
+          },
+          "buy_product_cost": {
+            "WHEAT": 9308.0
+          },
+          "fixed_spend": {
+            "BUY_ANIMAL:GOOSE": 300.0,
+            "BUY_LAND": 3000.0,
+            "BUY_SEED:MELON": 1360.0,
+            "BUY_SEED:WHEAT": 1910.0,
+            "HIRE": 3227.0,
+            "BUY_ANIMAL:COW": 2400.0,
+            "BUY_ANIMAL:SHEEP": 2000.0
+          },
+          "final_money": 81698.0,
+          "units": {
+            "FERTILIZER": 263,
+            "EGG": 54,
+            "WHEAT": 582,
+            "MILK": 177,
+            "MELON": 96,
+            "WOOL": 102
+          }
+        },
+        "seat_1_opponent": {
+          "revenue": {
+            "WHEAT": 13749.0,
+            "FERTILIZER": 10755.0,
+            "WOOL": 13278.0,
+            "MILK": 46395.0,
+            "MELON": 18075.0,
+            "STRAWBERRY": 33634.0
+          },
+          "buy_product_cost": {
+            "WHEAT": 5993.0
+          },
+          "fixed_spend": {
+            "HIRE": 7155.0,
+            "BUY_ANIMAL:COW": 2800.0,
+            "BUY_ANIMAL:SHEEP": 2000.0,
+            "BUY_SEED:MELON": 1360.0,
+            "BUY_SEED:WHEAT": 1430.0,
+            "BUY_SEED:STRAWBERRY": 3700.0,
+            "BUY_LAND": 3000.0
+          },
+          "final_money": 111448.0,
+          "units": {
+            "WHEAT": 429,
+            "FERTILIZER": 197,
+            "WOOL": 128,
+            "MILK": 184,
+            "MELON": 102,
+            "STRAWBERRY": 284
+          }
+        },
+        "calls": 3685,
+        "filled": 3470,
+        "rejected": 215
+      },
+      "858107": {
+        "seat_0_ours": {
+          "revenue": {
+            "FERTILIZER": 14090.0,
+            "EGG": 2519.0,
+            "WHEAT": 17304.0,
+            "MILK": 45505.0,
+            "MELON": 12737.0,
+            "WOOL": 13633.0
+          },
+          "buy_product_cost": {
+            "WHEAT": 7816.0
+          },
+          "fixed_spend": {
+            "BUY_ANIMAL:GOOSE": 300.0,
+            "BUY_LAND": 3000.0,
+            "BUY_SEED:MELON": 1280.0,
+            "BUY_SEED:WHEAT": 1990.0,
+            "HIRE": 3227.0,
+            "BUY_ANIMAL:COW": 2400.0,
+            "BUY_ANIMAL:SHEEP": 2000.0
+          },
+          "final_money": 86775.0,
+          "units": {
+            "FERTILIZER": 262,
+            "EGG": 54,
+            "WHEAT": 592,
+            "MILK": 177,
+            "MELON": 90,
+            "WOOL": 98
+          }
+        },
+        "seat_1_opponent": {
+          "revenue": {
+            "WHEAT": 11202.0,
+            "FERTILIZER": 10792.0,
+            "WOOL": 20092.0,
+            "MILK": 50014.0,
+            "MELON": 19090.0,
+            "STRAWBERRY": 72938.0
+          },
+          "buy_product_cost": {
+            "WHEAT": 5215.0
+          },
+          "fixed_spend": {
+            "HIRE": 7155.0,
+            "BUY_ANIMAL:COW": 2800.0,
+            "BUY_ANIMAL:SHEEP": 2000.0,
+            "BUY_SEED:MELON": 1360.0,
+            "BUY_SEED:WHEAT": 1430.0,
+            "BUY_SEED:STRAWBERRY": 3700.0,
+            "BUY_LAND": 3000.0
+          },
+          "final_money": 160468.0,
+          "units": {
+            "WHEAT": 438,
+            "FERTILIZER": 197,
+            "WOOL": 130,
+            "MILK": 191,
+            "MELON": 102,
+            "STRAWBERRY": 278
+          }
+        },
+        "calls": 3686,
+        "filled": 3487,
+        "rejected": 199
+      }
+    },
+    "T20": {
+      "858100": {
+        "seat_0_ours": {
+          "revenue": {
+            "FERTILIZER": 12620.0,
+            "EGG": 2924.0,
+            "WHEAT": 13422.0,
+            "MILK": 39907.0,
+            "MELON": 12814.0,
+            "WOOL": 3521.0,
+            "STRAWBERRY": 6465.0
+          },
+          "buy_product_cost": {
+            "WHEAT": 10053.0
+          },
+          "fixed_spend": {
+            "BUY_ANIMAL:GOOSE": 300.0,
+            "BUY_LAND": 3000.0,
+            "BUY_SEED:MELON": 1280.0,
+            "BUY_SEED:WHEAT": 1460.0,
+            "HIRE": 3096.0,
+            "BUY_ANIMAL:COW": 2400.0,
+            "BUY_ANIMAL:SHEEP": 2000.0,
+            "BUY_SEED:STRAWBERRY": 1900.0
+          },
+          "final_money": 69184.0,
+          "units": {
+            "FERTILIZER": 229,
+            "EGG": 54,
+            "WHEAT": 354,
+            "MILK": 176,
+            "MELON": 91,
+            "WOOL": 101,
+            "STRAWBERRY": 114
+          }
+        },
+        "seat_1_opponent": {
+          "revenue": {
+            "WHEAT": 18692.0,
+            "FERTILIZER": 11878.0,
+            "WOOL": 7538.0,
+            "MILK": 44119.0,
+            "MELON": 18999.0,
+            "STRAWBERRY": 37202.0
+          },
+          "buy_product_cost": {
+            "WHEAT": 6287.0
+          },
+          "fixed_spend": {
+            "HIRE": 7155.0,
+            "BUY_ANIMAL:COW": 2800.0,
+            "BUY_ANIMAL:SHEEP": 2000.0,
+            "BUY_SEED:MELON": 1360.0,
+            "BUY_SEED:WHEAT": 1430.0,
+            "BUY_SEED:STRAWBERRY": 3700.0,
+            "BUY_LAND": 3000.0
+          },
+          "final_money": 113696.0,
+          "units": {
+            "WHEAT": 438,
+            "FERTILIZER": 197,
+            "WOOL": 130,
+            "MILK": 191,
+            "MELON": 102,
+            "STRAWBERRY": 278
+          }
+        },
+        "calls": 3530,
+        "filled": 3298,
+        "rejected": 232
+      },
+      "858101": {
+        "seat_0_ours": {
+          "revenue": {
+            "FERTILIZER": 13081.0,
+            "EGG": 3020.0,
+            "WHEAT": 14133.0,
+            "MILK": 10175.0,
+            "MELON": 13538.0,
+            "WOOL": 3517.0,
+            "STRAWBERRY": 10823.0
+          },
+          "buy_product_cost": {
+            "WHEAT": 10280.0
+          },
+          "fixed_spend": {
+            "BUY_ANIMAL:GOOSE": 300.0,
+            "BUY_LAND": 3000.0,
+            "BUY_SEED:MELON": 1280.0,
+            "BUY_SEED:WHEAT": 1560.0,
+            "HIRE": 3117.0,
+            "BUY_ANIMAL:COW": 2400.0,
+            "BUY_ANIMAL:SHEEP": 2000.0,
+            "BUY_SEED:STRAWBERRY": 2000.0
+          },
+          "final_money": 45350.0,
+          "units": {
+            "FERTILIZER": 234,
+            "EGG": 54,
+            "WHEAT": 360,
+            "MILK": 177,
+            "MELON": 96,
+            "WOOL": 97,
+            "STRAWBERRY": 109
+          }
+        },
+        "seat_1_opponent": {
+          "revenue": {
+            "WHEAT": 18895.0,
+            "FERTILIZER": 11257.0,
+            "WOOL": 7538.0,
+            "MILK": 7807.0,
+            "MELON": 18191.0,
+            "STRAWBERRY": 43883.0
+          },
+          "buy_product_cost": {
+            "WHEAT": 6466.0
+          },
+          "fixed_spend": {
+            "HIRE": 7155.0,
+            "BUY_ANIMAL:COW": 2800.0,
+            "BUY_ANIMAL:SHEEP": 2000.0,
+            "BUY_SEED:MELON": 1360.0,
+            "BUY_SEED:WHEAT": 1430.0,
+            "BUY_SEED:STRAWBERRY": 3700.0,
+            "BUY_LAND": 3000.0
+          },
+          "final_money": 82660.0,
+          "units": {
+            "WHEAT": 421,
+            "FERTILIZER": 182,
+            "WOOL": 130,
+            "MILK": 160,
+            "MELON": 102,
+            "STRAWBERRY": 269
+          }
+        },
+        "calls": 3475,
+        "filled": 3242,
+        "rejected": 233
+      },
+      "858102": {
+        "seat_0_ours": {
+          "revenue": {
+            "FERTILIZER": 12776.0,
+            "EGG": 3044.0,
+            "WHEAT": 11881.0,
+            "MILK": 22078.0,
+            "MELON": 13297.0,
+            "WOOL": 3517.0,
+            "STRAWBERRY": 23251.0
+          },
+          "buy_product_cost": {
+            "WHEAT": 9637.0
+          },
+          "fixed_spend": {
+            "BUY_ANIMAL:GOOSE": 300.0,
+            "BUY_LAND": 3000.0,
+            "BUY_SEED:MELON": 1280.0,
+            "BUY_SEED:WHEAT": 1450.0,
+            "HIRE": 3117.0,
+            "BUY_ANIMAL:COW": 2400.0,
+            "BUY_ANIMAL:SHEEP": 2000.0,
+            "BUY_SEED:STRAWBERRY": 2000.0
+          },
+          "final_money": 67660.0,
+          "units": {
+            "FERTILIZER": 233,
+            "EGG": 54,
+            "WHEAT": 325,
+            "MILK": 177,
+            "MELON": 90,
+            "WOOL": 97,
+            "STRAWBERRY": 96
+          }
+        },
+        "seat_1_opponent": {
+          "revenue": {
+            "WHEAT": 17092.0,
+            "FERTILIZER": 11779.0,
+            "WOOL": 7538.0,
+            "MILK": 22189.0,
+            "MELON": 18480.0,
+            "STRAWBERRY": 67676.0
+          },
+          "buy_product_cost": {
+            "WHEAT": 6235.0
+          },
+          "fixed_spend": {
+            "HIRE": 7155.0,
+            "BUY_ANIMAL:COW": 2800.0,
+            "BUY_ANIMAL:SHEEP": 2000.0,
+            "BUY_SEED:MELON": 1360.0,
+            "BUY_SEED:WHEAT": 1430.0,
+            "BUY_SEED:STRAWBERRY": 3700.0,
+            "BUY_LAND": 3000.0
+          },
+          "final_money": 120074.0,
+          "units": {
+            "WHEAT": 438,
+            "FERTILIZER": 197,
+            "WOOL": 130,
+            "MILK": 191,
+            "MELON": 102,
+            "STRAWBERRY": 278
+          }
+        },
+        "calls": 3470,
+        "filled": 3246,
+        "rejected": 224
+      },
+      "858103": {
+        "seat_0_ours": {
+          "revenue": {
+            "FERTILIZER": 12728.0,
+            "EGG": 2954.0,
+            "WHEAT": 13217.0,
+            "MILK": 38569.0,
+            "MELON": 12816.0,
+            "WOOL": 20611.0,
+            "STRAWBERRY": 21622.0
+          },
+          "buy_product_cost": {
+            "WHEAT": 10090.0
+          },
+          "fixed_spend": {
+            "BUY_ANIMAL:GOOSE": 300.0,
+            "BUY_LAND": 3000.0,
+            "BUY_SEED:MELON": 1280.0,
+            "BUY_SEED:WHEAT": 1460.0,
+            "HIRE": 3096.0,
+            "BUY_ANIMAL:COW": 2400.0,
+            "BUY_ANIMAL:SHEEP": 2000.0,
+            "BUY_SEED:STRAWBERRY": 1900.0
+          },
+          "final_money": 99991.0,
+          "units": {
+            "FERTILIZER": 233,
+            "EGG": 54,
+            "WHEAT": 349,
+            "MILK": 176,
+            "MELON": 96,
+            "WOOL": 101,
+            "STRAWBERRY": 116
+          }
+        },
+        "seat_1_opponent": {
+          "revenue": {
+            "WHEAT": 18415.0,
+            "FERTILIZER": 11827.0,
+            "WOOL": 26780.0,
+            "MILK": 42528.0,
+            "MELON": 18999.0,
+            "STRAWBERRY": 57324.0
+          },
+          "buy_product_cost": {
+            "WHEAT": 6331.0
+          },
+          "fixed_spend": {
+            "HIRE": 7155.0,
+            "BUY_ANIMAL:COW": 2800.0,
+            "BUY_ANIMAL:SHEEP": 2000.0,
+            "BUY_SEED:MELON": 1360.0,
+            "BUY_SEED:WHEAT": 1430.0,
+            "BUY_SEED:STRAWBERRY": 3700.0,
+            "BUY_LAND": 3000.0
+          },
+          "final_money": 151097.0,
+          "units": {
+            "WHEAT": 438,
+            "FERTILIZER": 197,
+            "WOOL": 130,
+            "MILK": 191,
+            "MELON": 102,
+            "STRAWBERRY": 278
+          }
+        },
+        "calls": 3536,
+        "filled": 3304,
+        "rejected": 232
+      },
+      "858104": {
+        "seat_0_ours": {
+          "revenue": {
+            "FERTILIZER": 12754.0,
+            "EGG": 2984.0,
+            "WHEAT": 11732.0,
+            "MILK": 7491.0,
+            "MELON": 12816.0,
+            "WOOL": 15509.0,
+            "STRAWBERRY": 370.0
+          },
+          "buy_product_cost": {
+            "WHEAT": 9137.0
+          },
+          "fixed_spend": {
+            "BUY_ANIMAL:GOOSE": 300.0,
+            "BUY_LAND": 3000.0,
+            "BUY_SEED:MELON": 1280.0,
+            "BUY_SEED:WHEAT": 1430.0,
+            "HIRE": 3104.0,
+            "BUY_ANIMAL:COW": 2400.0,
+            "BUY_ANIMAL:SHEEP": 2000.0,
+            "BUY_SEED:STRAWBERRY": 1800.0
+          },
+          "final_money": 42205.0,
+          "units": {
+            "FERTILIZER": 231,
+            "EGG": 54,
+            "WHEAT": 342,
+            "MILK": 177,
+            "MELON": 90,
+            "WOOL": 102,
+            "STRAWBERRY": 112
+          }
+        },
+        "seat_1_opponent": {
+          "revenue": {
+            "WHEAT": 16035.0,
+            "FERTILIZER": 11773.0,
+            "WOOL": 21962.0,
+            "MILK": 4915.0,
+            "MELON": 18999.0,
+            "STRAWBERRY": 16047.0
+          },
+          "buy_product_cost": {
+            "WHEAT": 5864.0
+          },
+          "fixed_spend": {
+            "HIRE": 7155.0,
+            "BUY_ANIMAL:COW": 2800.0,
+            "BUY_ANIMAL:SHEEP": 2000.0,
+            "BUY_SEED:MELON": 1360.0,
+            "BUY_SEED:WHEAT": 1430.0,
+            "BUY_SEED:STRAWBERRY": 3700.0,
+            "BUY_LAND": 3000.0
+          },
+          "final_money": 65422.0,
+          "units": {
+            "WHEAT": 438,
+            "FERTILIZER": 197,
+            "WOOL": 130,
+            "MILK": 191,
+            "MELON": 102,
+            "STRAWBERRY": 278
+          }
+        },
+        "calls": 3510,
+        "filled": 3281,
+        "rejected": 229
+      },
+      "858105": {
+        "seat_0_ours": {
+          "revenue": {
+            "FERTILIZER": 12703.0,
+            "EGG": 3092.0,
+            "WHEAT": 14461.0,
+            "MILK": 32596.0,
+            "MELON": 12139.0,
+            "WOOL": 7952.0,
+            "STRAWBERRY": 183.0
+          },
+          "buy_product_cost": {
+            "WHEAT": 10334.0
+          },
+          "fixed_spend": {
+            "BUY_ANIMAL:GOOSE": 300.0,
+            "BUY_LAND": 3000.0,
+            "BUY_SEED:MELON": 1280.0,
+            "BUY_SEED:WHEAT": 1590.0,
+            "HIRE": 3117.0,
+            "BUY_ANIMAL:COW": 2400.0,
+            "BUY_ANIMAL:SHEEP": 2000.0,
+            "BUY_SEED:STRAWBERRY": 1800.0
+          },
+          "final_money": 60305.0,
+          "units": {
+            "FERTILIZER": 232,
+            "EGG": 54,
+            "WHEAT": 373,
+            "MILK": 176,
+            "MELON": 78,
+            "WOOL": 96,
+            "STRAWBERRY": 92
+          }
+        },
+        "seat_1_opponent": {
+          "revenue": {
+            "WHEAT": 18605.0,
+            "FERTILIZER": 11838.0,
+            "WOOL": 14197.0,
+            "MILK": 35559.0,
+            "MELON": 19773.0,
+            "STRAWBERRY": 20041.0
+          },
+          "buy_product_cost": {
+            "WHEAT": 6417.0
+          },
+          "fixed_spend": {
+            "HIRE": 7155.0,
+            "BUY_ANIMAL:COW": 2800.0,
+            "BUY_ANIMAL:SHEEP": 2000.0,
+            "BUY_SEED:MELON": 1360.0,
+            "BUY_SEED:WHEAT": 1430.0,
+            "BUY_SEED:STRAWBERRY": 3700.0,
+            "BUY_LAND": 3000.0
+          },
+          "final_money": 95151.0,
+          "units": {
+            "WHEAT": 438,
+            "FERTILIZER": 197,
+            "WOOL": 130,
+            "MILK": 191,
+            "MELON": 102,
+            "STRAWBERRY": 278
+          }
+        },
+        "calls": 3529,
+        "filled": 3294,
+        "rejected": 235
+      },
+      "858106": {
+        "seat_0_ours": {
+          "revenue": {
+            "FERTILIZER": 12708.0,
+            "EGG": 2650.0,
+            "WHEAT": 13825.0,
+            "MILK": 40689.0,
+            "MELON": 12129.0,
+            "WOOL": 7778.0,
+            "STRAWBERRY": 10145.0
+          },
+          "buy_product_cost": {
+            "WHEAT": 9665.0
+          },
+          "fixed_spend": {
+            "BUY_ANIMAL:GOOSE": 300.0,
+            "BUY_LAND": 3000.0,
+            "BUY_SEED:MELON": 1280.0,
+            "BUY_SEED:WHEAT": 1550.0,
+            "HIRE": 3117.0,
+            "BUY_ANIMAL:COW": 2400.0,
+            "BUY_ANIMAL:SHEEP": 2000.0,
+            "BUY_SEED:STRAWBERRY": 1900.0
+          },
+          "final_money": 77712.0,
+          "units": {
+            "FERTILIZER": 233,
+            "EGG": 54,
+            "WHEAT": 383,
+            "MILK": 175,
+            "MELON": 84,
+            "WOOL": 99,
+            "STRAWBERRY": 86
+          }
+        },
+        "seat_1_opponent": {
+          "revenue": {
+            "WHEAT": 16371.0,
+            "FERTILIZER": 11847.0,
+            "WOOL": 13554.0,
+            "MILK": 44427.0,
+            "MELON": 19773.0,
+            "STRAWBERRY": 45149.0
+          },
+          "buy_product_cost": {
+            "WHEAT": 6125.0
+          },
+          "fixed_spend": {
+            "HIRE": 7155.0,
+            "BUY_ANIMAL:COW": 2800.0,
+            "BUY_ANIMAL:SHEEP": 2000.0,
+            "BUY_SEED:MELON": 1360.0,
+            "BUY_SEED:WHEAT": 1430.0,
+            "BUY_SEED:STRAWBERRY": 3700.0,
+            "BUY_LAND": 3000.0
+          },
+          "final_money": 126551.0,
+          "units": {
+            "WHEAT": 434,
+            "FERTILIZER": 197,
+            "WOOL": 128,
+            "MILK": 189,
+            "MELON": 102,
+            "STRAWBERRY": 284
+          }
+        },
+        "calls": 3538,
+        "filled": 3301,
+        "rejected": 237
+      },
+      "858107": {
+        "seat_0_ours": {
+          "revenue": {
+            "FERTILIZER": 12804.0,
+            "EGG": 2754.0,
+            "WHEAT": 11577.0,
+            "MILK": 47252.0,
+            "MELON": 12812.0,
+            "WOOL": 3105.0,
+            "STRAWBERRY": 26054.0
+          },
+          "buy_product_cost": {
+            "WHEAT": 8219.0
+          },
+          "fixed_spend": {
+            "BUY_ANIMAL:GOOSE": 300.0,
+            "BUY_LAND": 3000.0,
+            "BUY_SEED:MELON": 1280.0,
+            "BUY_SEED:WHEAT": 1570.0,
+            "HIRE": 3117.0,
+            "BUY_ANIMAL:COW": 2400.0,
+            "BUY_ANIMAL:SHEEP": 2000.0,
+            "BUY_SEED:STRAWBERRY": 1800.0
+          },
+          "final_money": 95672.0,
+          "units": {
+            "FERTILIZER": 235,
+            "EGG": 54,
+            "WHEAT": 369,
+            "MILK": 177,
+            "MELON": 92,
+            "WOOL": 93,
+            "STRAWBERRY": 94
+          }
+        },
+        "seat_1_opponent": {
+          "revenue": {
+            "WHEAT": 14379.0,
+            "FERTILIZER": 11780.0,
+            "WOOL": 7984.0,
+            "MILK": 52418.0,
+            "MELON": 18999.0,
+            "STRAWBERRY": 74497.0
+          },
+          "buy_product_cost": {
+            "WHEAT": 5313.0
+          },
+          "fixed_spend": {
+            "HIRE": 7155.0,
+            "BUY_ANIMAL:COW": 2800.0,
+            "BUY_ANIMAL:SHEEP": 2000.0,
+            "BUY_SEED:MELON": 1360.0,
+            "BUY_SEED:WHEAT": 1430.0,
+            "BUY_SEED:STRAWBERRY": 3700.0,
+            "BUY_LAND": 3000.0
+          },
+          "final_money": 156299.0,
+          "units": {
+            "WHEAT": 438,
+            "FERTILIZER": 197,
+            "WOOL": 130,
+            "MILK": 191,
+            "MELON": 102,
+            "STRAWBERRY": 278
+          }
+        },
+        "calls": 3494,
+        "filled": 3300,
+        "rejected": 194
+      }
+    },
+    "COH": {
+      "858100": {
+        "seat_0_ours": {
+          "revenue": {
+            "FERTILIZER": 11722.0,
+            "EGG": 2936.0,
+            "WHEAT": 4920.0,
+            "MILK": 30521.0,
+            "MELON": 12851.0,
+            "WOOL": 1640.0,
+            "STRAWBERRY": 28525.0
+          },
+          "buy_product_cost": {
+            "WHEAT": 9337.0
+          },
+          "fixed_spend": {
+            "BUY_ANIMAL:GOOSE": 300.0,
+            "BUY_LAND": 3000.0,
+            "BUY_SEED:MELON": 1280.0,
+            "BUY_SEED:WHEAT": 780.0,
+            "HIRE": 2955.0,
+            "BUY_ANIMAL:COW": 2400.0,
+            "BUY_SEED:STRAWBERRY": 3400.0,
+            "BUY_ANIMAL:SHEEP": 2000.0
+          },
+          "final_money": 70663.0,
+          "units": {
+            "FERTILIZER": 211,
+            "EGG": 54,
+            "WHEAT": 149,
+            "MILK": 171,
+            "MELON": 84,
+            "WOOL": 68,
+            "STRAWBERRY": 144
+          }
+        },
+        "seat_1_opponent": {
+          "revenue": {
+            "WHEAT": 20040.0,
+            "FERTILIZER": 12474.0,
+            "WOOL": 9769.0,
+            "MILK": 33430.0,
+            "MELON": 19186.0,
+            "STRAWBERRY": 56178.0
+          },
+          "buy_product_cost": {
+            "WHEAT": 6367.0
+          },
+          "fixed_spend": {
+            "HIRE": 7155.0,
+            "BUY_ANIMAL:COW": 2800.0,
+            "BUY_ANIMAL:SHEEP": 2000.0,
+            "BUY_SEED:MELON": 1360.0,
+            "BUY_SEED:WHEAT": 1430.0,
+            "BUY_SEED:STRAWBERRY": 3700.0,
+            "BUY_LAND": 3000.0
+          },
+          "final_money": 126265.0,
+          "units": {
+            "WHEAT": 438,
+            "FERTILIZER": 197,
+            "WOOL": 130,
+            "MILK": 191,
+            "MELON": 102,
+            "STRAWBERRY": 278
+          }
+        },
+        "calls": 3191,
+        "filled": 2974,
+        "rejected": 217
+      },
+      "858101": {
+        "seat_0_ours": {
+          "revenue": {
+            "FERTILIZER": 11402.0,
+            "EGG": 3010.0,
+            "WHEAT": 6267.0,
+            "MILK": 6035.0,
+            "MELON": 12963.0,
+            "WOOL": 1234.0,
+            "STRAWBERRY": 22751.0
+          },
+          "buy_product_cost": {
+            "WHEAT": 8175.0
+          },
+          "fixed_spend": {
+            "BUY_ANIMAL:GOOSE": 300.0,
+            "BUY_LAND": 3000.0,
+            "BUY_SEED:MELON": 1280.0,
+            "BUY_SEED:WHEAT": 890.0,
+            "HIRE": 2955.0,
+            "BUY_ANIMAL:COW": 2400.0,
+            "BUY_SEED:STRAWBERRY": 3400.0,
+            "BUY_ANIMAL:SHEEP": 2000.0
+          },
+          "final_money": 42262.0,
+          "units": {
+            "FERTILIZER": 194,
+            "EGG": 54,
+            "WHEAT": 180,
+            "MILK": 172,
+            "MELON": 84,
+            "WOOL": 59,
+            "STRAWBERRY": 124
+          }
+        },
+        "seat_1_opponent": {
+          "revenue": {
+            "WHEAT": 18978.0,
+            "FERTILIZER": 12098.0,
+            "WOOL": 10198.0,
+            "MILK": 3825.0,
+            "MELON": 19186.0,
+            "STRAWBERRY": 49608.0
+          },
+          "buy_product_cost": {
+            "WHEAT": 6197.0
+          },
+          "fixed_spend": {
+            "HIRE": 7155.0,
+            "BUY_ANIMAL:COW": 2800.0,
+            "BUY_ANIMAL:SHEEP": 2000.0,
+            "BUY_SEED:MELON": 1360.0,
+            "BUY_SEED:WHEAT": 1430.0,
+            "BUY_SEED:STRAWBERRY": 3700.0,
+            "BUY_LAND": 3000.0
+          },
+          "final_money": 89251.0,
+          "units": {
+            "WHEAT": 436,
+            "FERTILIZER": 182,
+            "WOOL": 130,
+            "MILK": 161,
+            "MELON": 102,
+            "STRAWBERRY": 269
+          }
+        },
+        "calls": 3140,
+        "filled": 2896,
+        "rejected": 244
+      },
+      "858102": {
+        "seat_0_ours": {
+          "revenue": {
+            "FERTILIZER": 9617.0,
+            "EGG": 2902.0,
+            "WHEAT": 8593.0,
+            "MILK": 37017.0,
+            "MELON": 12853.0,
+            "STRAWBERRY": 23449.0,
+            "WOOL": 1316.0
+          },
+          "buy_product_cost": {
+            "WHEAT": 7116.0
+          },
+          "fixed_spend": {
+            "BUY_ANIMAL:GOOSE": 300.0,
+            "BUY_LAND": 3000.0,
+            "BUY_SEED:MELON": 1280.0,
+            "BUY_SEED:WHEAT": 1070.0,
+            "HIRE": 2709.0,
+            "BUY_ANIMAL:COW": 2400.0,
+            "BUY_SEED:STRAWBERRY": 2000.0,
+            "BUY_ANIMAL:SHEEP": 1000.0
+          },
+          "final_money": 77872.0,
+          "units": {
+            "FERTILIZER": 159,
+            "EGG": 54,
+            "WHEAT": 240,
+            "MILK": 156,
+            "MELON": 90,
+            "STRAWBERRY": 106,
+            "WOOL": 32
+          }
+        },
+        "seat_1_opponent": {
+          "revenue": {
+            "WHEAT": 18453.0,
+            "FERTILIZER": 13347.0,
+            "WOOL": 14712.0,
+            "MILK": 45948.0,
+            "MELON": 19186.0,
+            "STRAWBERRY": 61203.0
+          },
+          "buy_product_cost": {
+            "WHEAT": 5917.0
+          },
+          "fixed_spend": {
+            "HIRE": 7155.0,
+            "BUY_ANIMAL:COW": 2800.0,
+            "BUY_ANIMAL:SHEEP": 2000.0,
+            "BUY_SEED:MELON": 1360.0,
+            "BUY_SEED:WHEAT": 1430.0,
+            "BUY_SEED:STRAWBERRY": 3700.0,
+            "BUY_LAND": 3000.0
+          },
+          "final_money": 148487.0,
+          "units": {
+            "WHEAT": 438,
+            "FERTILIZER": 197,
+            "WOOL": 130,
+            "MILK": 191,
+            "MELON": 102,
+            "STRAWBERRY": 278
+          }
+        },
+        "calls": 3126,
+        "filled": 2902,
+        "rejected": 224
+      },
+      "858103": {
+        "seat_0_ours": {
+          "revenue": {
+            "FERTILIZER": 11145.0,
+            "EGG": 2598.0,
+            "WHEAT": 6103.0,
+            "MILK": 14821.0,
+            "MELON": 12515.0,
+            "WOOL": 17506.0,
+            "STRAWBERRY": 9846.0
+          },
+          "buy_product_cost": {
+            "WHEAT": 6812.0
+          },
+          "fixed_spend": {
+            "BUY_ANIMAL:GOOSE": 300.0,
+            "BUY_LAND": 3000.0,
+            "BUY_SEED:MELON": 1200.0,
+            "BUY_SEED:WHEAT": 980.0,
+            "HIRE": 2942.0,
+            "BUY_ANIMAL:COW": 2400.0,
+            "BUY_SEED:STRAWBERRY": 3300.0,
+            "BUY_ANIMAL:SHEEP": 2000.0
+          },
+          "final_money": 54600.0,
+          "units": {
+            "FERTILIZER": 204,
+            "EGG": 54,
+            "WHEAT": 231,
+            "MILK": 163,
+            "MELON": 66,
+            "WOOL": 72,
+            "STRAWBERRY": 126
+          }
+        },
+        "seat_1_opponent": {
+          "revenue": {
+            "WHEAT": 11902.0,
+            "FERTILIZER": 13241.0,
+            "WOOL": 31299.0,
+            "MILK": 18601.0,
+            "MELON": 19186.0,
+            "STRAWBERRY": 21857.0
+          },
+          "buy_product_cost": {
+            "WHEAT": 4975.0
+          },
+          "fixed_spend": {
+            "HIRE": 7155.0,
+            "BUY_ANIMAL:COW": 3200.0,
+            "BUY_ANIMAL:SHEEP": 2000.0,
+            "BUY_SEED:MELON": 1360.0,
+            "BUY_SEED:WHEAT": 1430.0,
+            "BUY_SEED:STRAWBERRY": 3700.0,
+            "BUY_LAND": 3000.0
+          },
+          "final_money": 92266.0,
+          "units": {
+            "WHEAT": 425,
+            "FERTILIZER": 215,
+            "WOOL": 130,
+            "MILK": 215,
+            "MELON": 102,
+            "STRAWBERRY": 286
+          }
+        },
+        "calls": 3233,
+        "filled": 3058,
+        "rejected": 175
+      },
+      "858104": {
+        "seat_0_ours": {
+          "revenue": {
+            "FERTILIZER": 11179.0,
+            "EGG": 3140.0,
+            "WHEAT": 6076.0,
+            "MILK": 5711.0,
+            "MELON": 12851.0,
+            "WOOL": 17349.0,
+            "STRAWBERRY": 1558.0
+          },
+          "buy_product_cost": {
+            "WHEAT": 8652.0
+          },
+          "fixed_spend": {
+            "BUY_ANIMAL:GOOSE": 300.0,
+            "BUY_LAND": 3000.0,
+            "BUY_SEED:MELON": 1280.0,
+            "BUY_SEED:WHEAT": 860.0,
+            "HIRE": 2955.0,
+            "BUY_ANIMAL:COW": 2400.0,
+            "BUY_SEED:STRAWBERRY": 3400.0,
+            "BUY_ANIMAL:SHEEP": 2000.0
+          },
+          "final_money": 36017.0,
+          "units": {
+            "FERTILIZER": 203,
+            "EGG": 54,
+            "WHEAT": 179,
+            "MILK": 173,
+            "MELON": 84,
+            "WOOL": 71,
+            "STRAWBERRY": 130
+          }
+        },
+        "seat_1_opponent": {
+          "revenue": {
+            "WHEAT": 17718.0,
+            "FERTILIZER": 13192.0,
+            "WOOL": 31016.0,
+            "MILK": 3581.0,
+            "MELON": 19186.0,
+            "STRAWBERRY": 5368.0
+          },
+          "buy_product_cost": {
+            "WHEAT": 6067.0
+          },
+          "fixed_spend": {
+            "HIRE": 7155.0,
+            "BUY_ANIMAL:COW": 3200.0,
+            "BUY_ANIMAL:SHEEP": 2000.0,
+            "BUY_SEED:MELON": 1360.0,
+            "BUY_SEED:WHEAT": 1430.0,
+            "BUY_SEED:STRAWBERRY": 3700.0,
+            "BUY_LAND": 3000.0
+          },
+          "final_money": 65149.0,
+          "units": {
+            "WHEAT": 425,
+            "FERTILIZER": 215,
+            "WOOL": 130,
+            "MILK": 215,
+            "MELON": 102,
+            "STRAWBERRY": 286
+          }
+        },
+        "calls": 3270,
+        "filled": 3031,
+        "rejected": 239
+      },
+      "858105": {
+        "seat_0_ours": {
+          "revenue": {
+            "FERTILIZER": 10928.0,
+            "EGG": 2731.0,
+            "WHEAT": 7225.0,
+            "MILK": 33756.0,
+            "MELON": 12966.0,
+            "WOOL": 476.0,
+            "STRAWBERRY": 16860.0
+          },
+          "buy_product_cost": {
+            "WHEAT": 7394.0
+          },
+          "fixed_spend": {
+            "BUY_ANIMAL:GOOSE": 300.0,
+            "BUY_LAND": 3000.0,
+            "BUY_SEED:MELON": 1280.0,
+            "BUY_SEED:WHEAT": 970.0,
+            "HIRE": 2819.0,
+            "BUY_ANIMAL:COW": 2400.0,
+            "BUY_SEED:STRAWBERRY": 3400.0,
+            "BUY_ANIMAL:SHEEP": 2000.0
+          },
+          "final_money": 64379.0,
+          "units": {
+            "FERTILIZER": 191,
+            "EGG": 54,
+            "WHEAT": 225,
+            "MILK": 161,
+            "MELON": 78,
+            "WOOL": 66,
+            "STRAWBERRY": 110
+          }
+        },
+        "seat_1_opponent": {
+          "revenue": {
+            "WHEAT": 16330.0,
+            "FERTILIZER": 12857.0,
+            "WOOL": 11047.0,
+            "MILK": 40875.0,
+            "MELON": 19186.0,
+            "STRAWBERRY": 39060.0
+          },
+          "buy_product_cost": {
+            "WHEAT": 5209.0
+          },
+          "fixed_spend": {
+            "HIRE": 7155.0,
+            "BUY_ANIMAL:COW": 2800.0,
+            "BUY_ANIMAL:SHEEP": 2000.0,
+            "BUY_SEED:MELON": 1360.0,
+            "BUY_SEED:WHEAT": 1430.0,
+            "BUY_SEED:STRAWBERRY": 3700.0,
+            "BUY_LAND": 3000.0
+          },
+          "final_money": 115701.0,
+          "units": {
+            "WHEAT": 438,
+            "FERTILIZER": 197,
+            "WOOL": 130,
+            "MILK": 191,
+            "MELON": 102,
+            "STRAWBERRY": 278
+          }
+        },
+        "calls": 3203,
+        "filled": 2986,
+        "rejected": 217
+      },
+      "858106": {
+        "seat_0_ours": {
+          "revenue": {
+            "FERTILIZER": 11515.0,
+            "EGG": 2950.0,
+            "WHEAT": 5156.0,
+            "MILK": 38097.0,
+            "MELON": 12863.0,
+            "WOOL": 1636.0,
+            "STRAWBERRY": 15860.0
+          },
+          "buy_product_cost": {
+            "WHEAT": 8799.0
+          },
+          "fixed_spend": {
+            "BUY_ANIMAL:GOOSE": 300.0,
+            "BUY_LAND": 3000.0,
+            "BUY_SEED:MELON": 1280.0,
+            "BUY_SEED:WHEAT": 800.0,
+            "HIRE": 2955.0,
+            "BUY_ANIMAL:COW": 2400.0,
+            "BUY_SEED:STRAWBERRY": 3400.0,
+            "BUY_ANIMAL:SHEEP": 2000.0
+          },
+          "final_money": 66143.0,
+          "units": {
+            "FERTILIZER": 197,
+            "EGG": 54,
+            "WHEAT": 156,
+            "MILK": 174,
+            "MELON": 90,
+            "WOOL": 60,
+            "STRAWBERRY": 146
+          }
+        },
+        "seat_1_opponent": {
+          "revenue": {
+            "WHEAT": 19206.0,
+            "FERTILIZER": 12248.0,
+            "WOOL": 9759.0,
+            "MILK": 39043.0,
+            "MELON": 19186.0,
+            "STRAWBERRY": 31585.0
+          },
+          "buy_product_cost": {
+            "WHEAT": 6202.0
+          },
+          "fixed_spend": {
+            "HIRE": 7155.0,
+            "BUY_ANIMAL:COW": 2800.0,
+            "BUY_ANIMAL:SHEEP": 2000.0,
+            "BUY_SEED:MELON": 1360.0,
+            "BUY_SEED:WHEAT": 1430.0,
+            "BUY_SEED:STRAWBERRY": 3700.0,
+            "BUY_LAND": 3000.0
+          },
+          "final_money": 106380.0,
+          "units": {
+            "WHEAT": 441,
+            "FERTILIZER": 190,
+            "WOOL": 130,
+            "MILK": 175,
+            "MELON": 102,
+            "STRAWBERRY": 268
+          }
+        },
+        "calls": 3157,
+        "filled": 2937,
+        "rejected": 220
+      },
+      "858107": {
+        "seat_0_ours": {
+          "revenue": {
+            "FERTILIZER": 9845.0,
+            "EGG": 2747.0,
+            "WHEAT": 8747.0,
+            "MILK": 38051.0,
+            "MELON": 12970.0,
+            "STRAWBERRY": 26091.0,
+            "WOOL": 461.0
+          },
+          "buy_product_cost": {
+            "WHEAT": 7215.0
+          },
+          "fixed_spend": {
+            "BUY_ANIMAL:GOOSE": 300.0,
+            "BUY_LAND": 3000.0,
+            "BUY_SEED:MELON": 1280.0,
+            "BUY_SEED:WHEAT": 1060.0,
+            "HIRE": 2806.0,
+            "BUY_ANIMAL:COW": 2000.0,
+            "BUY_SEED:STRAWBERRY": 3600.0,
+            "BUY_ANIMAL:SHEEP": 2000.0
+          },
+          "final_money": 78651.0,
+          "units": {
+            "FERTILIZER": 164,
+            "EGG": 54,
+            "WHEAT": 248,
+            "MILK": 140,
+            "MELON": 84,
+            "STRAWBERRY": 114,
+            "WOOL": 52
+          }
+        },
+        "seat_1_opponent": {
+          "revenue": {
+            "WHEAT": 17827.0,
+            "FERTILIZER": 13260.0,
+            "WOOL": 11016.0,
+            "MILK": 52902.0,
+            "MELON": 19186.0,
+            "STRAWBERRY": 64022.0
+          },
+          "buy_product_cost": {
+            "WHEAT": 5836.0
+          },
+          "fixed_spend": {
+            "HIRE": 7155.0,
+            "BUY_ANIMAL:COW": 2800.0,
+            "BUY_ANIMAL:SHEEP": 2000.0,
+            "BUY_SEED:MELON": 1360.0,
+            "BUY_SEED:WHEAT": 1430.0,
+            "BUY_SEED:STRAWBERRY": 3700.0,
+            "BUY_LAND": 3000.0
+          },
+          "final_money": 153932.0,
+          "units": {
+            "WHEAT": 438,
+            "FERTILIZER": 197,
+            "WOOL": 130,
+            "MILK": 191,
+            "MELON": 102,
+            "STRAWBERRY": 278
+          }
+        },
+        "calls": 3190,
+        "filled": 2944,
+        "rejected": 246
+      }
+    }
+  },
+  "means_per_arm": {
+    "shipped": {
+      "seat_0_ours": {
+        "revenue": {
+          "WOOL": 10946.25,
+          "WHEAT": 20730.625,
+          "MILK": 28643.25,
+          "MELON": 12953.0,
+          "EGG": 2891.75,
+          "FERTILIZER": 14161.25
+        },
+        "buy_product_cost": {
+          "WHEAT": 9164.0
+        },
+        "fixed_spend": {
+          "BUY_ANIMAL:GOOSE": 300.0,
+          "BUY_SEED:MELON": 1290.0,
+          "BUY_ANIMAL:SHEEP": 2000.0,
+          "HIRE": 3144.5,
+          "BUY_SEED:WHEAT": 1998.75,
+          "BUY_LAND": 3000.0,
+          "BUY_ANIMAL:COW": 2400.0
+        },
+        "units": {
+          "WOOL": 101.5,
+          "WHEAT": 598.875,
+          "MILK": 177.0,
+          "MELON": 94.5,
+          "EGG": 54.0,
+          "FERTILIZER": 262.875
+        },
+        "final_money": 70028.875,
+        "strawberry_units_sold_total_over_seeds": 0,
+        "strawberry_units_sold_mean_per_seed": 0.0,
+        "strawberry_mean_realized_price": null
+      },
+      "seat_1_opponent": {
+        "revenue": {
+          "WOOL": 16440.75,
+          "WHEAT": 14713.375,
+          "STRAWBERRY": 41848.875,
+          "MILK": 29917.5,
+          "MELON": 18827.375,
+          "FERTILIZER": 10710.75
+        },
+        "buy_product_cost": {
+          "WHEAT": 5909.5
+        },
+        "fixed_spend": {
+          "BUY_SEED:MELON": 1360.0,
+          "BUY_ANIMAL:SHEEP": 2000.0,
+          "HIRE": 7155.0,
+          "BUY_SEED:WHEAT": 1430.0,
+          "BUY_SEED:STRAWBERRY": 3700.0,
+          "BUY_LAND": 3000.0,
+          "BUY_ANIMAL:COW": 2800.0
+        },
+        "units": {
+          "WOOL": 129.75,
+          "WHEAT": 436.625,
+          "STRAWBERRY": 277.625,
+          "MILK": 186.375,
+          "MELON": 102.0,
+          "FERTILIZER": 195.125
+        },
+        "final_money": 108104.125,
+        "strawberry_units_sold_total_over_seeds": 2221,
+        "strawberry_units_sold_mean_per_seed": 277.625,
+        "strawberry_mean_realized_price": 150.73885637100406
+      }
+    },
+    "T20": {
+      "seat_0_ours": {
+        "revenue": {
+          "WOOL": 8188.75,
+          "WHEAT": 13031.0,
+          "STRAWBERRY": 12364.125,
+          "MILK": 29844.625,
+          "MELON": 12795.125,
+          "EGG": 2927.75,
+          "FERTILIZER": 12771.75
+        },
+        "buy_product_cost": {
+          "WHEAT": 9676.875
+        },
+        "fixed_spend": {
+          "BUY_ANIMAL:GOOSE": 300.0,
+          "BUY_SEED:MELON": 1280.0,
+          "BUY_ANIMAL:SHEEP": 2000.0,
+          "HIRE": 3110.125,
+          "BUY_SEED:WHEAT": 1508.75,
+          "BUY_SEED:STRAWBERRY": 1887.5,
+          "BUY_LAND": 3000.0,
+          "BUY_ANIMAL:COW": 2400.0
+        },
+        "units": {
+          "WOOL": 98.25,
+          "WHEAT": 356.875,
+          "STRAWBERRY": 102.375,
+          "MILK": 176.375,
+          "MELON": 89.625,
+          "EGG": 54.0,
+          "FERTILIZER": 232.5
+        },
+        "final_money": 69759.875,
+        "strawberry_units_sold_total_over_seeds": 819,
+        "strawberry_units_sold_mean_per_seed": 102.375,
+        "strawberry_mean_realized_price": 120.77289377289377
+      },
+      "seat_1_opponent": {
+        "revenue": {
+          "WOOL": 13386.375,
+          "WHEAT": 17310.5,
+          "STRAWBERRY": 45227.375,
+          "MILK": 31745.25,
+          "MELON": 19026.625,
+          "FERTILIZER": 11747.375
+        },
+        "buy_product_cost": {
+          "WHEAT": 6129.75
+        },
+        "fixed_spend": {
+          "BUY_SEED:MELON": 1360.0,
+          "BUY_ANIMAL:SHEEP": 2000.0,
+          "HIRE": 7155.0,
+          "BUY_SEED:WHEAT": 1430.0,
+          "BUY_SEED:STRAWBERRY": 3700.0,
+          "BUY_LAND": 3000.0,
+          "BUY_ANIMAL:COW": 2800.0
+        },
+        "units": {
+          "WOOL": 129.75,
+          "WHEAT": 435.375,
+          "STRAWBERRY": 277.625,
+          "MILK": 186.875,
+          "MELON": 102.0,
+          "FERTILIZER": 195.125
+        },
+        "final_money": 113868.75,
+        "strawberry_units_sold_total_over_seeds": 2221,
+        "strawberry_units_sold_mean_per_seed": 277.625,
+        "strawberry_mean_realized_price": 162.9081494822152
+      }
+    },
+    "COH": {
+      "seat_0_ours": {
+        "revenue": {
+          "WOOL": 5202.25,
+          "WHEAT": 6635.875,
+          "STRAWBERRY": 18117.5,
+          "MILK": 25501.125,
+          "MELON": 12854.0,
+          "EGG": 2876.75,
+          "FERTILIZER": 10919.125
+        },
+        "buy_product_cost": {
+          "WHEAT": 7937.5
+        },
+        "fixed_spend": {
+          "BUY_ANIMAL:GOOSE": 300.0,
+          "BUY_SEED:MELON": 1270.0,
+          "BUY_ANIMAL:SHEEP": 1875.0,
+          "HIRE": 2887.0,
+          "BUY_SEED:WHEAT": 926.25,
+          "BUY_SEED:STRAWBERRY": 3237.5,
+          "BUY_LAND": 3000.0,
+          "BUY_ANIMAL:COW": 2350.0
+        },
+        "units": {
+          "WOOL": 60.0,
+          "WHEAT": 201.0,
+          "STRAWBERRY": 125.0,
+          "MILK": 163.75,
+          "MELON": 82.5,
+          "EGG": 54.0,
+          "FERTILIZER": 190.375
+        },
+        "final_money": 61323.375,
+        "strawberry_units_sold_total_over_seeds": 1000,
+        "strawberry_units_sold_mean_per_seed": 125.0,
+        "strawberry_mean_realized_price": 144.94
+      },
+      "seat_1_opponent": {
+        "revenue": {
+          "WOOL": 16102.0,
+          "WHEAT": 17556.75,
+          "STRAWBERRY": 41110.125,
+          "MILK": 29775.625,
+          "MELON": 19186.0,
+          "FERTILIZER": 12839.625
+        },
+        "buy_product_cost": {
+          "WHEAT": 5846.25
+        },
+        "fixed_spend": {
+          "BUY_SEED:MELON": 1360.0,
+          "BUY_ANIMAL:SHEEP": 2000.0,
+          "HIRE": 7155.0,
+          "BUY_SEED:WHEAT": 1430.0,
+          "BUY_SEED:STRAWBERRY": 3700.0,
+          "BUY_LAND": 3000.0,
+          "BUY_ANIMAL:COW": 2900.0
+        },
+        "units": {
+          "WOOL": 130.0,
+          "WHEAT": 434.875,
+          "STRAWBERRY": 277.625,
+          "MILK": 191.25,
+          "MELON": 102.0,
+          "FERTILIZER": 198.75
+        },
+        "final_money": 112178.875,
+        "strawberry_units_sold_total_over_seeds": 2221,
+        "strawberry_units_sold_mean_per_seed": 277.625,
+        "strawberry_mean_realized_price": 148.07789284106258
+      }
+    }
+  },
+  "deltas_vs_shipped": {
+    "T20": {
+      "seat_0_ours": {
+        "revenue": {
+          "WOOL": -2757.5,
+          "WHEAT": -7699.625,
+          "STRAWBERRY": 12364.125,
+          "MILK": 1201.375,
+          "MELON": -157.875,
+          "EGG": 36.0,
+          "FERTILIZER": -1389.5
+        },
+        "buy_product_cost": {
+          "WHEAT": 512.875
+        },
+        "fixed_spend": {
+          "BUY_ANIMAL:GOOSE": 0.0,
+          "BUY_SEED:MELON": -10.0,
+          "BUY_ANIMAL:SHEEP": 0.0,
+          "HIRE": -34.375,
+          "BUY_SEED:WHEAT": -490.0,
+          "BUY_SEED:STRAWBERRY": 1887.5,
+          "BUY_LAND": 0.0,
+          "BUY_ANIMAL:COW": 0.0
+        },
+        "final_money": -269.0
+      },
+      "seat_1_opponent": {
+        "revenue": {
+          "WOOL": -3054.375,
+          "WHEAT": 2597.125,
+          "STRAWBERRY": 3378.5,
+          "MILK": 1827.75,
+          "MELON": 199.25,
+          "FERTILIZER": 1036.625
+        },
+        "buy_product_cost": {
+          "WHEAT": 220.25
+        },
+        "fixed_spend": {
+          "BUY_SEED:MELON": 0.0,
+          "BUY_ANIMAL:SHEEP": 0.0,
+          "HIRE": 0.0,
+          "BUY_SEED:WHEAT": 0.0,
+          "BUY_SEED:STRAWBERRY": 0.0,
+          "BUY_LAND": 0.0,
+          "BUY_ANIMAL:COW": 0.0
+        },
+        "final_money": 5764.625
+      }
+    },
+    "COH": {
+      "seat_0_ours": {
+        "revenue": {
+          "WOOL": -5744.0,
+          "WHEAT": -14094.75,
+          "STRAWBERRY": 18117.5,
+          "MILK": -3142.125,
+          "MELON": -99.0,
+          "EGG": -15.0,
+          "FERTILIZER": -3242.125
+        },
+        "buy_product_cost": {
+          "WHEAT": -1226.5
+        },
+        "fixed_spend": {
+          "BUY_ANIMAL:GOOSE": 0.0,
+          "BUY_SEED:MELON": -20.0,
+          "BUY_ANIMAL:SHEEP": -125.0,
+          "HIRE": -257.5,
+          "BUY_SEED:WHEAT": -1072.5,
+          "BUY_SEED:STRAWBERRY": 3237.5,
+          "BUY_LAND": 0.0,
+          "BUY_ANIMAL:COW": -50.0
+        },
+        "final_money": -8705.5
+      },
+      "seat_1_opponent": {
+        "revenue": {
+          "WOOL": -338.75,
+          "WHEAT": 2843.375,
+          "STRAWBERRY": -738.75,
+          "MILK": -141.875,
+          "MELON": 358.625,
+          "FERTILIZER": 2128.875
+        },
+        "buy_product_cost": {
+          "WHEAT": -63.25
+        },
+        "fixed_spend": {
+          "BUY_SEED:MELON": 0.0,
+          "BUY_ANIMAL:SHEEP": 0.0,
+          "HIRE": 0.0,
+          "BUY_SEED:WHEAT": 0.0,
+          "BUY_SEED:STRAWBERRY": 0.0,
+          "BUY_LAND": 0.0,
+          "BUY_ANIMAL:COW": 100.0
+        },
+        "final_money": 4074.75
+      }
+    }
+  }
+}
