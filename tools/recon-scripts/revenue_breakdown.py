@@ -105,6 +105,25 @@ ALL_ARMS: dict[str, dict[str, Any]] = {
         "animal_buy_order": ["SHEEP", "COW"],
         "max_hires_per_turn": 10,
     },
+    # The labor-inside-the-stack slice's arms
+    # (eval/prereg/2026-09-19-labor-inside-the-stack.md). S3 is STACK3
+    # verbatim, re-registered under the name that slice uses so records carry
+    # the registered arm names; S3EH1 is S3 plus one extra hand.
+    "S3": {
+        "strawberry_tile_target": 20,
+        "strawberry_plant_daily_cap": 10,
+        "strawberry_start_day": 8,
+        "animal_buy_order": ["SHEEP", "COW"],
+        "max_hires_per_turn": 10,
+    },
+    "S3EH1": {
+        "strawberry_tile_target": 20,
+        "strawberry_plant_daily_cap": 10,
+        "strawberry_start_day": 8,
+        "animal_buy_order": ["SHEEP", "COW"],
+        "max_hires_per_turn": 10,
+        "extra_hands": 1,
+    },
     # The strawberry-cohort slice's arms
     # (eval/prereg/2026-09-12-strawberry-cohort-price.md). Its criterion 3 reads
     # combined WHEAT + STRAWBERRY settled revenue out of this instrument, because
