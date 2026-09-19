@@ -1,0 +1,105 @@
+{
+ "identity": {
+  "script": "tools/recon-scripts/early_cash_ledger.py",
+  "git_sha": "c43d8ed5ae01fdb8024ee14152cf544e73d827d9",
+  "packages_dirty": false,
+  "agent_imported_from": "/Users/cdcoonce/Developer/GitHub/kaggriculture/packages/agent/src/agent/__init__.py",
+  "engine": "1.32.7",
+  "opponent": "public:sokolovsky-v12",
+  "seeds": [
+   887000,
+   887001,
+   887002,
+   887003,
+   887004,
+   887005,
+   887006,
+   887007
+  ],
+  "arms": {
+   "S3": {
+    "strawberry_tile_target": 20,
+    "strawberry_plant_daily_cap": 10,
+    "strawberry_start_day": 8,
+    "animal_buy_order": [
+     "SHEEP",
+     "COW"
+    ],
+    "max_hires_per_turn": 10
+   },
+   "S3EH1": {
+    "strawberry_tile_target": 20,
+    "strawberry_plant_daily_cap": 10,
+    "strawberry_start_day": 8,
+    "animal_buy_order": [
+     "SHEEP",
+     "COW"
+    ],
+    "max_hires_per_turn": 10,
+    "extra_hands": 1
+   }
+  },
+  "checker": "tools/recon-scripts/labor_in_stack_check.py",
+  "ledger": "eval/recon/2026-09-19-labor-in-stack-expression-ledger-887000.json",
+  "crew": "eval/recon/2026-09-19-labor-in-stack-expression-crew-887000.json",
+  "flows": "eval/recon/2026-09-19-labor-in-stack-expression-flows-887000.json"
+ },
+ "criteria": {
+  "C1_crew_gain_min": 0.7,
+  "C2_hire_rise_min": 1500.0,
+  "C3_strawberry_floor": 14.0,
+  "C3_strawberry_ratio_min": 0.85,
+  "C4_collateral_ratio_min": 0.95,
+  "C4_items": [
+   "WHEAT",
+   "WOOL",
+   "FERTILIZER"
+  ]
+ },
+ "measures": {
+  "S3": {
+   "crew_4_20": 9.814148073022317,
+   "hire_spend": 3112.0,
+   "strawberry_d12": 16.0,
+   "wheat": 13470.0,
+   "wool": 15423.0,
+   "fertilizer": 12563.375,
+   "collateral_total": 41456.375
+  },
+  "S3EH1": {
+   "crew_4_20": 10.827586206896553,
+   "hire_spend": 5054.0,
+   "strawberry_d12": 16.375,
+   "wheat": 14787.25,
+   "wool": 19669.5,
+   "fertilizer": 12428.125,
+   "collateral_total": 46884.875
+  }
+ },
+ "verdicts": {
+  "S3EH1": {
+   "pass": true,
+   "criteria": {
+    "C1_crew_rise": {
+     "pass": true,
+     "detail": "S3EH1 crew_4_20 10.83 vs S3 9.81 + 0.7 = 10.51 (needs >=)"
+    },
+    "C2_hire_spend_rise": {
+     "pass": true,
+     "detail": "HIRE spend $5,054 vs S3 $3,112 = +1,942 (needs >= +$1,500)"
+    },
+    "C3_strawberry_holds": {
+     "pass": true,
+     "detail": "standing strawberry end of day 12 16.4 (needs >= 14) and >= 0.85 x S3's 16.0 = 13.60"
+    },
+    "C4_no_collateral_collapse": {
+     "pass": true,
+     "detail": "WHEAT+WOOL+FERTILIZER $46,885 vs 0.95 x S3's $41,456 = $39,384 (needs >=)"
+    }
+   }
+  }
+ },
+ "arms_cleared": [
+  "S3EH1"
+ ]
+}
