@@ -173,3 +173,193 @@ experiment is **this document's CONFIRMED verdict plus the owner's decision**, n
 of a promotion ledger entry.
 
 Nothing in this document authorises an upload.
+
+## ADDENDUM — VERDICT (2026-09-19): CONFIRMED, and it should not be uploaded on this evidence
+
+Run at `main` = `a71b5e9`, the commit this document merged as. Engine 1.32.7, clean tree,
+baseline `frozen:m3b_live_b6ce655` throughout, no crash and no veto in any of the twelve runs.
+
+**Pre-flight (positive control) PASSED.** All three arms express against this baseline:
+`sd_delta` 11,355 / 12,122 / 16,323 on 8 seeds. No arm was mistaken for measured.
+
+### Screen — band 891000, n=128/leader
+
+| arm | sokolovsky | rayk | kaito | pooled Δ (se) | one-sided 95% LB | pooled `mde_80` |
+|---|---|---|---|---|---|---|
+| MAIN_DEF | +$1,857 | +$888 | +$696 | +$1,147 ($704) | −$11 | $1,760 |
+| SHEEP1 | +$1,793 | +$1,701 | +$1,399 | +$1,631 ($758) | +$384 | $1,895 |
+| STACK3 | +$4,282 | +$3,568 | +$3,315 | **+$3,722 ($871)** | **+$2,288** | $2,180 |
+
+All three selectable. **SELECTED: STACK3**, highest pooled lower bound, per the registered rule.
+
+### Confirm — band 892000, n=256/leader, STACK3 only
+
+| leader | Δ | se | `opponent_mean_delta` | `n_regressed` |
+|---|---|---|---|---|
+| sokolovsky-v12 | +$8,768 | $972 | +$4,601 | 80/256 |
+| rayk-v11 | +$6,878 | $1,089 | +$2,569 | 92/256 |
+| kaito-v4 | +$6,524 | $1,088 | +$2,514 | 98/256 |
+| **pooled** | **+$7,390** | **$607** | | |
+
+One-sided 95% LB **+$6,392** > $0; no leader below −$2,000. **STACK3 is CONFIRMED.**
+
+### The verdict is CONFIRMED. The magnitude is not trustworthy, and the transfer is doubtful.
+
+**The two bands disagree at 3.45 se.** +$3,722 at 891000 against +$7,390 at 892000, against an
+se of the difference of $1,062. Fixed-effect pooling assumes they agree and gives +$6,191
+(se $498); they do not agree. Heterogeneity Q = 11.93 on 1 df implies a between-band sd of
+**tau = $2,482**, and the honest random-effects estimate is **+$5,609, se $1,833**, one-sided
+LB **+$2,594**.
+
+That lower bound still clears $0, so the *direction* survives the instability. STACK3 banks
+more than M3b, and that is now measured on two independent bands. This is the strongest
+positive result the project has recorded, and it is recorded as such.
+
+**But this arm has now been measured four times and swung every time.** +$3,637 (881000, vs
+`champion`), −$1,203 (888000, vs `champion`), +$3,722 (891000, vs M3b), +$7,390 (892000, vs
+M3b). Both same-baseline pairs disagree at about 3 to 3.5 se. Instability is the most
+replicated fact about STACK3.
+
+**There is a mechanism for it, and it was measured.** `tools/recon-scripts/shop_roster_coupling.py`
+on `strawberry_tile_target` 0-vs-20 at the confirm band's seeds returns **coupled draws 7.9/8,
+range [7,8]**, first divergence as early as day 2
+(`eval/recon/2026-09-19-terminal-freeze-stack3-coupling-892000.json`). That is the maximum; the
+README's worked example (`max_owned_quadrants` 4-vs-3) is 4/8 and already warrants caveats. The
+seed-pairing that gives this gate its 2-60x variance reduction is gone for this arm, and the
+arm's result depends on shop draws that differ by band. `sd_delta` remains honest dispersion,
+so the intervals are not biased — but a band-sensitive arm is exactly what 7.9/8 predicts, and
+exactly what four measurements show.
+
+**This registration should have required that probe and did not.** `eval/README.md` mandates
+recording `coupled_draws` for an arm that moves tile occupancy "before reading the screen result
+as anything but directional." STACK3 sets `strawberry_tile_target`. The omission is recorded as
+a defect in this registration, not worked around.
+
+### Why CONFIRMED does not imply "upload"
+
+The dollar-to-Elo slope this project uses — +$10k of own bank ≈ +100 Elo — was derived
+explicitly by **holding each opponent's bank fixed**, and its own source calls it an upper
+bound in a shared market. STACK3 violates that premise harder than any arm measured:
+`opponent_mean_delta` averages **−$1,869** at band 891000 and **+$3,228** at band 892000. The
+opponent's bank moves by thousands and **flips sign between bands**. So +$5,609 cannot be read
+as +56 Elo. The slope does not apply to this arm.
+
+Four further signals, all pointing the same way and none decisive alone:
+
+- STACK3 won **0 of 768 games** against the leaders across both bands. MAIN_DEF, banking least,
+  won a few (0.004 / 0.016 / 0.012). Win rate has no gradient at this distance — that is why
+  the money gate exists — but the field is not flat and STACK3 sits at the bottom of it.
+- STACK3 is a **satellite** strawberry configuration: it sets `strawberry_tile_target` and
+  leaves `wheat_rush_tiles` at its default. That is the shape of the line closed by PRs
+  #68/#83/#84.
+- The same knob value against this exact baseline has been measured head-to-head before:
+  `strawberry_tile_target: 20` vs `frozen:m3b_live_b6ce655` scored **0.015, 0.015, 0.010** at
+  n=100, across two commits (`f79f357`, `b2069bc`) and two bands. Different instrument, older
+  builds, and the post-ladder addendum gives a real reason to prefer own-bank over mirror win
+  rate — so these do not refute the money result. They do not agree with it either.
+- #91 exists because an internally rigorous strawberry chain — pre-registered, with a
+  production-vs-price control at ci_lower +23,542 — lost to the shipped default **44-456** at
+  n=500.
+
+### Recommendation, which is not a verdict
+
+**Do not upload STACK3 on this evidence.** The missing control is the one #91 specifies and
+this registration failed to include: run the non-default configuration against the **shipped
+default** before trusting it. Concretely, `STACK3` vs `champion` at shipped defaults, high n, on
+a fresh band, with `coupled_draws` recorded alongside. If STACK3 is genuinely +$5,609 against
+M3b, it should also beat the shipped default; if it loses that comparison the way the 2026-08-28
+chain did, the money result is a market artifact and the eviction would be a mistake.
+
+The registered consequence stands as written: a CONFIRMED arm licenses **an owner decision**,
+and nothing in this document authorises an upload.
+
+### Predictions scorecard
+
+- `MAIN_DEF` predicted +$500 to +$2,500, landed **+$1,147** — inside, and a near-exact
+  replication of the +$1,331 (se $727) measured at band 850000 on a different build. Two
+  independent bands agreeing closely is evidence *against* a large band-variance component in
+  general, which bears on #165: the instability is this arm's, not the instrument's.
+- `SHEEP1` predicted +$500 to +$3,500, landed **+$1,631** — inside, low half.
+- `STACK3` predicted −$500 to +$3,000, landed **+$3,722** at screen and **+$7,390** at confirm —
+  **outside the range at both bands**, and the miss is in the favourable direction, which is the
+  direction that deserves the most scepticism.
+- P(at least one arm selectable) was 0.75; all three were.
+- P(selected arm CONFIRMED) was 0.55; it was.
+- The named most-likely failure mode — a screen pass whose confirm lower bound lands just below
+  $0 — did not occur. The confirm came in far stronger, not weaker.
+
+## ADDENDUM — VIABILITY ARM (2026-09-19): the #91 control PASSES, and margin is the new problem
+
+Run at `main` = `fbfc258`, owner-authorized after the CONFIRMED verdict. Criteria were stated
+before the data: money LB > $0, and a head-to-head rate far below 0.5 is a veto. Both passed.
+Recorded as a **recon/veto control**, not a new promotion registration — it can disqualify
+STACK3, never promote it.
+
+**Part A — money, STACK3 vs `champion` at shipped defaults, band 893000, n=256/leader.**
+
+| leader | own Δ | se | leader Δ | margin | `n_regressed` |
+|---|---|---|---|---|---|
+| sokolovsky-v12 | +$5,613 | $1,070 | +$5,249 | +$364 | 97/256 |
+| rayk-v11 | +$2,512 | $1,113 | +$3,677 | −$1,165 | 121/256 |
+| kaito-v4 | +$2,078 | $1,114 | +$3,033 | −$955 | 125/256 |
+| **pooled** | **+$3,401** | **$635** | **+$3,986** | **−$585** | |
+
+One-sided 95% LB **+$2,357** > $0. **Criterion PASSES.** No vetoes.
+
+**Part B — head-to-head, STACK3 vs `champion` (shipped default), band 894000, n=250.**
+Rate **0.978** (489-11 of 500), Wilson `ci_lower` **0.961**, `passed: True`. **Criterion PASSES**,
+and it is the near-exact inverse of the 0.088 (44-456) that closed the 2026-08-28 strawberry
+chain. **STACK3 is not a repeat of that configuration.**
+
+**The three money comparisons are internally consistent.** STACK3 vs default (+$3,401) plus
+default vs M3b (+$1,342 at band 891000) predicts +$4,548 for STACK3 vs M3b; the random-effects
+estimate across bands 891000/892000 is +$5,609 (se $1,833) — a gap of 0.58 se. Three separately
+measured comparisons that add up is meaningful evidence the money instrument is capturing
+something real here.
+
+### What the control did not clear: margin
+
+`eval/prereg/2026-09-07-elo-aligned-factorial.md`'s post-ladder addendum states what decides a
+live game: *"A live game is decided by whether our bank exceeds the opponent's."* The
+corresponding diagnostic is the **margin delta** (`mean_delta_i − opponent_mean_delta_i`), and
+across every band measured in this experiment it tells a different story from own bank:
+
+| comparison | own Δ | leader Δ | **margin** |
+|---|---|---|---|
+| MAIN_DEF vs M3b (891000) | +$1,147 | −$3,862 | **+$5,009** |
+| SHEEP1 vs M3b (891000) | +$1,631 | −$1,472 | +$3,103 |
+| STACK3 vs M3b (891000) | +$3,722 | −$1,869 | +$5,591 |
+| STACK3 vs M3b (892000) | +$7,390 | +$3,228 | +$4,162 |
+| **STACK3 vs shipped default (893000)** | **+$3,401** | **+$3,986** | **−$585** |
+
+**STACK3's large own-bank advantage over the shipped default does not survive as a margin
+advantage.** It raises our bank by $3,401 and the leader's by $3,986. It grows the market rather
+than out-earning the opponent in it, and on the quantity the addendum names as decisive it is
+very slightly *behind* the default.
+
+By contrast **MAIN_DEF reaches a comparable margin against M3b (+$5,009) with a fraction of the
+own-bank gain**, by *reducing* the leader's bank rather than inflating it — and it does so on a
+genuinely paired instrument, since it changes no occupancy (STACK3's coupling is 7.9/8 at
+892000 and **8.0/8** at 893000,
+`eval/recon/2026-09-19-viability-stack3-coupling-893000.json`).
+
+Margin is a REPORTED, NOT GATING diagnostic in this and every prior registration, and it carries
+no interval here, so this is not a veto and is not recorded as one. It is the reason the
+own-bank result should not be read as a ladder advantage over the shipped default.
+
+### Recommendation, updated and not a verdict
+
+The previous addendum recommended against uploading STACK3 pending this control. **The control
+passed, and that recommendation is withdrawn as stated.** What replaces it is narrower:
+
+- **Against M3b — the bot an upload actually evicts — STACK3 is better on both own bank and
+  margin**, across two bands. That comparison is the registered question and STACK3 answers it.
+- **Against the shipped default, STACK3 is not better on margin.** So the case for uploading
+  STACK3 specifically, rather than current `main` at defaults, is unproven.
+- The mirror head-to-head at 0.978 establishes **sign, not size** — structurally identical to
+  the 0.974 that produced no ladder difference in September. It refutes the veto; it is not
+  evidence of magnitude.
+
+The owner decision is therefore not "STACK3 or nothing" but **"STACK3, or `main` at defaults, or
+neither"** — and the margin column is the reason that is a real question rather than a formality.
+Nothing in this document authorises an upload.
