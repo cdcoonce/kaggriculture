@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import json
 import math
-from dataclasses import fields
+import subprocess
+from dataclasses import fields, replace
 from pathlib import Path
 
+import pytest
 from harness.gate import MoneyGateResult, run_money_gate
 from harness.ledger import (
     find_passing_promotion,
@@ -437,3 +439,144 @@ class TestCommittedMoneyCorpus:
             assert block["n_seeds"] >= 8, path
             assert isinstance(block["vetoes"], list), path
             assert len(entry["per_seed"]) == block["n_seeds"], path
+
+
+def _run_git(args: list[str], cwd: Path) -> str:
+    result = subprocess.run(["git", *args], cwd=cwd, check=True, capture_output=True, text=True)
+    return result.stdout.strip()
+
+
+def _init_public_leaders_repo(root: Path) -> None:
+    """A synthetic git repo at ``root`` with a committed
+    ``eval/opponents/public-leaders/sokolovsky-v12/main.py`` plus a
+    ``panel.json`` stub, for the provenance tests below. Contents are
+    arbitrary: ``_opponent_source_rev``/``_opponent_source_dirty`` only shell
+    out to ``git``, they never read these files.
+    """
+    _run_git(["init", "-q"], root)
+    leader_dir = root / "eval" / "opponents" / "public-leaders" / "sokolovsky-v12"
+    leader_dir.mkdir(parents=True)
+    (leader_dir / "main.py").write_text(
+        "def agent(observation, configuration):\n    return {}\n", encoding="utf-8"
+    )
+    (leader_dir.parent / "panel.json").write_text("{}\n", encoding="utf-8")
+    _run_git(["add", "-A"], root)
+    _run_git(["-c", "user.name=test", "-c", "user.email=test@test", "commit", "-qm", "init"], root)
+
+
+class TestOpponentSourceProvenance:
+    """Issue #168: a money ledger for a ``public:*`` opponent must pin WHICH
+    committed source under ``eval/opponents/public-leaders`` produced it, or
+    two runs against the same spec with differing (or dirty) leader code are
+    indistinguishable in the ledger.
+    """
+
+    def test_public_ledger_rev_differs_when_opponent_source_changes(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # THE acceptance test: two money-gate ledgers against the same
+        # public:* spec, with differing committed source, must be
+        # distinguishable by `opponent_source_rev`.
+        result = replace(_sample_money_result(), opponent="public:sokolovsky-v12")
+        _init_public_leaders_repo(tmp_path)
+        monkeypatch.chdir(tmp_path)
+
+        path_a = write_money_ledger(
+            result, tmp_path, candidate_commit="abc123", timestamp="2026-08-14T09-30-00Z"
+        )
+        identity_a = json.loads(path_a.read_text(encoding="utf-8"))["identity"]
+        rev_a = identity_a["opponent_source_rev"]
+        assert isinstance(rev_a, str)
+        assert len(rev_a) == 40
+        assert all(char in "0123456789abcdef" for char in rev_a)
+        assert identity_a["opponent_source_dirty"] is False
+
+        leader_main = (
+            tmp_path / "eval" / "opponents" / "public-leaders" / "sokolovsky-v12" / "main.py"
+        )
+        leader_main.write_text(
+            "def agent(observation, configuration):\n    return {'x': 1}\n", encoding="utf-8"
+        )
+        _run_git(["add", "-A"], tmp_path)
+        _run_git(
+            ["-c", "user.name=test", "-c", "user.email=test@test", "commit", "-qm", "second"],
+            tmp_path,
+        )
+
+        path_b = write_money_ledger(
+            result, tmp_path, candidate_commit="abc123", timestamp="2026-08-14T09-31-00Z"
+        )
+        identity_b = json.loads(path_b.read_text(encoding="utf-8"))["identity"]
+        assert identity_b["opponent_source_rev"] != rev_a
+
+    def test_public_ledger_dirty_flag_flips_on_uncommitted_changes(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        result = replace(_sample_money_result(), opponent="public:sokolovsky-v12")
+        _init_public_leaders_repo(tmp_path)
+        monkeypatch.chdir(tmp_path)
+
+        identity_clean = json.loads(
+            write_money_ledger(
+                result, tmp_path, candidate_commit="abc123", timestamp="2026-08-14T09-30-00Z"
+            ).read_text(encoding="utf-8")
+        )["identity"]
+        assert identity_clean["opponent_source_dirty"] is False
+
+        leader_main = (
+            tmp_path / "eval" / "opponents" / "public-leaders" / "sokolovsky-v12" / "main.py"
+        )
+        leader_main.write_text(
+            "def agent(observation, configuration):\n    return {'y': 2}\n", encoding="utf-8"
+        )
+
+        identity_dirty = json.loads(
+            write_money_ledger(
+                result, tmp_path, candidate_commit="abc123", timestamp="2026-08-14T09-31-00Z"
+            ).read_text(encoding="utf-8")
+        )["identity"]
+        assert identity_dirty["opponent_source_dirty"] is True
+        assert identity_dirty["opponent_source_rev"] == identity_clean["opponent_source_rev"]
+
+    def test_non_public_ledgers_carry_no_source_fields_and_digest_passthrough_unchanged(
+        self, tmp_path: Path
+    ) -> None:
+        # No chdir: none of these opponents start with "public:", so the new
+        # provenance helpers never fire and the ledger keys stay absent.
+        base = _sample_money_result()
+        cases = [
+            replace(base, opponent="zoo:tape-thunder-719", opponent_digest="sha256:" + "ab" * 32),
+            replace(
+                base,
+                opponent="zoo:kernel-sokolovsky-2883",
+                opponent_digest="sha256:" + "ab" * 32,
+            ),
+            replace(base, opponent="builtin:pass"),
+            replace(base, opponent="champion"),
+        ]
+        for result in cases:
+            identity = json.loads(
+                write_money_ledger(
+                    result, tmp_path, candidate_commit="abc123", timestamp="2026-08-14T09-30-00Z"
+                ).read_text(encoding="utf-8")
+            )["identity"]
+            assert "opponent_source_rev" not in identity
+            assert "opponent_source_dirty" not in identity
+            assert identity["opponent_digest"] == result.opponent_digest
+
+    def test_public_ledger_records_null_provenance_when_git_unavailable(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # `tmp_path` is a fresh, empty, non-git directory: no `git init` here.
+        result = replace(_sample_money_result(), opponent="public:sokolovsky-v12")
+        monkeypatch.chdir(tmp_path)
+
+        identity = json.loads(
+            write_money_ledger(
+                result, tmp_path, candidate_commit="abc123", timestamp="2026-08-14T09-30-00Z"
+            ).read_text(encoding="utf-8")
+        )["identity"]
+        assert "opponent_source_rev" in identity
+        assert identity["opponent_source_rev"] is None
+        assert "opponent_source_dirty" in identity
+        assert identity["opponent_source_dirty"] is None
