@@ -10,9 +10,10 @@ from __future__ import annotations
 import json
 import math
 from pathlib import Path
+from typing import Any
 
 from harness.episodes import GameRow
-from harness.gate import GateResult, MoneyGateResult
+from harness.gate import TUNABLE_SPECS, GateResult, MoneyGateResult
 
 SCHEMA_VERSION = 1
 
@@ -228,9 +229,27 @@ def write_money_ledger(
     return path
 
 
-def find_passing_promotion(gates_dir: Path, candidate_sha: str) -> Path | None:
-    """Return the first ledger entry recording a passing champion promotion at
-    ``candidate_sha``, or ``None`` if no such entry exists. Read-only."""
+def _is_trivial_opponent(opponent: str) -> bool:
+    """Whether ``opponent`` cannot constitute evidence of build strength.
+
+    A ``builtin:*`` opponent is a do-nothing baseline beaten at rate 1.0 by
+    any working build; a ``TUNABLE_SPECS`` opponent is a same-codebase
+    config-vs-config comparison, not an external result. Both satisfy a
+    win-rate promotion gate without saying anything about real strength
+    (issue #166).
+    """
+    return opponent.startswith("builtin:") or opponent in TUNABLE_SPECS
+
+
+def _passing_champion_entries(gates_dir: Path, candidate_sha: str) -> list[tuple[Path, Any]]:
+    """Every ledger entry recording a passing champion promotion at
+    ``candidate_sha``, opponent unconstrained, in ``glob`` order. Read-only.
+
+    Factored out of ``find_passing_promotion`` so it and
+    ``promotion_refusal_reason`` share one definition of "matches" and
+    cannot disagree about it.
+    """
+    matches = []
     for path in sorted(gates_dir.glob("*.json")):
         entry = json.loads(path.read_text(encoding="utf-8"))
         identity = entry["identity"]
@@ -240,5 +259,48 @@ def find_passing_promotion(gates_dir: Path, candidate_sha: str) -> Path | None:
             and identity["candidate_commit"] == candidate_sha
             and entry["verdict"]["passed"] is True
         ):
+            matches.append((path, entry))
+    return matches
+
+
+def find_passing_promotion(gates_dir: Path, candidate_sha: str) -> Path | None:
+    """Return the first ledger entry recording a passing champion promotion at
+    ``candidate_sha`` against an opponent that can constitute evidence of
+    strength, or ``None`` if no such entry exists. Read-only.
+
+    Excludes ``builtin:*`` opponents and any ``TUNABLE_SPECS`` opponent (see
+    ``_is_trivial_opponent``) — issue #166. When this returns ``None``, a
+    caller should report ``promotion_refusal_reason`` rather than a generic
+    message, so an excluded opponent is not silently indistinguishable from
+    no entry at all.
+    """
+    for path, entry in _passing_champion_entries(gates_dir, candidate_sha):
+        if not _is_trivial_opponent(entry["identity"]["opponent"]):
             return path
     return None
+
+
+def promotion_refusal_reason(gates_dir: Path, candidate_sha: str) -> str:
+    """The refusal message for ``find_passing_promotion(gates_dir,
+    candidate_sha)`` returning ``None``.
+
+    Names every excluded opponent by value when passing entries exist for
+    ``candidate_sha`` but were all trivial (issue #166), instead of the
+    generic "nothing found" message that made that loophole indistinguishable
+    from an honest absence. ``submit.py`` and ``record_submission.py`` both
+    call this, so their refusal wording cannot drift apart.
+    """
+    excluded = sorted(
+        {
+            entry["identity"]["opponent"]
+            for _, entry in _passing_champion_entries(gates_dir, candidate_sha)
+            if _is_trivial_opponent(entry["identity"]["opponent"])
+        }
+    )
+    base = f"no passing champion promotion found in {gates_dir} for candidate {candidate_sha}"
+    if not excluded:
+        return base
+    named = "; ".join(
+        f"opponent {opponent!r} is excluded: not evidence of strength" for opponent in excluded
+    )
+    return f"{base} ({named})"

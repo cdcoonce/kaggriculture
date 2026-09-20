@@ -17,7 +17,12 @@ from record_submission import main, read_bundle_sha256, read_line_entries  # noq
 
 
 def _write_promotion_entry(
-    gates_dir: Path, *, filename: str, candidate_sha: str, passed: bool
+    gates_dir: Path,
+    *,
+    filename: str,
+    candidate_sha: str,
+    passed: bool,
+    opponent: str = "builtin_pass",
 ) -> None:
     gates_dir.mkdir(parents=True, exist_ok=True)
     payload = {
@@ -25,7 +30,7 @@ def _write_promotion_entry(
         "identity": {
             "candidate": "champion",
             "candidate_commit": candidate_sha,
-            "opponent": "builtin_pass",
+            "opponent": opponent,
             "gate_type": "promotion",
             "extra_config": None,
         },
@@ -134,6 +139,86 @@ def test_main_refuses_when_no_passing_promotion(
     assert captured.out == ""
     assert "deadbeef" in captured.err
     assert not (eval_dir / "submissions").exists()
+
+
+def test_main_refuses_and_names_the_excluded_opponent_for_a_trivial_only_entry(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Issue #166 parity: `record_submission.py` shares `find_passing_promotion`
+    with `submit.py` and must not drift onto a different refusal message. The
+    opponent here is a TUNABLE_SPECS value ("champion"), the second,
+    independently-occurring loophole instance the issue documents at `fbfc258`.
+    """
+    gates_dir = tmp_path / "gates"
+    eval_dir = tmp_path / "eval"
+    _write_promotion_entry(
+        gates_dir,
+        filename="a.json",
+        candidate_sha="deadbeef",
+        passed=True,
+        opponent="champion",
+    )
+
+    rc = main(
+        [
+            "--submission-id",
+            "1",
+            "--candidate-sha",
+            "deadbeef",
+            "--line",
+            "A",
+            "--uploaded-at",
+            "2026-08-09T00:00:00Z",
+            "--bundle-sha256",
+            "ab" * 32,
+            "--gates-dir",
+            str(gates_dir),
+            "--eval-dir",
+            str(eval_dir),
+        ]
+    )
+    captured = capsys.readouterr()
+    assert rc != 0
+    assert captured.out == ""
+    assert "champion" in captured.err
+    assert "excluded" in captured.err
+    assert not (eval_dir / "submissions").exists()
+
+
+def test_main_succeeds_when_the_promotion_opponent_is_not_trivial(tmp_path: Path) -> None:
+    """Issue #166 must not become a blanket refusal: a passing entry against
+    a non-`builtin:*`, non-`TUNABLE_SPECS` opponent still records the upload.
+    """
+    gates_dir = tmp_path / "gates"
+    eval_dir = tmp_path / "eval"
+    _write_promotion_entry(
+        gates_dir,
+        filename="a.json",
+        candidate_sha="deadbeef",
+        passed=True,
+        opponent="frozen:m2a",
+    )
+
+    rc = main(
+        [
+            "--submission-id",
+            "999",
+            "--candidate-sha",
+            "deadbeef",
+            "--line",
+            "A",
+            "--uploaded-at",
+            "2026-08-09T12:00:00Z",
+            "--bundle-sha256",
+            "cd" * 32,
+            "--gates-dir",
+            str(gates_dir),
+            "--eval-dir",
+            str(eval_dir),
+        ]
+    )
+    assert rc == 0
+    assert (eval_dir / "submissions" / "sub-999.json").exists()
 
 
 # --- main(): same-line eviction guard ------------------------------------------

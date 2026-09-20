@@ -75,7 +75,12 @@ def _build_fixture_bundle(dest_tar: Path, agent_files: dict[str, str]) -> Path:
 
 
 def _write_promotion_entry(
-    gates_dir: Path, *, filename: str, candidate_sha: str, passed: bool
+    gates_dir: Path,
+    *,
+    filename: str,
+    candidate_sha: str,
+    passed: bool,
+    opponent: str = "builtin_pass",
 ) -> None:
     gates_dir.mkdir(parents=True, exist_ok=True)
     payload = {
@@ -83,7 +88,7 @@ def _write_promotion_entry(
         "identity": {
             "candidate": "champion",
             "candidate_commit": candidate_sha,
-            "opponent": "builtin_pass",
+            "opponent": opponent,
             "gate_type": "promotion",
             "extra_config": None,
         },
@@ -259,6 +264,74 @@ def test_main_refuses_on_missing_promotion_ledger_entry(
     assert rc != 0
     assert captured.out == ""
     assert "deadbeef" in captured.err
+
+
+@pytest.mark.slow
+def test_main_refuses_and_names_the_excluded_opponent_for_a_trivial_only_entry(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Issue #166: a passing promotion entry against `builtin:starter` alone
+    must not authorize an upload, and the refusal must name it so the
+    failure mode is not indistinguishable from "nothing was ever run".
+    """
+    bundle = _build_fixture_bundle(tmp_path / "bundle.tar.gz", PASS_AGENT_FILES)
+    gates_dir = tmp_path / "gates"
+    _write_promotion_entry(
+        gates_dir,
+        filename="a.json",
+        candidate_sha="deadbeef",
+        passed=True,
+        opponent="builtin:starter",
+    )
+
+    rc = main(
+        [
+            "--candidate-sha",
+            "deadbeef",
+            "--bundle",
+            str(bundle),
+            "--gates-dir",
+            str(gates_dir),
+            "--rehearsal-seeds",
+            "1",
+            "--seed-base",
+            "1",
+        ]
+    )
+    captured = capsys.readouterr()
+    assert rc != 0
+    assert captured.out == ""
+    assert "builtin:starter" in captured.err
+    assert "excluded" in captured.err
+
+
+@pytest.mark.slow
+def test_main_succeeds_when_the_promotion_opponent_is_not_trivial(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Issue #166 must not become a blanket refusal: a passing entry against
+    a non-`builtin:*`, non-`TUNABLE_SPECS` opponent still authorizes the
+    upload.
+    """
+    monkeypatch.chdir(tmp_path)
+    dist_dir = tmp_path / "dist"
+    dist_dir.mkdir()
+    _build_fixture_bundle(dist_dir / "submission.tar.gz", PASS_AGENT_FILES)
+    gates_dir = tmp_path / "eval" / "gates"
+    _write_promotion_entry(
+        gates_dir,
+        filename="a.json",
+        candidate_sha="deadbeef",
+        passed=True,
+        opponent="zoo:pass",
+    )
+
+    rc = main(["--candidate-sha", "deadbeef", "--rehearsal-seeds", "2", "--seed-base", "1"])
+    captured = capsys.readouterr()
+    assert rc == 0
+    assert captured.out.strip() == (
+        'kaggle competitions submit kaggriculture -f dist/submission.tar.gz -m "deadbeef"'
+    )
 
 
 @pytest.mark.slow

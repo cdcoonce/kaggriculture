@@ -20,7 +20,7 @@ import tempfile
 from pathlib import Path
 
 from harness.importlaw import IMPORT_TIME_BUDGET_S, find_violations
-from harness.ledger import find_passing_promotion
+from harness.ledger import find_passing_promotion, promotion_refusal_reason
 
 
 def extract_bundle(bundle_path: Path, dest: Path) -> Path:
@@ -106,13 +106,10 @@ def main(argv: list[str] | None = None) -> int:
             )
             return 1
 
-        promotion = find_passing_promotion(Path(args.gates_dir), args.candidate_sha)
+        gates_dir = Path(args.gates_dir)
+        promotion = find_passing_promotion(gates_dir, args.candidate_sha)
         if promotion is None:
-            print(
-                f"no passing champion promotion found in {args.gates_dir} "
-                f"for candidate {args.candidate_sha}",
-                file=sys.stderr,
-            )
+            print(promotion_refusal_reason(gates_dir, args.candidate_sha), file=sys.stderr)
             return 1
 
     print(build_submit_command(bundle_path, args.candidate_sha))
