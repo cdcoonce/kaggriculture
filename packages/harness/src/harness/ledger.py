@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import math
+import subprocess
 from pathlib import Path
 from typing import Any
 
@@ -34,6 +35,51 @@ def json_float(value: float) -> float | None:
 
 def _sanitize(spec: str) -> str:
     return spec.replace(":", "_")
+
+
+_PUBLIC_LEADERS_SUBTREE = "eval/opponents/public-leaders"
+
+
+def _opponent_source_rev() -> str | None:
+    """The committed git tree sha of ``eval/opponents/public-leaders`` at HEAD.
+
+    Mirrors ``harness.money_gate._head_sha``: inherits the process cwd (no
+    ``cwd`` argument), swallows a missing/broken git rather than raising, and
+    returns ``None`` on failure. Deliberately independent of
+    ``harness.public_leaders._panel_root``'s ``KAGG_PUBLIC_LEADERS_ROOT``
+    override -- that env var is a test hook for pointing resolution at a
+    tmp-dir copy, and this field exists to pin the COMMITTED source, not
+    wherever a test happened to point the resolver.
+    """
+    try:
+        completed = subprocess.run(
+            ["git", "rev-parse", f"HEAD:{_PUBLIC_LEADERS_SUBTREE}"],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+    except (OSError, subprocess.CalledProcessError):
+        return None
+    return completed.stdout.strip() or None
+
+
+def _opponent_source_dirty() -> bool | None:
+    """Whether ``eval/opponents/public-leaders`` has uncommitted changes.
+
+    Includes untracked files under that path. ``None`` when the git call
+    itself fails (no repo, no git binary), distinct from ``False`` (clean) --
+    see ``_opponent_source_rev`` for the shared inherited-cwd git pattern.
+    """
+    try:
+        completed = subprocess.run(
+            ["git", "status", "--porcelain", "--", _PUBLIC_LEADERS_SUBTREE],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+    except (OSError, subprocess.CalledProcessError):
+        return None
+    return bool(completed.stdout.strip())
 
 
 def write_ledger(
@@ -133,6 +179,11 @@ def write_money_ledger(
     and meaning. The money PASS/FAIL is ``money_verdict.passed`` and nothing
     else. ``SCHEMA_VERSION`` stays 1: the change is purely additive, exactly
     as ``identity.agent_config`` was.
+
+    When ``result.opponent`` starts with ``"public:"``, ``identity`` also
+    carries ``opponent_source_rev`` / ``opponent_source_dirty``, pinning the
+    committed ``eval/opponents/public-leaders`` source at write time; every
+    other opponent leaves both keys absent.
     """
     filename = (
         f"{timestamp}-{_sanitize(result.candidate)}-vs-"
@@ -142,20 +193,25 @@ def write_money_ledger(
     gates_dir.mkdir(parents=True, exist_ok=True)
     path = gates_dir / filename
 
+    identity: dict[str, Any] = {
+        "candidate": result.candidate,
+        "candidate_commit": candidate_commit,
+        "opponent": result.opponent,
+        "gate_type": result.gate_type,
+        "extra_config": result.extra_config,
+        "agent_config": result.agent_config,
+        "baseline": result.baseline,
+        "baseline_agent_config": result.baseline_agent_config,
+        "opponent_digest": result.opponent_digest,
+    }
+    if result.opponent.startswith("public:"):
+        identity["opponent_source_rev"] = _opponent_source_rev()
+        identity["opponent_source_dirty"] = _opponent_source_dirty()
+
     verdict = result.money_verdict
     payload = {
         "schema_version": SCHEMA_VERSION,
-        "identity": {
-            "candidate": result.candidate,
-            "candidate_commit": candidate_commit,
-            "opponent": result.opponent,
-            "gate_type": result.gate_type,
-            "extra_config": result.extra_config,
-            "agent_config": result.agent_config,
-            "baseline": result.baseline,
-            "baseline_agent_config": result.baseline_agent_config,
-            "opponent_digest": result.opponent_digest,
-        },
+        "identity": identity,
         "verdict": {
             "n_games": result.candidate_result.verdict.n_games,
             "wins": result.candidate_result.wins,

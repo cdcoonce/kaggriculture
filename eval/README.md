@@ -45,6 +45,8 @@ satisfies the Kaggle submission precondition.
 |---|---|---|
 | `identity` | `baseline`, `baseline_agent_config` | the second arm, replayed in the same call over the same seeds |
 | | `opponent_digest` | `sha256:<hex>` of the machine-local tape file, or `null` |
+| | `opponent_source_rev` | git tree sha of `eval/opponents/public-leaders` at HEAD; `public:*` money ledgers only |
+| | `opponent_source_dirty` | whether that subtree had uncommitted changes at run time; `public:*` money ledgers only |
 | `money_verdict` | `n_seeds`, `alpha`, `threshold` | one observation is one SEED, both seats averaged |
 | | `candidate_mean`, `baseline_mean`, `mean_delta`, `median_delta` | seat-averaged money, per seed |
 | | `sd_delta`, `stderr`, `skew_delta`, `min_delta`, `df` | dispersion of the paired difference |
@@ -171,8 +173,13 @@ changed shops.
   one frozen script. `blockers` is not part of this check — it is not a
   gate — but an operator should still read `n_regressed` / `tail_quantile` on
   each tape by hand before promoting (see the limitation above).
-- The gate is machine-local by construction: tapes are never committed, and
-  `identity.opponent_digest` is what makes a money result citable at all.
+- `zoo:tape-*` / `zoo:kernel-*`: machine-local, pinned by
+  `identity.opponent_digest`.
+- `public:*`: committed source under `eval/opponents/public-leaders`, pinned
+  by `identity.opponent_source_rev` + `identity.opponent_source_dirty`.
+- `builtin:*` / `champion`: code in this repo, pinned by
+  `identity.candidate_commit`.
+- `frozen:*`: tracked separately under #72 — out of scope here.
 - For an arm that moves tile occupancy, record `coupled_draws` (see the pairing
   limitation above) before reading the screen result as anything but
   directional. `0/8` licenses the normal reading; anything higher means confirm
