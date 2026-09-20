@@ -1,0 +1,2855 @@
+{
+  "schema_version": 1,
+  "identity": {
+    "script": "tools/recon-scripts/cross_band_variance_sweep.py",
+    "issue": "cdcoonce/kaggriculture#165",
+    "git_sha": "d23b91a223c9d2f653a44ff35888acb276f0d3d6",
+    "git_dirty": true,
+    "timestamp_utc": "2026-09-19T22:52:12Z",
+    "gates_dir": "eval/gates"
+  },
+  "corpus": {
+    "total_files_scanned": 297,
+    "gate_type_counts": {
+      "promotion": 128,
+      "fuzz": 1,
+      "money": 168
+    },
+    "money_ledgers_used": 168,
+    "skipped_files": []
+  },
+  "occupancy_classification": {
+    "method": "direct-effect PolicyConfig fields: sets a target/cap/frame/day-or-hour gate read directly by a tile-writing op (PLANT/BUILD_PASTURE/BUILD_COOP/DIG) or the dispatch priority gating that op -- derived from harness/shop_roster.py's bare-tile census plus the vendored engine source, since no explicit knob-list constant exists in either harness/shop_roster*.py or shop_roster_coupling.py. See module docstring.",
+    "fields": [
+      "animal_buy_order",
+      "cow_target",
+      "goose_min_day",
+      "max_owned_quadrants",
+      "melon_tile_target",
+      "ne_land_min_day",
+      "sheep_target",
+      "strawberry_frame_live",
+      "strawberry_frame_quadrants",
+      "strawberry_plant_cutoff_day",
+      "strawberry_plant_daily_cap",
+      "strawberry_plant_priority",
+      "strawberry_seed_budget_share",
+      "strawberry_start_day",
+      "strawberry_tile_target",
+      "wheat_plant_hour_cutoff",
+      "wheat_plant_priority",
+      "wheat_rush_tiles",
+      "zone_fallthrough_multiplier"
+    ],
+    "excluded_fields": {
+      "max_hires_per_turn": "labor supply, not a tile target/gate",
+      "hire_slot_floor": "labor supply, not a tile target/gate",
+      "extra_hands": "labor supply, not a tile target/gate",
+      "land_unlock_hand_burst": "labor supply, not a tile target/gate",
+      "feed_reserve": "feed inventory logistics, not tile occupancy",
+      "feed_batch_cap": "feed inventory logistics, not tile occupancy",
+      "hand_mule_load": "labor logistics (carry capacity), not tile occupancy",
+      "strawberry_fert_reserve": "fertilizer inventory reserve for an existing plant",
+      "rescue_water": "watering an existing plant, not a planting decision",
+      "valve_soft_threshold": "market sell-throttle, no tile-write link",
+      "valve_hard_threshold": "market sell-throttle, no tile-write link",
+      "valve_soft_cap": "market sell-throttle, no tile-write link",
+      "wool_floor": "market floor price, no tile-write link",
+      "milk_floor": "market floor price, no tile-write link",
+      "fert_floor": "market floor price, no tile-write link",
+      "wool_crash_trigger": "market crash latch, no tile-write link",
+      "milk_crash_trigger": "market crash latch, no tile-write link",
+      "crash_trigger_ticks": "market crash latch, no tile-write link",
+      "wool_milk_sell_cap": "market sell cap, no tile-write link",
+      "clone_front_run": "market order-timing behavior, no tile-write link",
+      "strawberry_floor": "market floor price, no tile-write link",
+      "soft_budget_seconds": "search time budget, no tile-write link"
+    }
+  },
+  "pooling_method": {
+    "description": "Groups by (agent_config, baseline, baseline_agent_config) WITHOUT opponent; pools every ledger sharing (group, seed_base) via pooled_mean=mean(means), pooled_se=sqrt(sum(se**2))/k. See module docstring for why opponent is pooled rather than used as a match key.",
+    "cross_checks": [
+      {
+        "label": "STACK3 vs champion (issue body)",
+        "baseline": "champion",
+        "bands": [
+          881000,
+          888000
+        ],
+        "expected_z_approx": -2.98,
+        "computed_z": -2.9843375287808764,
+        "computed_mean_lo": 3637.3463541666665,
+        "computed_mean_hi": -1202.5182291666667,
+        "computed_se_lo": 1174.2943392879652,
+        "computed_se_hi": 1118.5358210231163,
+        "found": true
+      },
+      {
+        "label": "STACK3 terminal-freeze (#167/#169/#170)",
+        "baseline": "frozen:m3b_live_b6ce655",
+        "bands": [
+          891000,
+          892000
+        ],
+        "expected_z_approx": 3.45,
+        "computed_z": 3.4539445374829425,
+        "computed_mean_lo": 3721.8046875,
+        "computed_mean_hi": 7389.988932291667,
+        "computed_se_lo": 871.4812398654323,
+        "computed_se_hi": 606.9785492559223,
+        "found": true
+      }
+    ]
+  },
+  "groups": {
+    "distinct_groups_total": 50,
+    "groups_spanning_multiple_bands": 15
+  },
+  "pairs": [
+    {
+      "baseline": "champion",
+      "agent_config": {
+        "melon_tile_target": 16
+      },
+      "baseline_agent_config": null,
+      "band_lo": 300000,
+      "band_hi": 400000,
+      "mean_lo": 5400.525,
+      "mean_hi": 2890.5546875,
+      "se_lo": 1635.7447525093398,
+      "se_hi": 854.9627082682689,
+      "se_diff": 1845.7036945000825,
+      "z": -1.3598988396562954,
+      "same_commit": true,
+      "occupancy_touching": true,
+      "commit_lo": "9395a04de2a96327fb05edbc3f35c841be0166ca",
+      "commit_hi": "9395a04de2a96327fb05edbc3f35c841be0166ca",
+      "opponents_lo": [
+        "zoo:tape-thunder-719"
+      ],
+      "opponents_hi": [
+        "zoo:tape-thunder-719"
+      ]
+    },
+    {
+      "baseline": "champion",
+      "agent_config": {
+        "melon_tile_target": 20
+      },
+      "baseline_agent_config": null,
+      "band_lo": 300000,
+      "band_hi": 400000,
+      "mean_lo": 11846.475,
+      "mean_hi": 5210.734375,
+      "se_lo": 4254.978062203791,
+      "se_hi": 2028.7701614957984,
+      "se_diff": 4713.888700214634,
+      "z": -1.4076998942927652,
+      "same_commit": true,
+      "occupancy_touching": true,
+      "commit_lo": "9395a04de2a96327fb05edbc3f35c841be0166ca",
+      "commit_hi": "9395a04de2a96327fb05edbc3f35c841be0166ca",
+      "opponents_lo": [
+        "zoo:tape-thunder-719"
+      ],
+      "opponents_hi": [
+        "zoo:tape-thunder-719"
+      ]
+    },
+    {
+      "baseline": "champion",
+      "agent_config": {
+        "strawberry_plant_daily_cap": 3,
+        "strawberry_tile_target": 8
+      },
+      "baseline_agent_config": null,
+      "band_lo": 530000,
+      "band_hi": 540000,
+      "mean_lo": 3484.825,
+      "mean_hi": 162.109375,
+      "se_lo": 2288.059892444792,
+      "se_hi": 1732.6265300884845,
+      "se_diff": 2870.054488016026,
+      "z": -1.157718656169794,
+      "same_commit": true,
+      "occupancy_touching": true,
+      "commit_lo": "64bd37e51416eb0b3df73546c7c3d204cda96272",
+      "commit_hi": "64bd37e51416eb0b3df73546c7c3d204cda96272",
+      "opponents_lo": [
+        "zoo:tape-thunder-719"
+      ],
+      "opponents_hi": [
+        "zoo:tape-thunder-719"
+      ]
+    },
+    {
+      "baseline": "frozen:presticky-a517afa",
+      "agent_config": null,
+      "baseline_agent_config": null,
+      "band_lo": 570000,
+      "band_hi": 580000,
+      "mean_lo": 9813.45,
+      "mean_hi": 13269.0,
+      "se_lo": 3707.0104946928805,
+      "se_hi": 900.158552442266,
+      "se_diff": 3814.7361936702923,
+      "z": 0.905842455301029,
+      "same_commit": true,
+      "occupancy_touching": false,
+      "commit_lo": "ac5cae80a9265cb0a1848b3b737c43f960dc64d8",
+      "commit_hi": "ac5cae80a9265cb0a1848b3b737c43f960dc64d8",
+      "opponents_lo": [
+        "zoo:tape-thunder-719"
+      ],
+      "opponents_hi": [
+        "zoo:tape-barnyard-719",
+        "zoo:tape-metac95-720",
+        "zoo:tape-mirror-719",
+        "zoo:tape-thunder-719"
+      ]
+    },
+    {
+      "baseline": "champion",
+      "agent_config": {
+        "hand_mule_load": 20
+      },
+      "baseline_agent_config": null,
+      "band_lo": 591000,
+      "band_hi": 592000,
+      "mean_lo": 3303.775,
+      "mean_hi": 555.8359375,
+      "se_lo": 2771.1586248912586,
+      "se_hi": 1786.0847159309046,
+      "se_diff": 3296.8801520211787,
+      "z": -0.8334968017613119,
+      "same_commit": true,
+      "occupancy_touching": false,
+      "commit_lo": "dca001c85e8b2ac4e5b6cd47c0ef09cf2251c269",
+      "commit_hi": "dca001c85e8b2ac4e5b6cd47c0ef09cf2251c269",
+      "opponents_lo": [
+        "zoo:tape-thunder-719"
+      ],
+      "opponents_hi": [
+        "zoo:tape-thunder-719"
+      ]
+    },
+    {
+      "baseline": "champion",
+      "agent_config": {
+        "hand_mule_load": 20
+      },
+      "baseline_agent_config": null,
+      "band_lo": 591000,
+      "band_hi": 603000,
+      "mean_lo": 3303.775,
+      "mean_hi": 3147.31640625,
+      "se_lo": 2771.1586248912586,
+      "se_hi": 1272.4085589276258,
+      "se_diff": 3049.318557504527,
+      "z": -0.051309363321502634,
+      "same_commit": false,
+      "occupancy_touching": false,
+      "commit_lo": "dca001c85e8b2ac4e5b6cd47c0ef09cf2251c269",
+      "commit_hi": "ad975406e04f52bda0ead92181a6b9a02b6a68b2",
+      "opponents_lo": [
+        "zoo:tape-thunder-719"
+      ],
+      "opponents_hi": [
+        "zoo:tape-barnyard-719",
+        "zoo:tape-thunder-719"
+      ]
+    },
+    {
+      "baseline": "champion",
+      "agent_config": {
+        "hand_mule_load": 20
+      },
+      "baseline_agent_config": null,
+      "band_lo": 591000,
+      "band_hi": 610000,
+      "mean_lo": 3303.775,
+      "mean_hi": 4374.6875,
+      "se_lo": 2771.1586248912586,
+      "se_hi": 5224.652573836762,
+      "se_diff": 5914.0776661799355,
+      "z": 0.18107853167436191,
+      "same_commit": false,
+      "occupancy_touching": false,
+      "commit_lo": "dca001c85e8b2ac4e5b6cd47c0ef09cf2251c269",
+      "commit_hi": "ff8266a08b7ba43a0ed1fde091e63678c99a8b21",
+      "opponents_lo": [
+        "zoo:tape-thunder-719"
+      ],
+      "opponents_hi": [
+        "zoo:tape-thunder-719"
+      ]
+    },
+    {
+      "baseline": "champion",
+      "agent_config": {
+        "hand_mule_load": 20
+      },
+      "baseline_agent_config": null,
+      "band_lo": 591000,
+      "band_hi": 650000,
+      "mean_lo": 3303.775,
+      "mean_hi": 1737.093994140625,
+      "se_lo": 2771.1586248912586,
+      "se_hi": 339.83684208069207,
+      "se_diff": 2791.9185524553877,
+      "z": -0.5611485351109322,
+      "same_commit": false,
+      "occupancy_touching": false,
+      "commit_lo": "dca001c85e8b2ac4e5b6cd47c0ef09cf2251c269",
+      "commit_hi": null,
+      "opponents_lo": [
+        "zoo:tape-thunder-719"
+      ],
+      "opponents_hi": [
+        "zoo:tape-barnyard-719",
+        "zoo:tape-metac95-720",
+        "zoo:tape-mirror-719",
+        "zoo:tape-thunder-719"
+      ]
+    },
+    {
+      "baseline": "champion",
+      "agent_config": {
+        "hand_mule_load": 20
+      },
+      "baseline_agent_config": null,
+      "band_lo": 591000,
+      "band_hi": 820000,
+      "mean_lo": 3303.775,
+      "mean_hi": 2476.05,
+      "se_lo": 2771.1586248912586,
+      "se_hi": 2953.2991181807793,
+      "se_diff": 4049.8513313153335,
+      "z": -0.20438404580426084,
+      "same_commit": false,
+      "occupancy_touching": false,
+      "commit_lo": "dca001c85e8b2ac4e5b6cd47c0ef09cf2251c269",
+      "commit_hi": "d7efe73ac0c89d84c013bd2c1d6e3256f6121553",
+      "opponents_lo": [
+        "zoo:tape-thunder-719"
+      ],
+      "opponents_hi": [
+        "zoo:tape-thunder-719"
+      ]
+    },
+    {
+      "baseline": "champion",
+      "agent_config": {
+        "hand_mule_load": 20
+      },
+      "baseline_agent_config": null,
+      "band_lo": 591000,
+      "band_hi": 822000,
+      "mean_lo": 3303.775,
+      "mean_hi": 3134.318359375,
+      "se_lo": 2771.1586248912586,
+      "se_hi": 802.1665695811378,
+      "se_diff": 2884.9248395171026,
+      "z": -0.058738667400903534,
+      "same_commit": false,
+      "occupancy_touching": false,
+      "commit_lo": "dca001c85e8b2ac4e5b6cd47c0ef09cf2251c269",
+      "commit_hi": "d7efe73ac0c89d84c013bd2c1d6e3256f6121553",
+      "opponents_lo": [
+        "zoo:tape-thunder-719"
+      ],
+      "opponents_hi": [
+        "zoo:tape-barnyard-719",
+        "zoo:tape-metac95-720",
+        "zoo:tape-mirror-719",
+        "zoo:tape-thunder-719"
+      ]
+    },
+    {
+      "baseline": "champion",
+      "agent_config": {
+        "hand_mule_load": 20
+      },
+      "baseline_agent_config": null,
+      "band_lo": 591000,
+      "band_hi": 823000,
+      "mean_lo": 3303.775,
+      "mean_hi": 2264.833333333333,
+      "se_lo": 2771.1586248912586,
+      "se_hi": 654.8588163383478,
+      "se_diff": 2847.4831331625605,
+      "z": -0.3648631503965276,
+      "same_commit": false,
+      "occupancy_touching": false,
+      "commit_lo": "dca001c85e8b2ac4e5b6cd47c0ef09cf2251c269",
+      "commit_hi": "d7efe73ac0c89d84c013bd2c1d6e3256f6121553",
+      "opponents_lo": [
+        "zoo:tape-thunder-719"
+      ],
+      "opponents_hi": [
+        "zoo:tape-metac95-720",
+        "zoo:tape-mirror-719"
+      ]
+    },
+    {
+      "baseline": "champion",
+      "agent_config": {
+        "hand_mule_load": 20
+      },
+      "baseline_agent_config": null,
+      "band_lo": 591000,
+      "band_hi": 824000,
+      "mean_lo": 3303.775,
+      "mean_hi": 2892.6942545572915,
+      "se_lo": 2771.1586248912586,
+      "se_hi": 378.25462875768943,
+      "se_diff": 2796.8547850193845,
+      "z": -0.1469796528745626,
+      "same_commit": false,
+      "occupancy_touching": false,
+      "commit_lo": "dca001c85e8b2ac4e5b6cd47c0ef09cf2251c269",
+      "commit_hi": "75377a9",
+      "opponents_lo": [
+        "zoo:tape-thunder-719"
+      ],
+      "opponents_hi": [
+        "zoo:tape-barnyard-719",
+        "zoo:tape-metac95-720",
+        "zoo:tape-mirror-719",
+        "zoo:tape-thunder-719"
+      ]
+    },
+    {
+      "baseline": "champion",
+      "agent_config": {
+        "hand_mule_load": 20
+      },
+      "baseline_agent_config": null,
+      "band_lo": 591000,
+      "band_hi": 826000,
+      "mean_lo": 3303.775,
+      "mean_hi": 2935.517740885417,
+      "se_lo": 2771.1586248912586,
+      "se_hi": 377.08498090251874,
+      "se_diff": 2796.6968386172043,
+      "z": -0.13167578767552934,
+      "same_commit": false,
+      "occupancy_touching": false,
+      "commit_lo": "dca001c85e8b2ac4e5b6cd47c0ef09cf2251c269",
+      "commit_hi": "b60bb6a",
+      "opponents_lo": [
+        "zoo:tape-thunder-719"
+      ],
+      "opponents_hi": [
+        "zoo:tape-barnyard-719",
+        "zoo:tape-metac95-720",
+        "zoo:tape-mirror-719",
+        "zoo:tape-thunder-719"
+      ]
+    },
+    {
+      "baseline": "champion",
+      "agent_config": {
+        "hand_mule_load": 20
+      },
+      "baseline_agent_config": null,
+      "band_lo": 592000,
+      "band_hi": 603000,
+      "mean_lo": 555.8359375,
+      "mean_hi": 3147.31640625,
+      "se_lo": 1786.0847159309046,
+      "se_hi": 1272.4085589276258,
+      "se_diff": 2192.9710789963137,
+      "z": 1.1817212244933377,
+      "same_commit": false,
+      "occupancy_touching": false,
+      "commit_lo": "dca001c85e8b2ac4e5b6cd47c0ef09cf2251c269",
+      "commit_hi": "ad975406e04f52bda0ead92181a6b9a02b6a68b2",
+      "opponents_lo": [
+        "zoo:tape-thunder-719"
+      ],
+      "opponents_hi": [
+        "zoo:tape-barnyard-719",
+        "zoo:tape-thunder-719"
+      ]
+    },
+    {
+      "baseline": "champion",
+      "agent_config": {
+        "hand_mule_load": 20
+      },
+      "baseline_agent_config": null,
+      "band_lo": 592000,
+      "band_hi": 610000,
+      "mean_lo": 555.8359375,
+      "mean_hi": 4374.6875,
+      "se_lo": 1786.0847159309046,
+      "se_hi": 5224.652573836762,
+      "se_diff": 5521.511851819308,
+      "z": 0.691631506910867,
+      "same_commit": false,
+      "occupancy_touching": false,
+      "commit_lo": "dca001c85e8b2ac4e5b6cd47c0ef09cf2251c269",
+      "commit_hi": "ff8266a08b7ba43a0ed1fde091e63678c99a8b21",
+      "opponents_lo": [
+        "zoo:tape-thunder-719"
+      ],
+      "opponents_hi": [
+        "zoo:tape-thunder-719"
+      ]
+    },
+    {
+      "baseline": "champion",
+      "agent_config": {
+        "hand_mule_load": 20
+      },
+      "baseline_agent_config": null,
+      "band_lo": 592000,
+      "band_hi": 650000,
+      "mean_lo": 555.8359375,
+      "mean_hi": 1737.093994140625,
+      "se_lo": 1786.0847159309046,
+      "se_hi": 339.83684208069207,
+      "se_diff": 1818.1275235025066,
+      "z": 0.6497113328799988,
+      "same_commit": false,
+      "occupancy_touching": false,
+      "commit_lo": "dca001c85e8b2ac4e5b6cd47c0ef09cf2251c269",
+      "commit_hi": null,
+      "opponents_lo": [
+        "zoo:tape-thunder-719"
+      ],
+      "opponents_hi": [
+        "zoo:tape-barnyard-719",
+        "zoo:tape-metac95-720",
+        "zoo:tape-mirror-719",
+        "zoo:tape-thunder-719"
+      ]
+    },
+    {
+      "baseline": "champion",
+      "agent_config": {
+        "hand_mule_load": 20
+      },
+      "baseline_agent_config": null,
+      "band_lo": 592000,
+      "band_hi": 820000,
+      "mean_lo": 555.8359375,
+      "mean_hi": 2476.05,
+      "se_lo": 1786.0847159309046,
+      "se_hi": 2953.2991181807793,
+      "se_diff": 3451.387299902656,
+      "z": 0.556360064995939,
+      "same_commit": false,
+      "occupancy_touching": false,
+      "commit_lo": "dca001c85e8b2ac4e5b6cd47c0ef09cf2251c269",
+      "commit_hi": "d7efe73ac0c89d84c013bd2c1d6e3256f6121553",
+      "opponents_lo": [
+        "zoo:tape-thunder-719"
+      ],
+      "opponents_hi": [
+        "zoo:tape-thunder-719"
+      ]
+    },
+    {
+      "baseline": "champion",
+      "agent_config": {
+        "hand_mule_load": 20
+      },
+      "baseline_agent_config": null,
+      "band_lo": 592000,
+      "band_hi": 822000,
+      "mean_lo": 555.8359375,
+      "mean_hi": 3134.318359375,
+      "se_lo": 1786.0847159309046,
+      "se_hi": 802.1665695811378,
+      "se_diff": 1957.9504125068006,
+      "z": 1.3169293795207615,
+      "same_commit": false,
+      "occupancy_touching": false,
+      "commit_lo": "dca001c85e8b2ac4e5b6cd47c0ef09cf2251c269",
+      "commit_hi": "d7efe73ac0c89d84c013bd2c1d6e3256f6121553",
+      "opponents_lo": [
+        "zoo:tape-thunder-719"
+      ],
+      "opponents_hi": [
+        "zoo:tape-barnyard-719",
+        "zoo:tape-metac95-720",
+        "zoo:tape-mirror-719",
+        "zoo:tape-thunder-719"
+      ]
+    },
+    {
+      "baseline": "champion",
+      "agent_config": {
+        "hand_mule_load": 20
+      },
+      "baseline_agent_config": null,
+      "band_lo": 592000,
+      "band_hi": 823000,
+      "mean_lo": 555.8359375,
+      "mean_hi": 2264.833333333333,
+      "se_lo": 1786.0847159309046,
+      "se_hi": 654.8588163383478,
+      "se_diff": 1902.350830372264,
+      "z": 0.8983607905272161,
+      "same_commit": false,
+      "occupancy_touching": false,
+      "commit_lo": "dca001c85e8b2ac4e5b6cd47c0ef09cf2251c269",
+      "commit_hi": "d7efe73ac0c89d84c013bd2c1d6e3256f6121553",
+      "opponents_lo": [
+        "zoo:tape-thunder-719"
+      ],
+      "opponents_hi": [
+        "zoo:tape-metac95-720",
+        "zoo:tape-mirror-719"
+      ]
+    },
+    {
+      "baseline": "champion",
+      "agent_config": {
+        "hand_mule_load": 20
+      },
+      "baseline_agent_config": null,
+      "band_lo": 592000,
+      "band_hi": 824000,
+      "mean_lo": 555.8359375,
+      "mean_hi": 2892.6942545572915,
+      "se_lo": 1786.0847159309046,
+      "se_hi": 378.25462875768943,
+      "se_diff": 1825.6985448475873,
+      "z": 1.2799803799221283,
+      "same_commit": false,
+      "occupancy_touching": false,
+      "commit_lo": "dca001c85e8b2ac4e5b6cd47c0ef09cf2251c269",
+      "commit_hi": "75377a9",
+      "opponents_lo": [
+        "zoo:tape-thunder-719"
+      ],
+      "opponents_hi": [
+        "zoo:tape-barnyard-719",
+        "zoo:tape-metac95-720",
+        "zoo:tape-mirror-719",
+        "zoo:tape-thunder-719"
+      ]
+    },
+    {
+      "baseline": "champion",
+      "agent_config": {
+        "hand_mule_load": 20
+      },
+      "baseline_agent_config": null,
+      "band_lo": 592000,
+      "band_hi": 826000,
+      "mean_lo": 555.8359375,
+      "mean_hi": 2935.517740885417,
+      "se_lo": 1786.0847159309046,
+      "se_hi": 377.08498090251874,
+      "se_diff": 1825.4565717387618,
+      "z": 1.3036091026360332,
+      "same_commit": false,
+      "occupancy_touching": false,
+      "commit_lo": "dca001c85e8b2ac4e5b6cd47c0ef09cf2251c269",
+      "commit_hi": "b60bb6a",
+      "opponents_lo": [
+        "zoo:tape-thunder-719"
+      ],
+      "opponents_hi": [
+        "zoo:tape-barnyard-719",
+        "zoo:tape-metac95-720",
+        "zoo:tape-mirror-719",
+        "zoo:tape-thunder-719"
+      ]
+    },
+    {
+      "baseline": "champion",
+      "agent_config": {
+        "hand_mule_load": 20
+      },
+      "baseline_agent_config": null,
+      "band_lo": 603000,
+      "band_hi": 610000,
+      "mean_lo": 3147.31640625,
+      "mean_hi": 4374.6875,
+      "se_lo": 1272.4085589276258,
+      "se_hi": 5224.652573836762,
+      "se_diff": 5377.361626125899,
+      "z": 0.228247824692842,
+      "same_commit": false,
+      "occupancy_touching": false,
+      "commit_lo": "ad975406e04f52bda0ead92181a6b9a02b6a68b2",
+      "commit_hi": "ff8266a08b7ba43a0ed1fde091e63678c99a8b21",
+      "opponents_lo": [
+        "zoo:tape-barnyard-719",
+        "zoo:tape-thunder-719"
+      ],
+      "opponents_hi": [
+        "zoo:tape-thunder-719"
+      ]
+    },
+    {
+      "baseline": "champion",
+      "agent_config": {
+        "hand_mule_load": 20
+      },
+      "baseline_agent_config": null,
+      "band_lo": 603000,
+      "band_hi": 650000,
+      "mean_lo": 3147.31640625,
+      "mean_hi": 1737.093994140625,
+      "se_lo": 1272.4085589276258,
+      "se_hi": 339.83684208069207,
+      "se_diff": 1317.0089673451942,
+      "z": -1.0707766211737184,
+      "same_commit": false,
+      "occupancy_touching": false,
+      "commit_lo": "ad975406e04f52bda0ead92181a6b9a02b6a68b2",
+      "commit_hi": null,
+      "opponents_lo": [
+        "zoo:tape-barnyard-719",
+        "zoo:tape-thunder-719"
+      ],
+      "opponents_hi": [
+        "zoo:tape-barnyard-719",
+        "zoo:tape-metac95-720",
+        "zoo:tape-mirror-719",
+        "zoo:tape-thunder-719"
+      ]
+    },
+    {
+      "baseline": "champion",
+      "agent_config": {
+        "hand_mule_load": 20
+      },
+      "baseline_agent_config": null,
+      "band_lo": 603000,
+      "band_hi": 820000,
+      "mean_lo": 3147.31640625,
+      "mean_hi": 2476.05,
+      "se_lo": 1272.4085589276258,
+      "se_hi": 2953.2991181807793,
+      "se_diff": 3215.74240608287,
+      "z": -0.20874383625387352,
+      "same_commit": false,
+      "occupancy_touching": false,
+      "commit_lo": "ad975406e04f52bda0ead92181a6b9a02b6a68b2",
+      "commit_hi": "d7efe73ac0c89d84c013bd2c1d6e3256f6121553",
+      "opponents_lo": [
+        "zoo:tape-barnyard-719",
+        "zoo:tape-thunder-719"
+      ],
+      "opponents_hi": [
+        "zoo:tape-thunder-719"
+      ]
+    },
+    {
+      "baseline": "champion",
+      "agent_config": {
+        "hand_mule_load": 20
+      },
+      "baseline_agent_config": null,
+      "band_lo": 603000,
+      "band_hi": 822000,
+      "mean_lo": 3147.31640625,
+      "mean_hi": 3134.318359375,
+      "se_lo": 1272.4085589276258,
+      "se_hi": 802.1665695811378,
+      "se_diff": 1504.159149221201,
+      "z": -0.00864140399088083,
+      "same_commit": false,
+      "occupancy_touching": false,
+      "commit_lo": "ad975406e04f52bda0ead92181a6b9a02b6a68b2",
+      "commit_hi": "d7efe73ac0c89d84c013bd2c1d6e3256f6121553",
+      "opponents_lo": [
+        "zoo:tape-barnyard-719",
+        "zoo:tape-thunder-719"
+      ],
+      "opponents_hi": [
+        "zoo:tape-barnyard-719",
+        "zoo:tape-metac95-720",
+        "zoo:tape-mirror-719",
+        "zoo:tape-thunder-719"
+      ]
+    },
+    {
+      "baseline": "champion",
+      "agent_config": {
+        "hand_mule_load": 20
+      },
+      "baseline_agent_config": null,
+      "band_lo": 603000,
+      "band_hi": 823000,
+      "mean_lo": 3147.31640625,
+      "mean_hi": 2264.833333333333,
+      "se_lo": 1272.4085589276258,
+      "se_hi": 654.8588163383478,
+      "se_diff": 1431.0358521603641,
+      "z": -0.6166743283087044,
+      "same_commit": false,
+      "occupancy_touching": false,
+      "commit_lo": "ad975406e04f52bda0ead92181a6b9a02b6a68b2",
+      "commit_hi": "d7efe73ac0c89d84c013bd2c1d6e3256f6121553",
+      "opponents_lo": [
+        "zoo:tape-barnyard-719",
+        "zoo:tape-thunder-719"
+      ],
+      "opponents_hi": [
+        "zoo:tape-metac95-720",
+        "zoo:tape-mirror-719"
+      ]
+    },
+    {
+      "baseline": "champion",
+      "agent_config": {
+        "hand_mule_load": 20
+      },
+      "baseline_agent_config": null,
+      "band_lo": 603000,
+      "band_hi": 824000,
+      "mean_lo": 3147.31640625,
+      "mean_hi": 2892.6942545572915,
+      "se_lo": 1272.4085589276258,
+      "se_hi": 378.25462875768943,
+      "se_diff": 1327.4411870244553,
+      "z": -0.19181426204159024,
+      "same_commit": false,
+      "occupancy_touching": false,
+      "commit_lo": "ad975406e04f52bda0ead92181a6b9a02b6a68b2",
+      "commit_hi": "75377a9",
+      "opponents_lo": [
+        "zoo:tape-barnyard-719",
+        "zoo:tape-thunder-719"
+      ],
+      "opponents_hi": [
+        "zoo:tape-barnyard-719",
+        "zoo:tape-metac95-720",
+        "zoo:tape-mirror-719",
+        "zoo:tape-thunder-719"
+      ]
+    },
+    {
+      "baseline": "champion",
+      "agent_config": {
+        "hand_mule_load": 20
+      },
+      "baseline_agent_config": null,
+      "band_lo": 603000,
+      "band_hi": 826000,
+      "mean_lo": 3147.31640625,
+      "mean_hi": 2935.517740885417,
+      "se_lo": 1272.4085589276258,
+      "se_hi": 377.08498090251874,
+      "se_diff": 1327.1083692202874,
+      "z": -0.15959409968081248,
+      "same_commit": false,
+      "occupancy_touching": false,
+      "commit_lo": "ad975406e04f52bda0ead92181a6b9a02b6a68b2",
+      "commit_hi": "b60bb6a",
+      "opponents_lo": [
+        "zoo:tape-barnyard-719",
+        "zoo:tape-thunder-719"
+      ],
+      "opponents_hi": [
+        "zoo:tape-barnyard-719",
+        "zoo:tape-metac95-720",
+        "zoo:tape-mirror-719",
+        "zoo:tape-thunder-719"
+      ]
+    },
+    {
+      "baseline": "champion",
+      "agent_config": {
+        "hand_mule_load": 20
+      },
+      "baseline_agent_config": null,
+      "band_lo": 610000,
+      "band_hi": 650000,
+      "mean_lo": 4374.6875,
+      "mean_hi": 1737.093994140625,
+      "se_lo": 5224.652573836762,
+      "se_hi": 339.83684208069207,
+      "se_diff": 5235.6932297962685,
+      "z": -0.5037715905219315,
+      "same_commit": false,
+      "occupancy_touching": false,
+      "commit_lo": "ff8266a08b7ba43a0ed1fde091e63678c99a8b21",
+      "commit_hi": null,
+      "opponents_lo": [
+        "zoo:tape-thunder-719"
+      ],
+      "opponents_hi": [
+        "zoo:tape-barnyard-719",
+        "zoo:tape-metac95-720",
+        "zoo:tape-mirror-719",
+        "zoo:tape-thunder-719"
+      ]
+    },
+    {
+      "baseline": "champion",
+      "agent_config": {
+        "hand_mule_load": 20
+      },
+      "baseline_agent_config": null,
+      "band_lo": 610000,
+      "band_hi": 820000,
+      "mean_lo": 4374.6875,
+      "mean_hi": 2476.05,
+      "se_lo": 5224.652573836762,
+      "se_hi": 2953.2991181807793,
+      "se_diff": 6001.580641693193,
+      "z": -0.3163562423555718,
+      "same_commit": false,
+      "occupancy_touching": false,
+      "commit_lo": "ff8266a08b7ba43a0ed1fde091e63678c99a8b21",
+      "commit_hi": "d7efe73ac0c89d84c013bd2c1d6e3256f6121553",
+      "opponents_lo": [
+        "zoo:tape-thunder-719"
+      ],
+      "opponents_hi": [
+        "zoo:tape-thunder-719"
+      ]
+    },
+    {
+      "baseline": "champion",
+      "agent_config": {
+        "hand_mule_load": 20
+      },
+      "baseline_agent_config": null,
+      "band_lo": 610000,
+      "band_hi": 822000,
+      "mean_lo": 4374.6875,
+      "mean_hi": 3134.318359375,
+      "se_lo": 5224.652573836762,
+      "se_hi": 802.1665695811378,
+      "se_diff": 5285.874168257571,
+      "z": -0.234657334083659,
+      "same_commit": false,
+      "occupancy_touching": false,
+      "commit_lo": "ff8266a08b7ba43a0ed1fde091e63678c99a8b21",
+      "commit_hi": "d7efe73ac0c89d84c013bd2c1d6e3256f6121553",
+      "opponents_lo": [
+        "zoo:tape-thunder-719"
+      ],
+      "opponents_hi": [
+        "zoo:tape-barnyard-719",
+        "zoo:tape-metac95-720",
+        "zoo:tape-mirror-719",
+        "zoo:tape-thunder-719"
+      ]
+    },
+    {
+      "baseline": "champion",
+      "agent_config": {
+        "hand_mule_load": 20
+      },
+      "baseline_agent_config": null,
+      "band_lo": 610000,
+      "band_hi": 823000,
+      "mean_lo": 4374.6875,
+      "mean_hi": 2264.833333333333,
+      "se_lo": 5224.652573836762,
+      "se_hi": 654.8588163383478,
+      "se_diff": 5265.532697328463,
+      "z": -0.40069149465867515,
+      "same_commit": false,
+      "occupancy_touching": false,
+      "commit_lo": "ff8266a08b7ba43a0ed1fde091e63678c99a8b21",
+      "commit_hi": "d7efe73ac0c89d84c013bd2c1d6e3256f6121553",
+      "opponents_lo": [
+        "zoo:tape-thunder-719"
+      ],
+      "opponents_hi": [
+        "zoo:tape-metac95-720",
+        "zoo:tape-mirror-719"
+      ]
+    },
+    {
+      "baseline": "champion",
+      "agent_config": {
+        "hand_mule_load": 20
+      },
+      "baseline_agent_config": null,
+      "band_lo": 610000,
+      "band_hi": 824000,
+      "mean_lo": 4374.6875,
+      "mean_hi": 2892.6942545572915,
+      "se_lo": 5224.652573836762,
+      "se_hi": 378.25462875768943,
+      "se_diff": 5238.327126237509,
+      "z": -0.2829134587681178,
+      "same_commit": false,
+      "occupancy_touching": false,
+      "commit_lo": "ff8266a08b7ba43a0ed1fde091e63678c99a8b21",
+      "commit_hi": "75377a9",
+      "opponents_lo": [
+        "zoo:tape-thunder-719"
+      ],
+      "opponents_hi": [
+        "zoo:tape-barnyard-719",
+        "zoo:tape-metac95-720",
+        "zoo:tape-mirror-719",
+        "zoo:tape-thunder-719"
+      ]
+    },
+    {
+      "baseline": "champion",
+      "agent_config": {
+        "hand_mule_load": 20
+      },
+      "baseline_agent_config": null,
+      "band_lo": 610000,
+      "band_hi": 826000,
+      "mean_lo": 4374.6875,
+      "mean_hi": 2935.517740885417,
+      "se_lo": 5224.652573836762,
+      "se_hi": 377.08498090251874,
+      "se_diff": 5238.242796980811,
+      "z": -0.2747428507789069,
+      "same_commit": false,
+      "occupancy_touching": false,
+      "commit_lo": "ff8266a08b7ba43a0ed1fde091e63678c99a8b21",
+      "commit_hi": "b60bb6a",
+      "opponents_lo": [
+        "zoo:tape-thunder-719"
+      ],
+      "opponents_hi": [
+        "zoo:tape-barnyard-719",
+        "zoo:tape-metac95-720",
+        "zoo:tape-mirror-719",
+        "zoo:tape-thunder-719"
+      ]
+    },
+    {
+      "baseline": "champion",
+      "agent_config": {
+        "hand_mule_load": 20
+      },
+      "baseline_agent_config": null,
+      "band_lo": 650000,
+      "band_hi": 820000,
+      "mean_lo": 1737.093994140625,
+      "mean_hi": 2476.05,
+      "se_lo": 339.83684208069207,
+      "se_hi": 2953.2991181807793,
+      "se_diff": 2972.787372262393,
+      "z": 0.248573447517373,
+      "same_commit": false,
+      "occupancy_touching": false,
+      "commit_lo": null,
+      "commit_hi": "d7efe73ac0c89d84c013bd2c1d6e3256f6121553",
+      "opponents_lo": [
+        "zoo:tape-barnyard-719",
+        "zoo:tape-metac95-720",
+        "zoo:tape-mirror-719",
+        "zoo:tape-thunder-719"
+      ],
+      "opponents_hi": [
+        "zoo:tape-thunder-719"
+      ]
+    },
+    {
+      "baseline": "champion",
+      "agent_config": {
+        "hand_mule_load": 20
+      },
+      "baseline_agent_config": null,
+      "band_lo": 650000,
+      "band_hi": 822000,
+      "mean_lo": 1737.093994140625,
+      "mean_hi": 3134.318359375,
+      "se_lo": 339.83684208069207,
+      "se_hi": 802.1665695811378,
+      "se_diff": 871.1832669358081,
+      "z": 1.603823693892559,
+      "same_commit": false,
+      "occupancy_touching": false,
+      "commit_lo": null,
+      "commit_hi": "d7efe73ac0c89d84c013bd2c1d6e3256f6121553",
+      "opponents_lo": [
+        "zoo:tape-barnyard-719",
+        "zoo:tape-metac95-720",
+        "zoo:tape-mirror-719",
+        "zoo:tape-thunder-719"
+      ],
+      "opponents_hi": [
+        "zoo:tape-barnyard-719",
+        "zoo:tape-metac95-720",
+        "zoo:tape-mirror-719",
+        "zoo:tape-thunder-719"
+      ]
+    },
+    {
+      "baseline": "champion",
+      "agent_config": {
+        "hand_mule_load": 20
+      },
+      "baseline_agent_config": null,
+      "band_lo": 650000,
+      "band_hi": 823000,
+      "mean_lo": 1737.093994140625,
+      "mean_hi": 2264.833333333333,
+      "se_lo": 339.83684208069207,
+      "se_hi": 654.8588163383478,
+      "se_diff": 737.7866551866055,
+      "z": 0.7153007383404475,
+      "same_commit": false,
+      "occupancy_touching": false,
+      "commit_lo": null,
+      "commit_hi": "d7efe73ac0c89d84c013bd2c1d6e3256f6121553",
+      "opponents_lo": [
+        "zoo:tape-barnyard-719",
+        "zoo:tape-metac95-720",
+        "zoo:tape-mirror-719",
+        "zoo:tape-thunder-719"
+      ],
+      "opponents_hi": [
+        "zoo:tape-metac95-720",
+        "zoo:tape-mirror-719"
+      ]
+    },
+    {
+      "baseline": "champion",
+      "agent_config": {
+        "hand_mule_load": 20
+      },
+      "baseline_agent_config": null,
+      "band_lo": 650000,
+      "band_hi": 824000,
+      "mean_lo": 1737.093994140625,
+      "mean_hi": 2892.6942545572915,
+      "se_lo": 339.83684208069207,
+      "se_hi": 378.25462875768943,
+      "se_diff": 508.4935038051073,
+      "z": 2.272595916701384,
+      "same_commit": false,
+      "occupancy_touching": false,
+      "commit_lo": null,
+      "commit_hi": "75377a9",
+      "opponents_lo": [
+        "zoo:tape-barnyard-719",
+        "zoo:tape-metac95-720",
+        "zoo:tape-mirror-719",
+        "zoo:tape-thunder-719"
+      ],
+      "opponents_hi": [
+        "zoo:tape-barnyard-719",
+        "zoo:tape-metac95-720",
+        "zoo:tape-mirror-719",
+        "zoo:tape-thunder-719"
+      ]
+    },
+    {
+      "baseline": "champion",
+      "agent_config": {
+        "hand_mule_load": 20
+      },
+      "baseline_agent_config": null,
+      "band_lo": 650000,
+      "band_hi": 826000,
+      "mean_lo": 1737.093994140625,
+      "mean_hi": 2935.517740885417,
+      "se_lo": 339.83684208069207,
+      "se_hi": 377.08498090251874,
+      "se_diff": 507.6240361307078,
+      "z": 2.3608490958773483,
+      "same_commit": false,
+      "occupancy_touching": false,
+      "commit_lo": null,
+      "commit_hi": "b60bb6a",
+      "opponents_lo": [
+        "zoo:tape-barnyard-719",
+        "zoo:tape-metac95-720",
+        "zoo:tape-mirror-719",
+        "zoo:tape-thunder-719"
+      ],
+      "opponents_hi": [
+        "zoo:tape-barnyard-719",
+        "zoo:tape-metac95-720",
+        "zoo:tape-mirror-719",
+        "zoo:tape-thunder-719"
+      ]
+    },
+    {
+      "baseline": "champion",
+      "agent_config": {
+        "hand_mule_load": 20
+      },
+      "baseline_agent_config": null,
+      "band_lo": 820000,
+      "band_hi": 822000,
+      "mean_lo": 2476.05,
+      "mean_hi": 3134.318359375,
+      "se_lo": 2953.2991181807793,
+      "se_hi": 802.1665695811378,
+      "se_diff": 3060.3017640097096,
+      "z": 0.2150991667280924,
+      "same_commit": true,
+      "occupancy_touching": false,
+      "commit_lo": "d7efe73ac0c89d84c013bd2c1d6e3256f6121553",
+      "commit_hi": "d7efe73ac0c89d84c013bd2c1d6e3256f6121553",
+      "opponents_lo": [
+        "zoo:tape-thunder-719"
+      ],
+      "opponents_hi": [
+        "zoo:tape-barnyard-719",
+        "zoo:tape-metac95-720",
+        "zoo:tape-mirror-719",
+        "zoo:tape-thunder-719"
+      ]
+    },
+    {
+      "baseline": "champion",
+      "agent_config": {
+        "hand_mule_load": 20
+      },
+      "baseline_agent_config": null,
+      "band_lo": 820000,
+      "band_hi": 823000,
+      "mean_lo": 2476.05,
+      "mean_hi": 2264.833333333333,
+      "se_lo": 2953.2991181807793,
+      "se_hi": 654.8588163383478,
+      "se_diff": 3025.031528890803,
+      "z": -0.06982296371109711,
+      "same_commit": true,
+      "occupancy_touching": false,
+      "commit_lo": "d7efe73ac0c89d84c013bd2c1d6e3256f6121553",
+      "commit_hi": "d7efe73ac0c89d84c013bd2c1d6e3256f6121553",
+      "opponents_lo": [
+        "zoo:tape-thunder-719"
+      ],
+      "opponents_hi": [
+        "zoo:tape-metac95-720",
+        "zoo:tape-mirror-719"
+      ]
+    },
+    {
+      "baseline": "champion",
+      "agent_config": {
+        "hand_mule_load": 20
+      },
+      "baseline_agent_config": null,
+      "band_lo": 820000,
+      "band_hi": 824000,
+      "mean_lo": 2476.05,
+      "mean_hi": 2892.6942545572915,
+      "se_lo": 2953.2991181807793,
+      "se_hi": 378.25462875768943,
+      "se_diff": 2977.423759833992,
+      "z": 0.13993448301780248,
+      "same_commit": false,
+      "occupancy_touching": false,
+      "commit_lo": "d7efe73ac0c89d84c013bd2c1d6e3256f6121553",
+      "commit_hi": "75377a9",
+      "opponents_lo": [
+        "zoo:tape-thunder-719"
+      ],
+      "opponents_hi": [
+        "zoo:tape-barnyard-719",
+        "zoo:tape-metac95-720",
+        "zoo:tape-mirror-719",
+        "zoo:tape-thunder-719"
+      ]
+    },
+    {
+      "baseline": "champion",
+      "agent_config": {
+        "hand_mule_load": 20
+      },
+      "baseline_agent_config": null,
+      "band_lo": 820000,
+      "band_hi": 826000,
+      "mean_lo": 2476.05,
+      "mean_hi": 2935.517740885417,
+      "se_lo": 2953.2991181807793,
+      "se_hi": 377.08498090251874,
+      "se_diff": 2977.2753927491526,
+      "z": 0.15432490457698442,
+      "same_commit": false,
+      "occupancy_touching": false,
+      "commit_lo": "d7efe73ac0c89d84c013bd2c1d6e3256f6121553",
+      "commit_hi": "b60bb6a",
+      "opponents_lo": [
+        "zoo:tape-thunder-719"
+      ],
+      "opponents_hi": [
+        "zoo:tape-barnyard-719",
+        "zoo:tape-metac95-720",
+        "zoo:tape-mirror-719",
+        "zoo:tape-thunder-719"
+      ]
+    },
+    {
+      "baseline": "champion",
+      "agent_config": {
+        "hand_mule_load": 20
+      },
+      "baseline_agent_config": null,
+      "band_lo": 822000,
+      "band_hi": 823000,
+      "mean_lo": 3134.318359375,
+      "mean_hi": 2264.833333333333,
+      "se_lo": 802.1665695811378,
+      "se_hi": 654.8588163383478,
+      "se_diff": 1035.5246374131482,
+      "z": -0.8396565321842404,
+      "same_commit": true,
+      "occupancy_touching": false,
+      "commit_lo": "d7efe73ac0c89d84c013bd2c1d6e3256f6121553",
+      "commit_hi": "d7efe73ac0c89d84c013bd2c1d6e3256f6121553",
+      "opponents_lo": [
+        "zoo:tape-barnyard-719",
+        "zoo:tape-metac95-720",
+        "zoo:tape-mirror-719",
+        "zoo:tape-thunder-719"
+      ],
+      "opponents_hi": [
+        "zoo:tape-metac95-720",
+        "zoo:tape-mirror-719"
+      ]
+    },
+    {
+      "baseline": "champion",
+      "agent_config": {
+        "hand_mule_load": 20
+      },
+      "baseline_agent_config": null,
+      "band_lo": 822000,
+      "band_hi": 824000,
+      "mean_lo": 3134.318359375,
+      "mean_hi": 2892.6942545572915,
+      "se_lo": 802.1665695811378,
+      "se_hi": 378.25462875768943,
+      "se_diff": 886.8752840902647,
+      "z": -0.2724442874350261,
+      "same_commit": false,
+      "occupancy_touching": false,
+      "commit_lo": "d7efe73ac0c89d84c013bd2c1d6e3256f6121553",
+      "commit_hi": "75377a9",
+      "opponents_lo": [
+        "zoo:tape-barnyard-719",
+        "zoo:tape-metac95-720",
+        "zoo:tape-mirror-719",
+        "zoo:tape-thunder-719"
+      ],
+      "opponents_hi": [
+        "zoo:tape-barnyard-719",
+        "zoo:tape-metac95-720",
+        "zoo:tape-mirror-719",
+        "zoo:tape-thunder-719"
+      ]
+    },
+    {
+      "baseline": "champion",
+      "agent_config": {
+        "hand_mule_load": 20
+      },
+      "baseline_agent_config": null,
+      "band_lo": 822000,
+      "band_hi": 826000,
+      "mean_lo": 3134.318359375,
+      "mean_hi": 2935.517740885417,
+      "se_lo": 802.1665695811378,
+      "se_hi": 377.08498090251874,
+      "se_diff": 886.3770575640049,
+      "z": -0.22428448118449607,
+      "same_commit": false,
+      "occupancy_touching": false,
+      "commit_lo": "d7efe73ac0c89d84c013bd2c1d6e3256f6121553",
+      "commit_hi": "b60bb6a",
+      "opponents_lo": [
+        "zoo:tape-barnyard-719",
+        "zoo:tape-metac95-720",
+        "zoo:tape-mirror-719",
+        "zoo:tape-thunder-719"
+      ],
+      "opponents_hi": [
+        "zoo:tape-barnyard-719",
+        "zoo:tape-metac95-720",
+        "zoo:tape-mirror-719",
+        "zoo:tape-thunder-719"
+      ]
+    },
+    {
+      "baseline": "champion",
+      "agent_config": {
+        "hand_mule_load": 20
+      },
+      "baseline_agent_config": null,
+      "band_lo": 823000,
+      "band_hi": 824000,
+      "mean_lo": 2264.833333333333,
+      "mean_hi": 2892.6942545572915,
+      "se_lo": 654.8588163383478,
+      "se_hi": 378.25462875768943,
+      "se_diff": 756.2516998411834,
+      "z": 0.8302274511988699,
+      "same_commit": false,
+      "occupancy_touching": false,
+      "commit_lo": "d7efe73ac0c89d84c013bd2c1d6e3256f6121553",
+      "commit_hi": "75377a9",
+      "opponents_lo": [
+        "zoo:tape-metac95-720",
+        "zoo:tape-mirror-719"
+      ],
+      "opponents_hi": [
+        "zoo:tape-barnyard-719",
+        "zoo:tape-metac95-720",
+        "zoo:tape-mirror-719",
+        "zoo:tape-thunder-719"
+      ]
+    },
+    {
+      "baseline": "champion",
+      "agent_config": {
+        "hand_mule_load": 20
+      },
+      "baseline_agent_config": null,
+      "band_lo": 823000,
+      "band_hi": 826000,
+      "mean_lo": 2264.833333333333,
+      "mean_hi": 2935.517740885417,
+      "se_lo": 654.8588163383478,
+      "se_hi": 377.08498090251874,
+      "se_diff": 755.6673554933512,
+      "z": 0.8875392097812871,
+      "same_commit": false,
+      "occupancy_touching": false,
+      "commit_lo": "d7efe73ac0c89d84c013bd2c1d6e3256f6121553",
+      "commit_hi": "b60bb6a",
+      "opponents_lo": [
+        "zoo:tape-metac95-720",
+        "zoo:tape-mirror-719"
+      ],
+      "opponents_hi": [
+        "zoo:tape-barnyard-719",
+        "zoo:tape-metac95-720",
+        "zoo:tape-mirror-719",
+        "zoo:tape-thunder-719"
+      ]
+    },
+    {
+      "baseline": "champion",
+      "agent_config": {
+        "hand_mule_load": 20
+      },
+      "baseline_agent_config": null,
+      "band_lo": 824000,
+      "band_hi": 826000,
+      "mean_lo": 2892.6942545572915,
+      "mean_hi": 2935.517740885417,
+      "se_lo": 378.25462875768943,
+      "se_hi": 377.08498090251874,
+      "se_diff": 534.1064004473925,
+      "z": 0.08017781904926528,
+      "same_commit": false,
+      "occupancy_touching": false,
+      "commit_lo": "75377a9",
+      "commit_hi": "b60bb6a",
+      "opponents_lo": [
+        "zoo:tape-barnyard-719",
+        "zoo:tape-metac95-720",
+        "zoo:tape-mirror-719",
+        "zoo:tape-thunder-719"
+      ],
+      "opponents_hi": [
+        "zoo:tape-barnyard-719",
+        "zoo:tape-metac95-720",
+        "zoo:tape-mirror-719",
+        "zoo:tape-thunder-719"
+      ]
+    },
+    {
+      "baseline": "frozen:premelon-ff8266a",
+      "agent_config": null,
+      "baseline_agent_config": null,
+      "band_lo": 630000,
+      "band_hi": 631000,
+      "mean_lo": 5187.475,
+      "mean_hi": 3905.5927734375,
+      "se_lo": 2019.6201927573957,
+      "se_hi": 338.9142969939553,
+      "se_diff": 2047.8595224527307,
+      "z": -0.625961992269462,
+      "same_commit": false,
+      "occupancy_touching": false,
+      "commit_lo": "bdadb150a0fd30fc79f2561304d95a9ba6ec2db6",
+      "commit_hi": null,
+      "opponents_lo": [
+        "zoo:tape-thunder-719"
+      ],
+      "opponents_hi": [
+        "zoo:tape-barnyard-719",
+        "zoo:tape-metac95-720",
+        "zoo:tape-mirror-719",
+        "zoo:tape-thunder-719"
+      ]
+    },
+    {
+      "baseline": "champion",
+      "agent_config": {
+        "wheat_rush_tiles": 30
+      },
+      "baseline_agent_config": null,
+      "band_lo": 660600,
+      "band_hi": 836000,
+      "mean_lo": -270.275,
+      "mean_hi": 1357.7372233072917,
+      "se_lo": 4341.693078299215,
+      "se_hi": 518.7405878028125,
+      "se_diff": 4372.572536114789,
+      "z": 0.3723236629834957,
+      "same_commit": false,
+      "occupancy_touching": true,
+      "commit_lo": "0192391305600c5e4b2447e57d321fc65e1b5fdd",
+      "commit_hi": "9d3f4e4",
+      "opponents_lo": [
+        "zoo:tape-thunder-719"
+      ],
+      "opponents_hi": [
+        "zoo:tape-barnyard-719",
+        "zoo:tape-metac95-720",
+        "zoo:tape-mirror-719",
+        "zoo:tape-thunder-719"
+      ]
+    },
+    {
+      "baseline": "frozen:m3-preland-18f9de3",
+      "agent_config": {
+        "max_owned_quadrants": 3
+      },
+      "baseline_agent_config": null,
+      "band_lo": 663120,
+      "band_hi": 663140,
+      "mean_lo": 7919.775,
+      "mean_hi": 9524.15,
+      "se_lo": 1132.0063566139872,
+      "se_hi": 1116.8648548857411,
+      "se_diff": 1590.2281268715572,
+      "z": 1.0088961281022453,
+      "same_commit": true,
+      "occupancy_touching": true,
+      "commit_lo": "1aa72026dc3dcecfae4a65eb3ea7e2d3d8917fed",
+      "commit_hi": "1aa72026dc3dcecfae4a65eb3ea7e2d3d8917fed",
+      "opponents_lo": [
+        "zoo:tape-thunder-719"
+      ],
+      "opponents_hi": [
+        "zoo:tape-barnyard-719"
+      ]
+    },
+    {
+      "baseline": "frozen:m3-preland-18f9de3",
+      "agent_config": {
+        "max_owned_quadrants": 3
+      },
+      "baseline_agent_config": null,
+      "band_lo": 663120,
+      "band_hi": 663160,
+      "mean_lo": 7919.775,
+      "mean_hi": 7751.85,
+      "se_lo": 1132.0063566139872,
+      "se_hi": 1267.5005756772282,
+      "se_diff": 1699.4105156661171,
+      "z": -0.0988136759493793,
+      "same_commit": true,
+      "occupancy_touching": true,
+      "commit_lo": "1aa72026dc3dcecfae4a65eb3ea7e2d3d8917fed",
+      "commit_hi": "1aa72026dc3dcecfae4a65eb3ea7e2d3d8917fed",
+      "opponents_lo": [
+        "zoo:tape-thunder-719"
+      ],
+      "opponents_hi": [
+        "zoo:tape-metac95-720"
+      ]
+    },
+    {
+      "baseline": "frozen:m3-preland-18f9de3",
+      "agent_config": {
+        "max_owned_quadrants": 3
+      },
+      "baseline_agent_config": null,
+      "band_lo": 663120,
+      "band_hi": 663180,
+      "mean_lo": 7919.775,
+      "mean_hi": 9649.575,
+      "se_lo": 1132.0063566139872,
+      "se_hi": 1149.28004481696,
+      "se_diff": 1613.1593265480465,
+      "z": 1.0723057366574886,
+      "same_commit": true,
+      "occupancy_touching": true,
+      "commit_lo": "1aa72026dc3dcecfae4a65eb3ea7e2d3d8917fed",
+      "commit_hi": "1aa72026dc3dcecfae4a65eb3ea7e2d3d8917fed",
+      "opponents_lo": [
+        "zoo:tape-thunder-719"
+      ],
+      "opponents_hi": [
+        "zoo:tape-mirror-719"
+      ]
+    },
+    {
+      "baseline": "frozen:m3-preland-18f9de3",
+      "agent_config": {
+        "max_owned_quadrants": 3
+      },
+      "baseline_agent_config": null,
+      "band_lo": 663120,
+      "band_hi": 663400,
+      "mean_lo": 7919.775,
+      "mean_hi": 8261.703125,
+      "se_lo": 1132.0063566139872,
+      "se_hi": 616.505413050268,
+      "se_diff": 1288.9985708815798,
+      "z": 0.2652664888263971,
+      "same_commit": false,
+      "occupancy_touching": true,
+      "commit_lo": "1aa72026dc3dcecfae4a65eb3ea7e2d3d8917fed",
+      "commit_hi": "eeb902c5b49b0ef435b7920880191bbdf42b5d3f",
+      "opponents_lo": [
+        "zoo:tape-thunder-719"
+      ],
+      "opponents_hi": [
+        "zoo:tape-thunder-719"
+      ]
+    },
+    {
+      "baseline": "frozen:m3-preland-18f9de3",
+      "agent_config": {
+        "max_owned_quadrants": 3
+      },
+      "baseline_agent_config": null,
+      "band_lo": 663120,
+      "band_hi": 663500,
+      "mean_lo": 7919.775,
+      "mean_hi": 7118.515625,
+      "se_lo": 1132.0063566139872,
+      "se_hi": 675.6728971620945,
+      "se_diff": 1318.3217571495557,
+      "z": -0.6077874165806562,
+      "same_commit": false,
+      "occupancy_touching": true,
+      "commit_lo": "1aa72026dc3dcecfae4a65eb3ea7e2d3d8917fed",
+      "commit_hi": "eeb902c5b49b0ef435b7920880191bbdf42b5d3f",
+      "opponents_lo": [
+        "zoo:tape-thunder-719"
+      ],
+      "opponents_hi": [
+        "zoo:tape-barnyard-719"
+      ]
+    },
+    {
+      "baseline": "frozen:m3-preland-18f9de3",
+      "agent_config": {
+        "max_owned_quadrants": 3
+      },
+      "baseline_agent_config": null,
+      "band_lo": 663120,
+      "band_hi": 663600,
+      "mean_lo": 7919.775,
+      "mean_hi": 8589.7734375,
+      "se_lo": 1132.0063566139872,
+      "se_hi": 618.3459150234611,
+      "se_diff": 1289.8798634139052,
+      "z": 0.5194270075096186,
+      "same_commit": false,
+      "occupancy_touching": true,
+      "commit_lo": "1aa72026dc3dcecfae4a65eb3ea7e2d3d8917fed",
+      "commit_hi": "eeb902c5b49b0ef435b7920880191bbdf42b5d3f",
+      "opponents_lo": [
+        "zoo:tape-thunder-719"
+      ],
+      "opponents_hi": [
+        "zoo:tape-metac95-720"
+      ]
+    },
+    {
+      "baseline": "frozen:m3-preland-18f9de3",
+      "agent_config": {
+        "max_owned_quadrants": 3
+      },
+      "baseline_agent_config": null,
+      "band_lo": 663120,
+      "band_hi": 663700,
+      "mean_lo": 7919.775,
+      "mean_hi": 8716.3671875,
+      "se_lo": 1132.0063566139872,
+      "se_hi": 561.0192782876452,
+      "se_diff": 1263.400578607143,
+      "z": 0.6305143443722471,
+      "same_commit": false,
+      "occupancy_touching": true,
+      "commit_lo": "1aa72026dc3dcecfae4a65eb3ea7e2d3d8917fed",
+      "commit_hi": "eeb902c5b49b0ef435b7920880191bbdf42b5d3f",
+      "opponents_lo": [
+        "zoo:tape-thunder-719"
+      ],
+      "opponents_hi": [
+        "zoo:tape-mirror-719"
+      ]
+    },
+    {
+      "baseline": "frozen:m3-preland-18f9de3",
+      "agent_config": {
+        "max_owned_quadrants": 3
+      },
+      "baseline_agent_config": null,
+      "band_lo": 663140,
+      "band_hi": 663160,
+      "mean_lo": 9524.15,
+      "mean_hi": 7751.85,
+      "se_lo": 1116.8648548857411,
+      "se_hi": 1267.5005756772282,
+      "se_diff": 1689.3622505019616,
+      "z": -1.0490941178976825,
+      "same_commit": true,
+      "occupancy_touching": true,
+      "commit_lo": "1aa72026dc3dcecfae4a65eb3ea7e2d3d8917fed",
+      "commit_hi": "1aa72026dc3dcecfae4a65eb3ea7e2d3d8917fed",
+      "opponents_lo": [
+        "zoo:tape-barnyard-719"
+      ],
+      "opponents_hi": [
+        "zoo:tape-metac95-720"
+      ]
+    },
+    {
+      "baseline": "frozen:m3-preland-18f9de3",
+      "agent_config": {
+        "max_owned_quadrants": 3
+      },
+      "baseline_agent_config": null,
+      "band_lo": 663140,
+      "band_hi": 663180,
+      "mean_lo": 9524.15,
+      "mean_hi": 9649.575,
+      "se_lo": 1116.8648548857411,
+      "se_hi": 1149.28004481696,
+      "se_diff": 1602.5703496238227,
+      "z": 0.07826489491050584,
+      "same_commit": true,
+      "occupancy_touching": true,
+      "commit_lo": "1aa72026dc3dcecfae4a65eb3ea7e2d3d8917fed",
+      "commit_hi": "1aa72026dc3dcecfae4a65eb3ea7e2d3d8917fed",
+      "opponents_lo": [
+        "zoo:tape-barnyard-719"
+      ],
+      "opponents_hi": [
+        "zoo:tape-mirror-719"
+      ]
+    },
+    {
+      "baseline": "frozen:m3-preland-18f9de3",
+      "agent_config": {
+        "max_owned_quadrants": 3
+      },
+      "baseline_agent_config": null,
+      "band_lo": 663140,
+      "band_hi": 663400,
+      "mean_lo": 9524.15,
+      "mean_hi": 8261.703125,
+      "se_lo": 1116.8648548857411,
+      "se_hi": 616.505413050268,
+      "se_diff": 1275.7217676277335,
+      "z": -0.9895942101447253,
+      "same_commit": false,
+      "occupancy_touching": true,
+      "commit_lo": "1aa72026dc3dcecfae4a65eb3ea7e2d3d8917fed",
+      "commit_hi": "eeb902c5b49b0ef435b7920880191bbdf42b5d3f",
+      "opponents_lo": [
+        "zoo:tape-barnyard-719"
+      ],
+      "opponents_hi": [
+        "zoo:tape-thunder-719"
+      ]
+    },
+    {
+      "baseline": "frozen:m3-preland-18f9de3",
+      "agent_config": {
+        "max_owned_quadrants": 3
+      },
+      "baseline_agent_config": null,
+      "band_lo": 663140,
+      "band_hi": 663500,
+      "mean_lo": 9524.15,
+      "mean_hi": 7118.515625,
+      "se_lo": 1116.8648548857411,
+      "se_hi": 675.6728971620945,
+      "se_diff": 1305.3432376345947,
+      "z": -1.842913270351204,
+      "same_commit": false,
+      "occupancy_touching": true,
+      "commit_lo": "1aa72026dc3dcecfae4a65eb3ea7e2d3d8917fed",
+      "commit_hi": "eeb902c5b49b0ef435b7920880191bbdf42b5d3f",
+      "opponents_lo": [
+        "zoo:tape-barnyard-719"
+      ],
+      "opponents_hi": [
+        "zoo:tape-barnyard-719"
+      ]
+    },
+    {
+      "baseline": "frozen:m3-preland-18f9de3",
+      "agent_config": {
+        "max_owned_quadrants": 3
+      },
+      "baseline_agent_config": null,
+      "band_lo": 663140,
+      "band_hi": 663600,
+      "mean_lo": 9524.15,
+      "mean_hi": 8589.7734375,
+      "se_lo": 1116.8648548857411,
+      "se_hi": 618.3459150234611,
+      "se_diff": 1276.6122256602234,
+      "z": -0.7319188581456437,
+      "same_commit": false,
+      "occupancy_touching": true,
+      "commit_lo": "1aa72026dc3dcecfae4a65eb3ea7e2d3d8917fed",
+      "commit_hi": "eeb902c5b49b0ef435b7920880191bbdf42b5d3f",
+      "opponents_lo": [
+        "zoo:tape-barnyard-719"
+      ],
+      "opponents_hi": [
+        "zoo:tape-metac95-720"
+      ]
+    },
+    {
+      "baseline": "frozen:m3-preland-18f9de3",
+      "agent_config": {
+        "max_owned_quadrants": 3
+      },
+      "baseline_agent_config": null,
+      "band_lo": 663140,
+      "band_hi": 663700,
+      "mean_lo": 9524.15,
+      "mean_hi": 8716.3671875,
+      "se_lo": 1116.8648548857411,
+      "se_hi": 561.0192782876452,
+      "se_diff": 1249.8518851005258,
+      "z": -0.646302831663153,
+      "same_commit": false,
+      "occupancy_touching": true,
+      "commit_lo": "1aa72026dc3dcecfae4a65eb3ea7e2d3d8917fed",
+      "commit_hi": "eeb902c5b49b0ef435b7920880191bbdf42b5d3f",
+      "opponents_lo": [
+        "zoo:tape-barnyard-719"
+      ],
+      "opponents_hi": [
+        "zoo:tape-mirror-719"
+      ]
+    },
+    {
+      "baseline": "frozen:m3-preland-18f9de3",
+      "agent_config": {
+        "max_owned_quadrants": 3
+      },
+      "baseline_agent_config": null,
+      "band_lo": 663160,
+      "band_hi": 663180,
+      "mean_lo": 7751.85,
+      "mean_hi": 9649.575,
+      "se_lo": 1267.5005756772282,
+      "se_hi": 1149.28004481696,
+      "se_diff": 1710.9653213191023,
+      "z": 1.109154566930037,
+      "same_commit": true,
+      "occupancy_touching": true,
+      "commit_lo": "1aa72026dc3dcecfae4a65eb3ea7e2d3d8917fed",
+      "commit_hi": "1aa72026dc3dcecfae4a65eb3ea7e2d3d8917fed",
+      "opponents_lo": [
+        "zoo:tape-metac95-720"
+      ],
+      "opponents_hi": [
+        "zoo:tape-mirror-719"
+      ]
+    },
+    {
+      "baseline": "frozen:m3-preland-18f9de3",
+      "agent_config": {
+        "max_owned_quadrants": 3
+      },
+      "baseline_agent_config": null,
+      "band_lo": 663160,
+      "band_hi": 663400,
+      "mean_lo": 7751.85,
+      "mean_hi": 8261.703125,
+      "se_lo": 1267.5005756772282,
+      "se_hi": 616.505413050268,
+      "se_diff": 1409.4809802414456,
+      "z": 0.36173111389744417,
+      "same_commit": false,
+      "occupancy_touching": true,
+      "commit_lo": "1aa72026dc3dcecfae4a65eb3ea7e2d3d8917fed",
+      "commit_hi": "eeb902c5b49b0ef435b7920880191bbdf42b5d3f",
+      "opponents_lo": [
+        "zoo:tape-metac95-720"
+      ],
+      "opponents_hi": [
+        "zoo:tape-thunder-719"
+      ]
+    },
+    {
+      "baseline": "frozen:m3-preland-18f9de3",
+      "agent_config": {
+        "max_owned_quadrants": 3
+      },
+      "baseline_agent_config": null,
+      "band_lo": 663160,
+      "band_hi": 663500,
+      "mean_lo": 7751.85,
+      "mean_hi": 7118.515625,
+      "se_lo": 1267.5005756772282,
+      "se_hi": 675.6728971620945,
+      "se_diff": 1436.3466062554412,
+      "z": -0.44093422314764574,
+      "same_commit": false,
+      "occupancy_touching": true,
+      "commit_lo": "1aa72026dc3dcecfae4a65eb3ea7e2d3d8917fed",
+      "commit_hi": "eeb902c5b49b0ef435b7920880191bbdf42b5d3f",
+      "opponents_lo": [
+        "zoo:tape-metac95-720"
+      ],
+      "opponents_hi": [
+        "zoo:tape-barnyard-719"
+      ]
+    },
+    {
+      "baseline": "frozen:m3-preland-18f9de3",
+      "agent_config": {
+        "max_owned_quadrants": 3
+      },
+      "baseline_agent_config": null,
+      "band_lo": 663160,
+      "band_hi": 663600,
+      "mean_lo": 7751.85,
+      "mean_hi": 8589.7734375,
+      "se_lo": 1267.5005756772282,
+      "se_hi": 618.3459150234611,
+      "se_diff": 1410.2869849673527,
+      "z": 0.5941510107032556,
+      "same_commit": false,
+      "occupancy_touching": true,
+      "commit_lo": "1aa72026dc3dcecfae4a65eb3ea7e2d3d8917fed",
+      "commit_hi": "eeb902c5b49b0ef435b7920880191bbdf42b5d3f",
+      "opponents_lo": [
+        "zoo:tape-metac95-720"
+      ],
+      "opponents_hi": [
+        "zoo:tape-metac95-720"
+      ]
+    },
+    {
+      "baseline": "frozen:m3-preland-18f9de3",
+      "agent_config": {
+        "max_owned_quadrants": 3
+      },
+      "baseline_agent_config": null,
+      "band_lo": 663160,
+      "band_hi": 663700,
+      "mean_lo": 7751.85,
+      "mean_hi": 8716.3671875,
+      "se_lo": 1267.5005756772282,
+      "se_hi": 561.0192782876452,
+      "se_diff": 1386.10978639951,
+      "z": 0.6958447281476755,
+      "same_commit": false,
+      "occupancy_touching": true,
+      "commit_lo": "1aa72026dc3dcecfae4a65eb3ea7e2d3d8917fed",
+      "commit_hi": "eeb902c5b49b0ef435b7920880191bbdf42b5d3f",
+      "opponents_lo": [
+        "zoo:tape-metac95-720"
+      ],
+      "opponents_hi": [
+        "zoo:tape-mirror-719"
+      ]
+    },
+    {
+      "baseline": "frozen:m3-preland-18f9de3",
+      "agent_config": {
+        "max_owned_quadrants": 3
+      },
+      "baseline_agent_config": null,
+      "band_lo": 663180,
+      "band_hi": 663400,
+      "mean_lo": 9649.575,
+      "mean_hi": 8261.703125,
+      "se_lo": 1149.28004481696,
+      "se_hi": 616.505413050268,
+      "se_diff": 1304.1945965747425,
+      "z": -1.0641601173973756,
+      "same_commit": false,
+      "occupancy_touching": true,
+      "commit_lo": "1aa72026dc3dcecfae4a65eb3ea7e2d3d8917fed",
+      "commit_hi": "eeb902c5b49b0ef435b7920880191bbdf42b5d3f",
+      "opponents_lo": [
+        "zoo:tape-mirror-719"
+      ],
+      "opponents_hi": [
+        "zoo:tape-thunder-719"
+      ]
+    },
+    {
+      "baseline": "frozen:m3-preland-18f9de3",
+      "agent_config": {
+        "max_owned_quadrants": 3
+      },
+      "baseline_agent_config": null,
+      "band_lo": 663180,
+      "band_hi": 663500,
+      "mean_lo": 9649.575,
+      "mean_hi": 7118.515625,
+      "se_lo": 1149.28004481696,
+      "se_hi": 675.6728971620945,
+      "se_diff": 1333.183590273257,
+      "z": -1.8985077475197696,
+      "same_commit": false,
+      "occupancy_touching": true,
+      "commit_lo": "1aa72026dc3dcecfae4a65eb3ea7e2d3d8917fed",
+      "commit_hi": "eeb902c5b49b0ef435b7920880191bbdf42b5d3f",
+      "opponents_lo": [
+        "zoo:tape-mirror-719"
+      ],
+      "opponents_hi": [
+        "zoo:tape-barnyard-719"
+      ]
+    },
+    {
+      "baseline": "frozen:m3-preland-18f9de3",
+      "agent_config": {
+        "max_owned_quadrants": 3
+      },
+      "baseline_agent_config": null,
+      "band_lo": 663180,
+      "band_hi": 663600,
+      "mean_lo": 9649.575,
+      "mean_hi": 8589.7734375,
+      "se_lo": 1149.28004481696,
+      "se_hi": 618.3459150234611,
+      "se_diff": 1305.0656274841795,
+      "z": -0.8120676387309481,
+      "same_commit": false,
+      "occupancy_touching": true,
+      "commit_lo": "1aa72026dc3dcecfae4a65eb3ea7e2d3d8917fed",
+      "commit_hi": "eeb902c5b49b0ef435b7920880191bbdf42b5d3f",
+      "opponents_lo": [
+        "zoo:tape-mirror-719"
+      ],
+      "opponents_hi": [
+        "zoo:tape-metac95-720"
+      ]
+    },
+    {
+      "baseline": "frozen:m3-preland-18f9de3",
+      "agent_config": {
+        "max_owned_quadrants": 3
+      },
+      "baseline_agent_config": null,
+      "band_lo": 663180,
+      "band_hi": 663700,
+      "mean_lo": 9649.575,
+      "mean_hi": 8716.3671875,
+      "se_lo": 1149.28004481696,
+      "se_hi": 561.0192782876452,
+      "se_diff": 1278.9007983517972,
+      "z": -0.7296952302341874,
+      "same_commit": false,
+      "occupancy_touching": true,
+      "commit_lo": "1aa72026dc3dcecfae4a65eb3ea7e2d3d8917fed",
+      "commit_hi": "eeb902c5b49b0ef435b7920880191bbdf42b5d3f",
+      "opponents_lo": [
+        "zoo:tape-mirror-719"
+      ],
+      "opponents_hi": [
+        "zoo:tape-mirror-719"
+      ]
+    },
+    {
+      "baseline": "frozen:m3-preland-18f9de3",
+      "agent_config": {
+        "max_owned_quadrants": 3
+      },
+      "baseline_agent_config": null,
+      "band_lo": 663400,
+      "band_hi": 663500,
+      "mean_lo": 8261.703125,
+      "mean_hi": 7118.515625,
+      "se_lo": 616.505413050268,
+      "se_hi": 675.6728971620945,
+      "se_diff": 914.6653968964279,
+      "z": -1.2498422962965208,
+      "same_commit": true,
+      "occupancy_touching": true,
+      "commit_lo": "eeb902c5b49b0ef435b7920880191bbdf42b5d3f",
+      "commit_hi": "eeb902c5b49b0ef435b7920880191bbdf42b5d3f",
+      "opponents_lo": [
+        "zoo:tape-thunder-719"
+      ],
+      "opponents_hi": [
+        "zoo:tape-barnyard-719"
+      ]
+    },
+    {
+      "baseline": "frozen:m3-preland-18f9de3",
+      "agent_config": {
+        "max_owned_quadrants": 3
+      },
+      "baseline_agent_config": null,
+      "band_lo": 663400,
+      "band_hi": 663600,
+      "mean_lo": 8261.703125,
+      "mean_hi": 8589.7734375,
+      "se_lo": 616.505413050268,
+      "se_hi": 618.3459150234611,
+      "se_diff": 873.1727177062296,
+      "z": 0.3757221290214155,
+      "same_commit": true,
+      "occupancy_touching": true,
+      "commit_lo": "eeb902c5b49b0ef435b7920880191bbdf42b5d3f",
+      "commit_hi": "eeb902c5b49b0ef435b7920880191bbdf42b5d3f",
+      "opponents_lo": [
+        "zoo:tape-thunder-719"
+      ],
+      "opponents_hi": [
+        "zoo:tape-metac95-720"
+      ]
+    },
+    {
+      "baseline": "frozen:m3-preland-18f9de3",
+      "agent_config": {
+        "max_owned_quadrants": 3
+      },
+      "baseline_agent_config": null,
+      "band_lo": 663400,
+      "band_hi": 663700,
+      "mean_lo": 8261.703125,
+      "mean_hi": 8716.3671875,
+      "se_lo": 616.505413050268,
+      "se_hi": 561.0192782876452,
+      "se_diff": 833.5595689155466,
+      "z": 0.5454487950891306,
+      "same_commit": true,
+      "occupancy_touching": true,
+      "commit_lo": "eeb902c5b49b0ef435b7920880191bbdf42b5d3f",
+      "commit_hi": "eeb902c5b49b0ef435b7920880191bbdf42b5d3f",
+      "opponents_lo": [
+        "zoo:tape-thunder-719"
+      ],
+      "opponents_hi": [
+        "zoo:tape-mirror-719"
+      ]
+    },
+    {
+      "baseline": "frozen:m3-preland-18f9de3",
+      "agent_config": {
+        "max_owned_quadrants": 3
+      },
+      "baseline_agent_config": null,
+      "band_lo": 663500,
+      "band_hi": 663600,
+      "mean_lo": 7118.515625,
+      "mean_hi": 8589.7734375,
+      "se_lo": 675.6728971620945,
+      "se_hi": 618.3459150234611,
+      "se_diff": 915.9069464665173,
+      "z": 1.6063398341676236,
+      "same_commit": true,
+      "occupancy_touching": true,
+      "commit_lo": "eeb902c5b49b0ef435b7920880191bbdf42b5d3f",
+      "commit_hi": "eeb902c5b49b0ef435b7920880191bbdf42b5d3f",
+      "opponents_lo": [
+        "zoo:tape-barnyard-719"
+      ],
+      "opponents_hi": [
+        "zoo:tape-metac95-720"
+      ]
+    },
+    {
+      "baseline": "frozen:m3-preland-18f9de3",
+      "agent_config": {
+        "max_owned_quadrants": 3
+      },
+      "baseline_agent_config": null,
+      "band_lo": 663500,
+      "band_hi": 663700,
+      "mean_lo": 7118.515625,
+      "mean_hi": 8716.3671875,
+      "se_lo": 675.6728971620945,
+      "se_hi": 561.0192782876452,
+      "se_diff": 878.2234878263098,
+      "z": 1.819413377857658,
+      "same_commit": true,
+      "occupancy_touching": true,
+      "commit_lo": "eeb902c5b49b0ef435b7920880191bbdf42b5d3f",
+      "commit_hi": "eeb902c5b49b0ef435b7920880191bbdf42b5d3f",
+      "opponents_lo": [
+        "zoo:tape-barnyard-719"
+      ],
+      "opponents_hi": [
+        "zoo:tape-mirror-719"
+      ]
+    },
+    {
+      "baseline": "frozen:m3-preland-18f9de3",
+      "agent_config": {
+        "max_owned_quadrants": 3
+      },
+      "baseline_agent_config": null,
+      "band_lo": 663600,
+      "band_hi": 663700,
+      "mean_lo": 8589.7734375,
+      "mean_hi": 8716.3671875,
+      "se_lo": 618.3459150234611,
+      "se_hi": 561.0192782876452,
+      "se_diff": 834.9217335993785,
+      "z": 0.15162349344321133,
+      "same_commit": true,
+      "occupancy_touching": true,
+      "commit_lo": "eeb902c5b49b0ef435b7920880191bbdf42b5d3f",
+      "commit_hi": "eeb902c5b49b0ef435b7920880191bbdf42b5d3f",
+      "opponents_lo": [
+        "zoo:tape-metac95-720"
+      ],
+      "opponents_hi": [
+        "zoo:tape-mirror-719"
+      ]
+    },
+    {
+      "baseline": "frozen:straw_seedorder_0d366b9",
+      "agent_config": {
+        "strawberry_tile_target": 31
+      },
+      "baseline_agent_config": {
+        "strawberry_tile_target": 31
+      },
+      "band_lo": 661400,
+      "band_hi": 661600,
+      "mean_lo": 15156.956250000001,
+      "mean_hi": 14627.775390625,
+      "se_lo": 1370.4148279615765,
+      "se_hi": 786.559054916792,
+      "se_diff": 1580.0987145012664,
+      "z": -0.33490367058619425,
+      "same_commit": false,
+      "occupancy_touching": true,
+      "commit_lo": "7e64ded38ee9cde8ab6d2614c2744a3e265ab604",
+      "commit_hi": "408d96e911a5377f613b0d3eb6e7b4a7af8302f4",
+      "opponents_lo": [
+        "zoo:tape-barnyard-719",
+        "zoo:tape-metac95-720",
+        "zoo:tape-mirror-719",
+        "zoo:tape-thunder-719"
+      ],
+      "opponents_hi": [
+        "zoo:tape-barnyard-719",
+        "zoo:tape-metac95-720",
+        "zoo:tape-mirror-719",
+        "zoo:tape-thunder-719"
+      ]
+    },
+    {
+      "baseline": "frozen:straw_seedorder_0d366b9",
+      "agent_config": {
+        "strawberry_tile_target": 31
+      },
+      "baseline_agent_config": {
+        "strawberry_tile_target": 31
+      },
+      "band_lo": 661400,
+      "band_hi": 661800,
+      "mean_lo": 15156.956250000001,
+      "mean_hi": 12821.078125,
+      "se_lo": 1370.4148279615765,
+      "se_hi": 2219.938728937486,
+      "se_diff": 2608.862733248635,
+      "z": -0.8953626019607765,
+      "same_commit": true,
+      "occupancy_touching": true,
+      "commit_lo": "7e64ded38ee9cde8ab6d2614c2744a3e265ab604",
+      "commit_hi": "7e64ded38ee9cde8ab6d2614c2744a3e265ab604",
+      "opponents_lo": [
+        "zoo:tape-barnyard-719",
+        "zoo:tape-metac95-720",
+        "zoo:tape-mirror-719",
+        "zoo:tape-thunder-719"
+      ],
+      "opponents_hi": [
+        "zoo:kernel-sokolovsky-2883"
+      ]
+    },
+    {
+      "baseline": "frozen:straw_seedorder_0d366b9",
+      "agent_config": {
+        "strawberry_tile_target": 31
+      },
+      "baseline_agent_config": {
+        "strawberry_tile_target": 31
+      },
+      "band_lo": 661400,
+      "band_hi": 662000,
+      "mean_lo": 15156.956250000001,
+      "mean_hi": 24428.171875,
+      "se_lo": 1370.4148279615765,
+      "se_hi": 910.8737468504926,
+      "se_diff": 1645.5174819485853,
+      "z": 5.634224933314735,
+      "same_commit": false,
+      "occupancy_touching": true,
+      "commit_lo": "7e64ded38ee9cde8ab6d2614c2744a3e265ab604",
+      "commit_hi": "6cda0c83ba2ab5cd9dca586833c8d9297c4757ee",
+      "opponents_lo": [
+        "zoo:tape-barnyard-719",
+        "zoo:tape-metac95-720",
+        "zoo:tape-mirror-719",
+        "zoo:tape-thunder-719"
+      ],
+      "opponents_hi": [
+        "builtin:pass",
+        "builtin:starter"
+      ]
+    },
+    {
+      "baseline": "frozen:straw_seedorder_0d366b9",
+      "agent_config": {
+        "strawberry_tile_target": 31
+      },
+      "baseline_agent_config": {
+        "strawberry_tile_target": 31
+      },
+      "band_lo": 661600,
+      "band_hi": 661800,
+      "mean_lo": 14627.775390625,
+      "mean_hi": 12821.078125,
+      "se_lo": 786.559054916792,
+      "se_hi": 2219.938728937486,
+      "se_diff": 2355.165197413586,
+      "z": -0.7671212480589867,
+      "same_commit": false,
+      "occupancy_touching": true,
+      "commit_lo": "408d96e911a5377f613b0d3eb6e7b4a7af8302f4",
+      "commit_hi": "7e64ded38ee9cde8ab6d2614c2744a3e265ab604",
+      "opponents_lo": [
+        "zoo:tape-barnyard-719",
+        "zoo:tape-metac95-720",
+        "zoo:tape-mirror-719",
+        "zoo:tape-thunder-719"
+      ],
+      "opponents_hi": [
+        "zoo:kernel-sokolovsky-2883"
+      ]
+    },
+    {
+      "baseline": "frozen:straw_seedorder_0d366b9",
+      "agent_config": {
+        "strawberry_tile_target": 31
+      },
+      "baseline_agent_config": {
+        "strawberry_tile_target": 31
+      },
+      "band_lo": 661600,
+      "band_hi": 662000,
+      "mean_lo": 14627.775390625,
+      "mean_hi": 24428.171875,
+      "se_lo": 786.559054916792,
+      "se_hi": 910.8737468504926,
+      "se_diff": 1203.4808388890337,
+      "z": 8.143375588282748,
+      "same_commit": false,
+      "occupancy_touching": true,
+      "commit_lo": "408d96e911a5377f613b0d3eb6e7b4a7af8302f4",
+      "commit_hi": "6cda0c83ba2ab5cd9dca586833c8d9297c4757ee",
+      "opponents_lo": [
+        "zoo:tape-barnyard-719",
+        "zoo:tape-metac95-720",
+        "zoo:tape-mirror-719",
+        "zoo:tape-thunder-719"
+      ],
+      "opponents_hi": [
+        "builtin:pass",
+        "builtin:starter"
+      ]
+    },
+    {
+      "baseline": "frozen:straw_seedorder_0d366b9",
+      "agent_config": {
+        "strawberry_tile_target": 31
+      },
+      "baseline_agent_config": {
+        "strawberry_tile_target": 31
+      },
+      "band_lo": 661800,
+      "band_hi": 662000,
+      "mean_lo": 12821.078125,
+      "mean_hi": 24428.171875,
+      "se_lo": 2219.938728937486,
+      "se_hi": 910.8737468504926,
+      "se_diff": 2399.545570089894,
+      "z": 4.8372049669242845,
+      "same_commit": false,
+      "occupancy_touching": true,
+      "commit_lo": "7e64ded38ee9cde8ab6d2614c2744a3e265ab604",
+      "commit_hi": "6cda0c83ba2ab5cd9dca586833c8d9297c4757ee",
+      "opponents_lo": [
+        "zoo:kernel-sokolovsky-2883"
+      ],
+      "opponents_hi": [
+        "builtin:pass",
+        "builtin:starter"
+      ]
+    },
+    {
+      "baseline": "champion",
+      "agent_config": {
+        "hand_mule_load": 12
+      },
+      "baseline_agent_config": null,
+      "band_lo": 820000,
+      "band_hi": 822000,
+      "mean_lo": 2161.975,
+      "mean_hi": 1379.197265625,
+      "se_lo": 2681.3561784828507,
+      "se_hi": 670.0473076641216,
+      "se_diff": 2763.8079438333075,
+      "z": -0.28322435939210516,
+      "same_commit": true,
+      "occupancy_touching": false,
+      "commit_lo": "d7efe73ac0c89d84c013bd2c1d6e3256f6121553",
+      "commit_hi": "d7efe73ac0c89d84c013bd2c1d6e3256f6121553",
+      "opponents_lo": [
+        "zoo:tape-thunder-719"
+      ],
+      "opponents_hi": [
+        "zoo:tape-barnyard-719",
+        "zoo:tape-metac95-720",
+        "zoo:tape-mirror-719",
+        "zoo:tape-thunder-719"
+      ]
+    },
+    {
+      "baseline": "champion",
+      "agent_config": {
+        "hand_mule_load": 15
+      },
+      "baseline_agent_config": null,
+      "band_lo": 820000,
+      "band_hi": 822000,
+      "mean_lo": 3540.975,
+      "mean_hi": 946.5234375,
+      "se_lo": 3626.3432078543415,
+      "se_hi": 967.6051223834564,
+      "se_diff": 3753.215252821775,
+      "z": -0.6912610622450756,
+      "same_commit": true,
+      "occupancy_touching": false,
+      "commit_lo": "d7efe73ac0c89d84c013bd2c1d6e3256f6121553",
+      "commit_hi": "d7efe73ac0c89d84c013bd2c1d6e3256f6121553",
+      "opponents_lo": [
+        "zoo:tape-thunder-719"
+      ],
+      "opponents_hi": [
+        "zoo:tape-barnyard-719",
+        "zoo:tape-metac95-720",
+        "zoo:tape-mirror-719",
+        "zoo:tape-thunder-719"
+      ]
+    },
+    {
+      "baseline": "champion",
+      "agent_config": {
+        "cow_target": 7,
+        "sheep_target": 5
+      },
+      "baseline_agent_config": null,
+      "band_lo": 820000,
+      "band_hi": 825000,
+      "mean_lo": -3192.75,
+      "mean_hi": -2869.724609375,
+      "se_lo": 3041.2576241062197,
+      "se_hi": 838.1748400251922,
+      "se_diff": 3154.644987734034,
+      "z": 0.10239674888331175,
+      "same_commit": false,
+      "occupancy_touching": true,
+      "commit_lo": "d7efe73ac0c89d84c013bd2c1d6e3256f6121553",
+      "commit_hi": "75377a9",
+      "opponents_lo": [
+        "zoo:tape-thunder-719"
+      ],
+      "opponents_hi": [
+        "zoo:tape-barnyard-719",
+        "zoo:tape-metac95-720",
+        "zoo:tape-mirror-719",
+        "zoo:tape-thunder-719"
+      ]
+    },
+    {
+      "baseline": "frozen:m3b_live_b6ce655",
+      "agent_config": null,
+      "baseline_agent_config": null,
+      "band_lo": 850000,
+      "band_hi": 891000,
+      "mean_lo": 1331.2447916666667,
+      "mean_hi": 1146.9453125,
+      "se_lo": 727.1437781172127,
+      "se_hi": 703.657662629489,
+      "se_diff": 1011.8656927832715,
+      "z": -0.18213828226523468,
+      "same_commit": false,
+      "occupancy_touching": false,
+      "commit_lo": "d1050fd",
+      "commit_hi": "a71b5e922534752562fbc07ffb81f8d528a3e716",
+      "opponents_lo": [
+        "public:kaito-v4",
+        "public:rayk-v11",
+        "public:sokolovsky-v12"
+      ],
+      "opponents_hi": [
+        "public:kaito-v4",
+        "public:rayk-v11",
+        "public:sokolovsky-v12"
+      ]
+    },
+    {
+      "baseline": "champion",
+      "agent_config": {
+        "animal_buy_order": [
+          "SHEEP",
+          "COW"
+        ],
+        "max_hires_per_turn": 10,
+        "strawberry_plant_daily_cap": 10,
+        "strawberry_start_day": 8,
+        "strawberry_tile_target": 20
+      },
+      "baseline_agent_config": null,
+      "band_lo": 881000,
+      "band_hi": 888000,
+      "mean_lo": 3637.3463541666665,
+      "mean_hi": -1202.5182291666667,
+      "se_lo": 1174.2943392879652,
+      "se_hi": 1118.5358210231163,
+      "se_diff": 1621.755091928376,
+      "z": -2.9843375287808764,
+      "same_commit": false,
+      "occupancy_touching": true,
+      "commit_lo": "8cfd8df",
+      "commit_hi": "6d49bd44de4f44a9f59903dbcde568471cf84995",
+      "opponents_lo": [
+        "public:kaito-v4",
+        "public:rayk-v11",
+        "public:sokolovsky-v12"
+      ],
+      "opponents_hi": [
+        "public:kaito-v4",
+        "public:rayk-v11",
+        "public:sokolovsky-v12"
+      ]
+    },
+    {
+      "baseline": "champion",
+      "agent_config": {
+        "animal_buy_order": [
+          "SHEEP",
+          "COW"
+        ],
+        "max_hires_per_turn": 10,
+        "strawberry_plant_daily_cap": 10,
+        "strawberry_start_day": 8,
+        "strawberry_tile_target": 20
+      },
+      "baseline_agent_config": null,
+      "band_lo": 881000,
+      "band_hi": 893000,
+      "mean_lo": 3637.3463541666665,
+      "mean_hi": 3401.201171875,
+      "se_lo": 1174.2943392879652,
+      "se_hi": 634.5365708178368,
+      "se_diff": 1334.7673411456465,
+      "z": -0.17691860971739115,
+      "same_commit": false,
+      "occupancy_touching": true,
+      "commit_lo": "8cfd8df",
+      "commit_hi": "fbfc25836b82953d4e271e0dd587c652a8996c21",
+      "opponents_lo": [
+        "public:kaito-v4",
+        "public:rayk-v11",
+        "public:sokolovsky-v12"
+      ],
+      "opponents_hi": [
+        "public:kaito-v4",
+        "public:rayk-v11",
+        "public:sokolovsky-v12"
+      ]
+    },
+    {
+      "baseline": "champion",
+      "agent_config": {
+        "animal_buy_order": [
+          "SHEEP",
+          "COW"
+        ],
+        "max_hires_per_turn": 10,
+        "strawberry_plant_daily_cap": 10,
+        "strawberry_start_day": 8,
+        "strawberry_tile_target": 20
+      },
+      "baseline_agent_config": null,
+      "band_lo": 888000,
+      "band_hi": 893000,
+      "mean_lo": -1202.5182291666667,
+      "mean_hi": 3401.201171875,
+      "se_lo": 1118.5358210231163,
+      "se_hi": 634.5365708178368,
+      "se_diff": 1285.985630797295,
+      "z": 3.5799151178597683,
+      "same_commit": false,
+      "occupancy_touching": true,
+      "commit_lo": "6d49bd44de4f44a9f59903dbcde568471cf84995",
+      "commit_hi": "fbfc25836b82953d4e271e0dd587c652a8996c21",
+      "opponents_lo": [
+        "public:kaito-v4",
+        "public:rayk-v11",
+        "public:sokolovsky-v12"
+      ],
+      "opponents_hi": [
+        "public:kaito-v4",
+        "public:rayk-v11",
+        "public:sokolovsky-v12"
+      ]
+    },
+    {
+      "baseline": "frozen:m3b_live_b6ce655",
+      "agent_config": {
+        "animal_buy_order": [
+          "SHEEP",
+          "COW"
+        ],
+        "max_hires_per_turn": 10,
+        "strawberry_plant_daily_cap": 10,
+        "strawberry_start_day": 8,
+        "strawberry_tile_target": 20
+      },
+      "baseline_agent_config": null,
+      "band_lo": 891000,
+      "band_hi": 892000,
+      "mean_lo": 3721.8046875,
+      "mean_hi": 7389.988932291667,
+      "se_lo": 871.4812398654323,
+      "se_hi": 606.9785492559223,
+      "se_diff": 1062.0275470505533,
+      "z": 3.4539445374829425,
+      "same_commit": true,
+      "occupancy_touching": true,
+      "commit_lo": "a71b5e922534752562fbc07ffb81f8d528a3e716",
+      "commit_hi": "a71b5e922534752562fbc07ffb81f8d528a3e716",
+      "opponents_lo": [
+        "public:kaito-v4",
+        "public:rayk-v11",
+        "public:sokolovsky-v12"
+      ],
+      "opponents_hi": [
+        "public:kaito-v4",
+        "public:rayk-v11",
+        "public:sokolovsky-v12"
+      ]
+    }
+  ],
+  "strata_counts": {
+    "a_same_vs_cross_commit": {
+      "same_commit": 24,
+      "cross_commit": 69
+    },
+    "b_occupancy_vs_non": {
+      "occupancy_touching": 43,
+      "non_occupancy": 50
+    },
+    "c_combined_2x2": {
+      "same_commit__occupancy": 17,
+      "same_commit__non_occupancy": 7,
+      "cross_commit__non_occupancy": 43,
+      "cross_commit__occupancy": 26
+    }
+  },
+  "ks_test": {
+    "population": "same_commit_non_occupancy",
+    "n": 7,
+    "statistic_d": 0.27198785892053046,
+    "p_value": 0.6783874511283497,
+    "count_beyond_2sigma": 0,
+    "count_beyond_3sigma": 0,
+    "z_scores": [
+      0.905842455301029,
+      -0.8334968017613119,
+      0.2150991667280924,
+      -0.06982296371109711,
+      -0.8396565321842404,
+      -0.28322435939210516,
+      -0.6912610622450756
+    ],
+    "method": "asymptotic one-sample two-sided KS vs N(0,1), hand-implemented; see module docstring"
+  },
+  "outliers_beyond_3sigma_any_stratum": [
+    {
+      "baseline": "frozen:straw_seedorder_0d366b9",
+      "agent_config": {
+        "strawberry_tile_target": 31
+      },
+      "baseline_agent_config": {
+        "strawberry_tile_target": 31
+      },
+      "band_lo": 661600,
+      "band_hi": 662000,
+      "mean_lo": 14627.775390625,
+      "mean_hi": 24428.171875,
+      "se_lo": 786.559054916792,
+      "se_hi": 910.8737468504926,
+      "se_diff": 1203.4808388890337,
+      "z": 8.143375588282748,
+      "same_commit": false,
+      "occupancy_touching": true,
+      "commit_lo": "408d96e911a5377f613b0d3eb6e7b4a7af8302f4",
+      "commit_hi": "6cda0c83ba2ab5cd9dca586833c8d9297c4757ee",
+      "opponents_lo": [
+        "zoo:tape-barnyard-719",
+        "zoo:tape-metac95-720",
+        "zoo:tape-mirror-719",
+        "zoo:tape-thunder-719"
+      ],
+      "opponents_hi": [
+        "builtin:pass",
+        "builtin:starter"
+      ]
+    },
+    {
+      "baseline": "frozen:straw_seedorder_0d366b9",
+      "agent_config": {
+        "strawberry_tile_target": 31
+      },
+      "baseline_agent_config": {
+        "strawberry_tile_target": 31
+      },
+      "band_lo": 661400,
+      "band_hi": 662000,
+      "mean_lo": 15156.956250000001,
+      "mean_hi": 24428.171875,
+      "se_lo": 1370.4148279615765,
+      "se_hi": 910.8737468504926,
+      "se_diff": 1645.5174819485853,
+      "z": 5.634224933314735,
+      "same_commit": false,
+      "occupancy_touching": true,
+      "commit_lo": "7e64ded38ee9cde8ab6d2614c2744a3e265ab604",
+      "commit_hi": "6cda0c83ba2ab5cd9dca586833c8d9297c4757ee",
+      "opponents_lo": [
+        "zoo:tape-barnyard-719",
+        "zoo:tape-metac95-720",
+        "zoo:tape-mirror-719",
+        "zoo:tape-thunder-719"
+      ],
+      "opponents_hi": [
+        "builtin:pass",
+        "builtin:starter"
+      ]
+    },
+    {
+      "baseline": "frozen:straw_seedorder_0d366b9",
+      "agent_config": {
+        "strawberry_tile_target": 31
+      },
+      "baseline_agent_config": {
+        "strawberry_tile_target": 31
+      },
+      "band_lo": 661800,
+      "band_hi": 662000,
+      "mean_lo": 12821.078125,
+      "mean_hi": 24428.171875,
+      "se_lo": 2219.938728937486,
+      "se_hi": 910.8737468504926,
+      "se_diff": 2399.545570089894,
+      "z": 4.8372049669242845,
+      "same_commit": false,
+      "occupancy_touching": true,
+      "commit_lo": "7e64ded38ee9cde8ab6d2614c2744a3e265ab604",
+      "commit_hi": "6cda0c83ba2ab5cd9dca586833c8d9297c4757ee",
+      "opponents_lo": [
+        "zoo:kernel-sokolovsky-2883"
+      ],
+      "opponents_hi": [
+        "builtin:pass",
+        "builtin:starter"
+      ]
+    },
+    {
+      "baseline": "champion",
+      "agent_config": {
+        "animal_buy_order": [
+          "SHEEP",
+          "COW"
+        ],
+        "max_hires_per_turn": 10,
+        "strawberry_plant_daily_cap": 10,
+        "strawberry_start_day": 8,
+        "strawberry_tile_target": 20
+      },
+      "baseline_agent_config": null,
+      "band_lo": 888000,
+      "band_hi": 893000,
+      "mean_lo": -1202.5182291666667,
+      "mean_hi": 3401.201171875,
+      "se_lo": 1118.5358210231163,
+      "se_hi": 634.5365708178368,
+      "se_diff": 1285.985630797295,
+      "z": 3.5799151178597683,
+      "same_commit": false,
+      "occupancy_touching": true,
+      "commit_lo": "6d49bd44de4f44a9f59903dbcde568471cf84995",
+      "commit_hi": "fbfc25836b82953d4e271e0dd587c652a8996c21",
+      "opponents_lo": [
+        "public:kaito-v4",
+        "public:rayk-v11",
+        "public:sokolovsky-v12"
+      ],
+      "opponents_hi": [
+        "public:kaito-v4",
+        "public:rayk-v11",
+        "public:sokolovsky-v12"
+      ]
+    },
+    {
+      "baseline": "frozen:m3b_live_b6ce655",
+      "agent_config": {
+        "animal_buy_order": [
+          "SHEEP",
+          "COW"
+        ],
+        "max_hires_per_turn": 10,
+        "strawberry_plant_daily_cap": 10,
+        "strawberry_start_day": 8,
+        "strawberry_tile_target": 20
+      },
+      "baseline_agent_config": null,
+      "band_lo": 891000,
+      "band_hi": 892000,
+      "mean_lo": 3721.8046875,
+      "mean_hi": 7389.988932291667,
+      "se_lo": 871.4812398654323,
+      "se_hi": 606.9785492559223,
+      "se_diff": 1062.0275470505533,
+      "z": 3.4539445374829425,
+      "same_commit": true,
+      "occupancy_touching": true,
+      "commit_lo": "a71b5e922534752562fbc07ffb81f8d528a3e716",
+      "commit_hi": "a71b5e922534752562fbc07ffb81f8d528a3e716",
+      "opponents_lo": [
+        "public:kaito-v4",
+        "public:rayk-v11",
+        "public:sokolovsky-v12"
+      ],
+      "opponents_hi": [
+        "public:kaito-v4",
+        "public:rayk-v11",
+        "public:sokolovsky-v12"
+      ]
+    }
+  ],
+  "finding": "consistent with the per-seed model for the non-occupancy population, closed"
+}
