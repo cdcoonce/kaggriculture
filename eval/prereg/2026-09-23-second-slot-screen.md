@@ -140,3 +140,150 @@ REPORTED, NOT GATING: per-leader own-bank and margin deltas for every arm, poole
   That is an owner decision too, with #170's +$3,401 and the live 09-27 record as its evidence.
 
 Nothing in this document authorises an upload.
+
+## ADDENDUM — VERDICT (2026-09-24): W30 is CONFIRMED
+
+Run at `main` = `7d11abf` (the commit this document merged as — a documentation-only add, so the
+candidate is behaviourally `e682db4`, shipped STACK3). Engine 1.32.7, clean worktree throughout
+(`/private/tmp/.../scratchpad/wt-screen`, branch `eval/second-slot-verdict`), verified before the
+first run and unchanged until every gate below was ledgered. No crash-type veto and no
+`baseline_degenerate`/`opponent_degenerate` veto in any of the 21 money-gate runs (15 screen + 3
+confirm + the 3 cited `#170` cross-check ledgers). No `candidate_degenerate` veto either — every
+result below is a genuine measurement, not a vetoed run reported anyway. Total wall time for all
+money-gate and coupling-probe runs: **~1h50m** (first ledger 01:53:29Z, last 03:43:05Z), plus
+setup/analysis; all screen/confirm calls ran strictly sequentially, arm by arm, at the harness's
+default worker count.
+
+### Pre-flight (positive control) — PASSED for all five arms
+
+Per the terminal-freeze precedent's actual method (reproduced and confirmed by recomputing its
+recorded `sd_delta` values from the raw ledgers before trusting the shortcut here): the pre-flight
+reuses seeds 896000–896007 from each arm's own **sokolovsky-v12** screen run rather than firing a
+separate call — cheaper, and it writes no additional ledgers.
+
+| arm | `sd_delta` (8 seeds, vs sokolovsky-v12) | result |
+|---|---|---|
+| EH1 | $19,285.8 | PASS |
+| RESCUE | $16,179.0 | PASS |
+| CUT14 | $4,053.4 | PASS |
+| W30 | $6,736.1 | PASS |
+| COW8 | $19,666.0 | PASS |
+
+No arm's series was identical to the baseline's. All five express and none is INVALID on this
+ground.
+
+### Coupling probes (896000–896007 vs public:sokolovsky-v12) — reported, not gating
+
+`EH1` is excluded per the prereg's own table (non-occupancy-moving).
+
+| arm | coupled draws (mean/8) | range | note |
+|---|---|---|---|
+| CUT14 | 3.6 | [2, 4] | first divergence mostly day 14; comparable to the README's `max_owned_quadrants` worked example |
+| W30 | 4.25 | [2, 5] | |
+| RESCUE | 8.0 | [8, 8] | fully coupled on every seed — watering changes bare-tile counts from day 1 onward |
+| COW8 | 7.0 | [7, 7] | uniformly 7/8 across all seeds |
+
+RESCUE and COW8 are the two most heavily coupled arms measured in this project to date (matching
+or exceeding STACK3's 7.9–8/8). Their screen `sd_delta` is honest dispersion but not
+variance-reduced; this is noted, not treated as a caveat that would change their (already
+decisively negative) screen results below — see the Pairing limitation in `eval/README.md`.
+
+### Screen — band 896000, n=128/leader, all five arms
+
+| arm | sokolovsky | rayk | kaito | pooled Δ (se) | one-sided 95% LB | pooled `mde_80` | pooled margin (se) | margin UB |
+|---|---|---|---|---|---|---|---|---|
+| EH1 | +$403 | +$962 | +$924 | +$763 ($783) | **−$525** | $1,958 | +$1,566 ($541) | +$2,457 |
+| RESCUE | −$4,549 | −$9,614 | −$9,821 | **−$7,995** ($1,013) | −$9,661 | $2,533 | −$15,032 ($920) | −$13,519 |
+| CUT14 | −$241 | +$364 | +$309 | +$144 ($248) | −$263 | $619 | +$277 ($166) | +$549 |
+| W30 | +$684 | +$411 | +$145 | +$413 ($373) | −$200 | $933 | +$38 ($242) | +$436 |
+| COW8 | −$10,401 | −$11,860 | −$11,851 | **−$11,370** ($991) | −$13,001 | $2,479 | −$17,380 ($1,283) | −$15,270 |
+
+Applying the SCREEN rule mechanically (pooled Δ > $0; pooled one-sided 95% LB > −$500; no leader
+below −$2,000):
+
+- **RESCUE** fails on pooled Δ (−$7,995 < $0). Not selectable. Consistent with the prereg's own
+  mechanism note — 10 hires, not 4, and the missed-water-death mechanism did not pay for itself.
+- **COW8** fails on pooled Δ (−$11,370 < $0). Not selectable, and it is the worst result measured
+  in this project's history against the public panel — consistent with the prior negative
+  disposition (cow7/sheep5, −$2.3k to −$3.6k) generalizing rather than reversing.
+- **EH1** clears pooled Δ (+$763 > $0) and every per-leader floor, but its pooled one-sided 95%
+  LB is **−$525.36**, which does **not** clear the −$500 bar — a $25 miss. EH1 is **not
+  selectable**, despite the highest screen point estimate of the two knobs that do clear. This is
+  the finding worth flagging: EH1 was the closest of the two failures to selectability, and it
+  failed on the LB threshold, not the sign.
+- **CUT14** and **W30** both clear all three SCREEN criteria. **SELECTABLE: {CUT14, W30}.**
+
+**SELECTION: W30**, highest pooled one-sided 95% lower bound (−$200.21 vs CUT14's −$263.37), per
+the registered rule.
+
+### Confirm — band 897000, n=256/leader, W30 only
+
+| leader | own Δ | se | margin Δ | se |
+|---|---|---|---|---|
+| sokolovsky-v12 | +$196 | $405 | −$155 | $306 |
+| rayk-v11 | +$678 | $393 | +$394 | $255 |
+| kaito-v4 | +$683 | $399 | +$448 | $279 |
+| **pooled** | **+$519** | **$230** | **+$229** | **$162** |
+
+- pooled own-bank one-sided 95% LB: **+$139.81** > $0 — **PASSES**.
+- min leader own Δ: +$195.74 (sokolovsky) — no leader below −$2,000 — **PASSES**.
+- pooled margin one-sided 95% UB: **+$495.19** — not below $0, so the margin veto does **not**
+  fire — **PASSES**.
+- pooled `mde_80`: $574.45.
+
+All three CONFIRMED criteria are met. **W30 is CONFIRMED.**
+
+Unlike STACK3's terminal-freeze confirm (which blew *past* its screen point estimate,
++$3,722 → +$7,390), W30's screen and confirm pooled deltas are close and both modest: +$413 at
+screen, +$519 at confirm, a difference well inside one pooled se of either. The margin sign also
+holds up at confirm (+$229, UB +$495) rather than flipping negative the way STACK3's did against
+the shipped default (−$585) — W30 is not showing the "grows the market, does not win it" pattern
+that closed off STACK3's margin case.
+
+### The #170 margin cross-check — reproduces the recorded −$585 point estimate exactly
+
+Running `tools/recon-scripts/second_slot_verdict.py` against the three `#170` viability ledgers
+(band 893000, STACK3 vs `champion` at shipped defaults, `eval/gates/2026-09-19T21-*-champion-vs-
+public_*-money.json`) gives:
+
+- pooled own-bank Δ: **+$3,401.20** (se $634.54, LB +$2,357.39) — matches #170's recorded
+  +$3,401 (se $635) exactly, confirming the pairing key against a previously-known result.
+- pooled margin Δ: **−$585.25** (se $626.68), one-sided 95% UB **+$445.63**.
+
+The point estimate reproduces #170's stated −$585 to the dollar. The interval #170 lacked is now
+available: at n=256/leader, STACK3's margin disadvantage against the shipped default is **not**
+statistically distinguishable from $0 (UB is positive) — the sign is directional, not confirmed
+negative. This does not overturn #170's finding, which was never framed as a statistically
+significant margin loss; it supplies the interval that finding was missing.
+
+### Predictions scorecard
+
+- `EH1` predicted **−$500 to +$2,000**, P(selectable) = 0.50. Landed pooled **+$763** — inside
+  the range — but **not selectable**: the LB criterion, not the point estimate, is what excluded
+  it. The prediction range was about the point estimate and did not anticipate a near-miss on the
+  LB bar specifically.
+- `RESCUE` predicted **−$1,500 to +$2,500**, P(selectable) = 0.40. Landed pooled **−$7,995** —
+  **far outside the range**, and the miss is in the unfavourable direction the prereg flagged as
+  possible (10-hire labor cost dominating the missed-water mechanism).
+- `CUT14` predicted **−$1,500 to +$1,500**, P(selectable) = 0.30. Landed pooled **+$144** —
+  inside the range, near zero. Selectable.
+- `W30` predicted **−$2,500 to +$1,500**, P(selectable) = 0.30. Landed pooled **+$413** (screen)
+  / **+$519** (confirm) — inside the range at both bands. Selectable, selected, and confirmed.
+- `COW8` predicted **−$3,000 to +$1,000**, P(selectable) = 0.20. Landed pooled **−$11,370** —
+  **far outside the range**, well below even the pessimistic end.
+- P(at least one arm selectable) was 0.80; **two were** (CUT14, W30).
+- P(the selected arm is CONFIRMED) was 0.40; **it was**.
+- P(the experiment ends CONFIRMED) was 0.32; **it did**.
+- The named most-likely failure mode — a screen pass near +$1,000–$1,500 that is mostly
+  selection, regressing below $0 at confirm — **did not occur**. W30's screen point estimate
+  (+$413) was smaller than that band, and its confirm **improved** rather than regressed: the
+  one-sided LB went from an unrequired-to-be-positive −$200 at screen to a **positive** +$140 at
+  confirm. The two RESCUE/COW8 misses were both far outside their predicted ranges in the
+  unfavourable direction — a bigger surprise than the named failure mode, which concerned the
+  selected arm's stability, not two arms landing an order of magnitude worse than predicted.
+
+### Consequences, applied
+
+Per the registered Consequences section: **CONFIRMED licenses an owner decision** to upload W30's
+build into `a344ab1`'s slot, pairing {W30, STACK3}, subject to the 2026-09-27 STACK3 revert check
+already on record. Nothing in this document, or in this addendum, authorises an upload.
