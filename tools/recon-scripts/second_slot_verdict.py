@@ -21,8 +21,14 @@ into the two quantities the prereg's decision rule reads:
   true for a normal `n_games = 2 * n_seeds` run), giving one margin
   observation per seed. Mean/se taken over seeds within a leader, then
   pooled across leaders the same way as own bank, one-sided 95% UPPER bound
-  `pooled + 1.645 * pooled_se` (the prereg's CONFIRMED veto is a margin that
-  is confidently *worse*, i.e. an upper bound below $0).
+  `pooled + 1.645 * pooled_se` (the second-slot screen's CONFIRMED veto reads
+  a margin that is confidently *worse*, i.e. an upper bound below $0) AND
+  one-sided 95% LOWER bound `pooled - 1.645 * pooled_se` plus MDE
+  `harness.stats.mde_multiplier(n) * pooled_margin_se` (added for
+  `eval/prereg/2026-09-24-eh1-on-w30-margin.md`, whose rule reads margin's
+  LOWER bound instead: CONFIRMED requires it to clear $0). Both bounds are
+  computed from the same `pooled_margin`/`pooled_margin_se`; which one a
+  given prereg's rule reads is a caller concern, not this script's.
 
 Sanity check (built in, `--check`): the recomputed per-leader own-bank mean
 (`mean(cand_own) - mean(base_own)` over the same seed/seat pairing used for
@@ -161,6 +167,8 @@ def analyze_group(name: str, paths: list[str], check: bool) -> dict:
     pooled_margin = sum(margin_means) / len(margin_means)
     pooled_margin_se = math.sqrt(sum(se**2 for se in margin_ses)) / len(margin_ses)
     pooled_margin_ub = pooled_margin + Z_95_ONE_SIDED * pooled_margin_se
+    pooled_margin_lb = pooled_margin - Z_95_ONE_SIDED * pooled_margin_se
+    pooled_margin_mde = mde_multiplier(n) * pooled_margin_se
 
     any_vetoes = [v for r in own_rows for v in r["vetoes"]]
     any_candidate_degenerate = any(r["candidate_degenerate"] for r in own_rows)
@@ -179,6 +187,8 @@ def analyze_group(name: str, paths: list[str], check: bool) -> dict:
         "pooled_margin_delta": pooled_margin,
         "pooled_margin_se": pooled_margin_se,
         "pooled_margin_ub95": pooled_margin_ub,
+        "pooled_margin_lb95": pooled_margin_lb,
+        "pooled_margin_mde_80": pooled_margin_mde,
         "any_vetoes": any_vetoes,
         "any_candidate_degenerate": any_candidate_degenerate,
     }
@@ -203,6 +213,8 @@ def print_table(result: dict) -> None:
     print(f"  own-bank one-sided 95% LB: {result['pooled_own_lb95']:,.0f}")
     print(f"  own-bank pooled mde_80:    {result['pooled_mde_80']:,.0f}")
     print(f"  margin one-sided 95% UB:   {result['pooled_margin_ub95']:,.0f}")
+    print(f"  margin one-sided 95% LB:   {result['pooled_margin_lb95']:,.0f}")
+    print(f"  margin pooled mde_80:      {result['pooled_margin_mde_80']:,.0f}")
     print(f"  min leader own Δ:          {result['min_leader_own_delta']:,.0f}")
     print(f"  vetoes across leaders:     {result['any_vetoes']}")
     print(f"  candidate_degenerate:      {result['any_candidate_degenerate']}")
