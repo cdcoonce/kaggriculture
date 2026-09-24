@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "submission_id": "56508116",
+  "candidate_sha": "4d97638e220a79beef99960e12e391fff9637384",
+  "line": "A",
+  "bundle_sha256": "91d8d634aa29e173c5df768d1418e4a5bd87d4fdbecccca494bee66b27294988",
+  "tag": "sub-56508116",
+  "uploaded_at": "2026-09-24T01:18:36.920000Z",
+  "artifact_ref": "git:4d97638e220a79beef99960e12e391fff9637384:dist/submission.tar.gz",
+  "note": "[evicts 56088917] [evicts 55784368] Owner-authorized upload of STACK3 as defaults (strawberry_tile_target=20, strawberry_plant_daily_cap=10, strawberry_start_day=8, animal_buy_order=SHEEP,COW, max_hires_per_turn=10). Evidence: terminal-freeze CONFIRMED vs M3b (random-effects +$5,609 se $1,833, LB +$2,594; eval/prereg/2026-09-19-terminal-freeze-vs-m3b.md), #91 viability vs shipped default 0.978 / own +$3,401 LB +$2,357 / margin -$585 (no interval); promotion 198-2 ci_lower 0.964 vs frozen M3b at band 895000 (d62db8f). Decision basis: main-at-defaults is behaviourally identical to a344ab1 (static knob audit + 16/16 seeded parity), so the choice was STACK3-in-M3b's-slot or nothing. Latest-2 pair becomes {56508116, 56088917}. Revert rule fixed pre-upload: on 2026-09-27, revert if any STACK3 episode errored or if its same-window Wilson 95% win-rate interval lies wholly below a344ab1's; revert = re-upload M3b (b6ce655) then a344ab1 artifacts. Exactly one upload."
+}
