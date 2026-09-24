@@ -243,19 +243,23 @@ def test_default_policy_config_matches_the_gated_ranch_reshape() -> None:
     someone edits a herd constant (COW_TARGET/SHEEP_TARGET) without
     re-gating, this test must fail, not a live match.
 
-    wheat_rush_tiles is the one that silently follows: policy.
-    _WHEAT_RUSH_TILES_DEFAULT is computed ONCE AT IMPORT TIME as
-    BOARD_SIZE**2 - 1 - MELON_TILE_TARGET - (COW_TARGET + SHEEP_TARGET), so a
-    herd-constant edit reshapes the wheat zone too even though nothing here
-    references sheep/cow by name: 100 - 1 - 8 - 10 = 81, and 81 is the value
-    that was actually gated alongside 6/4.
+    wheat_rush_tiles no longer defaults to the herd-coupled formula: S3W30
+    (release/s3w30eh1) ships WHEAT_RUSH_TILES = 30 instead (see
+    eval/prereg/2026-09-23-second-slot-screen.md). The herd-coupling
+    invariant policy._WHEAT_RUSH_TILES_DEFAULT still computes ONCE AT IMPORT
+    TIME as BOARD_SIZE**2 - 1 - MELON_TILE_TARGET - (COW_TARGET +
+    SHEEP_TARGET) -- 100 - 1 - 8 - 10 = 81, the value actually gated
+    alongside 6/4 -- so it is pinned here too, via an explicit override,
+    rather than dropped just because it is no longer the shipped default.
     """
     config = PolicyConfig()
     assert config.cow_target == 6
     assert config.sheep_target == 4
     assert config.pasture_tile_target == 10
-    assert config.wheat_rush_tiles == 81
-    assert config.wheat_rush_tiles == policy._WHEAT_RUSH_TILES_DEFAULT
+    assert policy._WHEAT_RUSH_TILES_DEFAULT == 81
+    assert PolicyConfig(wheat_rush_tiles=policy._WHEAT_RUSH_TILES_DEFAULT).wheat_rush_tiles == 81
+    assert config.wheat_rush_tiles == 30
+    assert config.wheat_rush_tiles == policy.WHEAT_RUSH_TILES
 
 
 def test_day_zero_opening_orders() -> None:
@@ -267,7 +271,11 @@ def test_day_zero_opening_orders() -> None:
     # count is therefore 24 - |melon ∪ reachable-pasture| = 24 - 9 = 15.
     # This is a turn-0-only shape: NE unlocks this same turn (below) and the
     # active universe is 49 tiles from the next observation on.
-    action = make_policy()(raw_obs(), None)
+    #
+    # extra_hands pinned to 0 explicitly: S3W30EH1 (release/s3w30eh1) ships
+    # extra_hands=1 as the default, which would add a fourth HIRE order here
+    # unrelated to the opening-orders shape this test is about.
+    action = make_policy(policy_config=PolicyConfig(extra_hands=0))(raw_obs(), None)
     market = action["market"]
     assert ["BUY_ANIMAL", "GOOSE", 1] in market
     assert ["BUY_SEED", "MELON", 4] in market
@@ -304,7 +312,10 @@ def test_policy_config_override_shrinks_soft_budget_and_truncates_actions() -> N
 
 
 def test_step_zero_resets_for_process_reuse() -> None:
-    policy = make_policy()
+    # extra_hands pinned to 0 explicitly: this test is about the process-
+    # reuse reset, not the labor-supply default (S3W30EH1, release/s3w30eh1,
+    # ships extra_hands=1).
+    policy = make_policy(policy_config=PolicyConfig(extra_hands=0))
     policy(raw_obs(step=500), None)  # a prior episode's late turn
     fresh = policy(raw_obs(step=0), None)  # runner reused the process
     assert ["BUY_ANIMAL", "GOOSE", 1] in fresh["market"]
@@ -379,7 +390,10 @@ def test_eight_placed_animals_add_a_husbandry_hand() -> None:
     zone = pasture_tiles(unlocked)
     for x, y in zone[:8]:
         obs["farms"][0]["tiles"][y][x] = animal_tile(fed_today=True, cared_today=True)
-    action = make_policy()(obs, None)
+    # extra_hands pinned to 0 explicitly: this test is about the husbandry
+    # hand, not the labor-supply default (S3W30EH1, release/s3w30eh1, ships
+    # extra_hands=1, which would add a second HIRE order here).
+    action = make_policy(policy_config=PolicyConfig(extra_hands=0))(obs, None)
     # target 13 (12 base + 1 husbandry hand); hires_today already at 12
     assert action["market"].count(["HIRE"]) == 1
 
@@ -1361,10 +1375,11 @@ def test_strawberry_fert_reserve_planted_sells_like_strawberry_off_before_anythi
 # intended wheat plantings execute. Moving labor toward planting via a higher
 # DISPATCH tier/cutoff instead starves watering and raises weeds 1.8-3.2x, so
 # the next lever is labor SUPPLY, not dispatch priority: extra_hands (below)
-# hires above plan.py's tile-based hands_target, unconditionally. It has no
+# hires above plan.py's tile-based hands_target, unconditionally. It had no
 # prior hardcoded behavior to reproduce (there was never an implicit "extra
-# hands" term before this knob existed), so its default is a bare 0 rather
-# than a module constant -- pinned below the same way.
+# hands" term before this knob existed), so its default was a bare 0 rather
+# than a module constant until S3W30EH1 (release/s3w30eh1) shipped
+# EXTRA_HANDS = 1 instead -- pinned below the same way.
 
 
 def test_labor_knob_defaults_pin_todays_constants() -> None:
@@ -1374,6 +1389,8 @@ def test_labor_knob_defaults_pin_todays_constants() -> None:
     # modules' OWN constants, not bare literals, so an edit to either hardcoded
     # value can never drift silently out of sync with these defaults.
     # max_hires_per_turn: STACK3 (release/stack3) raised this from 4 to 10.
+    # extra_hands: S3W30EH1 (release/s3w30eh1) raised this from 0 to 1, see
+    # eval/prereg/2026-09-24-eh1-on-w30-margin.md.
     config = PolicyConfig()
     assert config.max_hires_per_turn == 10
     assert config.max_hires_per_turn == plan.MAX_HIRES_PER_TURN
@@ -1381,7 +1398,8 @@ def test_labor_knob_defaults_pin_todays_constants() -> None:
     assert config.wheat_plant_priority == dispatch.WHEAT_PLANT_PRIORITY
     assert config.wheat_plant_hour_cutoff == 20
     assert config.wheat_plant_hour_cutoff == dispatch.WHEAT_PLANT_HOUR_CUTOFF
-    assert config.extra_hands == 0
+    assert config.extra_hands == 1
+    assert config.extra_hands == policy.EXTRA_HANDS
 
 
 def test_labor_knobs_reject_out_of_range_values() -> None:
@@ -1456,12 +1474,15 @@ def test_hires_beyond_the_market_order_cap_are_dropped_not_deferred() -> None:
 # continuation of the labor knobs above) --------------------------------------
 
 
-def test_extra_hands_default_is_zero() -> None:
-    # DEFAULT-NEUTRAL by construction: extra_hands has no prior hardcoded
-    # behavior to reproduce, so 0 is a bare literal, not a module constant --
-    # also pinned inside test_labor_knob_defaults_pin_todays_constants
-    # alongside the other three labor knobs.
-    assert PolicyConfig().extra_hands == 0
+def test_extra_hands_default_is_one() -> None:
+    # extra_hands was DEFAULT-NEUTRAL 0 (no prior hardcoded behavior, a bare
+    # literal rather than a module constant) until S3W30EH1 (release/
+    # s3w30eh1) shipped EXTRA_HANDS = 1 as the default instead, CONFIRMED in
+    # eval/prereg/2026-09-24-eh1-on-w30-margin.md -- also pinned inside
+    # test_labor_knob_defaults_pin_todays_constants alongside the other
+    # three labor knobs.
+    assert PolicyConfig().extra_hands == 1
+    assert PolicyConfig().extra_hands == policy.EXTRA_HANDS
 
 
 def test_extra_hands_rejects_out_of_range_values() -> None:
@@ -1486,10 +1507,16 @@ def test_extra_hands_threads_from_policy_config_to_the_market_list() -> None:
     extra_hands's own effect from that separate cap; money=0.0 makes every
     other buy line unaffordable (see that test's own docstring), so the
     market list is pure HIRE orders.
+
+    extra_hands=0 is pinned explicitly on the baseline arm: S3W30EH1
+    (release/s3w30eh1) ships extra_hands=1 as the default, which would add
+    a fourth HIRE order to an unqualified PolicyConfig() here.
     """
     obs = raw_obs(step=0, money=0.0, unlocked_quadrants=("NW",))
 
-    baseline_action = make_policy(policy_config=PolicyConfig(max_hires_per_turn=10))(obs, None)
+    baseline_action = make_policy(policy_config=PolicyConfig(max_hires_per_turn=10, extra_hands=0))(
+        obs, None
+    )
     assert baseline_action["market"] == [["HIRE"]] * 3  # hands_target 3 (HANDS_MIN)
 
     overridden_action = make_policy(
@@ -1699,15 +1726,21 @@ def test_land_unlock_hand_burst_threads_from_policy_config_to_the_market_list() 
     hands_target of 3, which leaves the default asking for no hires at all --
     so every HIRE order in the overridden arm is the burst's doing and
     nothing else's.
+
+    extra_hands=0 is pinned explicitly on both arms: S3W30EH1 (release/
+    s3w30eh1) ships extra_hands=1 as the default, which would add a HIRE
+    order unrelated to the burst this test is about.
     """
     obs = raw_obs(money=3000.0)
     obs["farms"][0]["hires_today"] = 3
 
-    default_action = make_policy()(obs, None)
+    default_action = make_policy(policy_config=PolicyConfig(extra_hands=0))(obs, None)
     assert ["BUY_LAND"] in default_action["market"]  # the trigger turn is real
     assert default_action["market"].count(["HIRE"]) == 0  # hands_target 3, hires_today 3
 
-    burst_action = make_policy(policy_config=PolicyConfig(land_unlock_hand_burst=2))(obs, None)
+    burst_action = make_policy(policy_config=PolicyConfig(land_unlock_hand_burst=2, extra_hands=0))(
+        obs, None
+    )
     assert ["BUY_LAND"] in burst_action["market"]
     assert burst_action["market"].count(["HIRE"]) == 2
 

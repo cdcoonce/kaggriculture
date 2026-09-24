@@ -122,14 +122,25 @@ class TestRunMoneyGateEndToEnd:
         # the cheaper starter-vs-pass matchup: starter's money is CONSTANT
         # across seeds on the tiny fixture, so a baseline arm that silently
         # forked a different seed band would still difference to zero and
-        # this test would be worthless. Here money varies seed to seed
-        # ($540 vs $633 vs $588.50), so a broken pairing shows up as nonzero.
+        # this test would be worthless. Here money varies seed to seed, so a
+        # broken pairing shows up as nonzero.
+        #
+        # extra_hands=0 is pinned identically on BOTH arms: S3W30EH1
+        # (release/s3w30eh1) ships extra_hands=1 as champion's default, whose
+        # extra wage drains this tiny 5-day (episodeSteps=120) fixture's
+        # money to at-or-below the $0 floor on most seeds, tripping
+        # candidate_degenerate/baseline_degenerate on what is otherwise an
+        # unrelated pairing/veto-absence check. Pinning the same override on
+        # both arms keeps the self-comparison identical (deltas still all
+        # zero) while restoring the non-degenerate money this test needs.
         result = run_money_gate(
             "champion",
             "builtin:starter",
             4,
             5,
             baseline="champion",
+            agent_config={"extra_hands": 0},
+            baseline_agent_config={"extra_hands": 0},
             workers=1,
             extra_config=SEED_VARYING_CONFIG,
             min_seeds=4,
