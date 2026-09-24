@@ -151,7 +151,10 @@ HANDS_PER_TILES = 8  # roughly one hand per eight target tiles
 # ends in test_policy.py's test_max_hires_per_turn_threads_from_policy_
 # config_to_the_market_list (10 requested, 10 land) and test_hires_beyond_
 # the_market_order_cap_are_dropped_not_deferred (10 requested, 3 land).
-MAX_HIRES_PER_TURN = 4
+# STACK3 (release/stack3) raises this from the pre-STACK3 shipped default of
+# 4 to 10 -- the market.MAX_ORDERS ceiling itself, so every hire the labor
+# math asks for can reach the market on an otherwise-uncontested turn.
+MAX_HIRES_PER_TURN = 10
 HUSBANDRY_HAND_THRESHOLD = 8  # placed animals at which chore load earns a dedicated extra hand
 # LAND_UNLOCK_HAND_BURST (PolicyConfig.land_unlock_hand_burst): a ONE-TURN
 # add-on to hands_target, applied only on a call that is submitting a
@@ -259,17 +262,16 @@ _ANIMAL_PRICE: dict[str, int] = {"COW": COW_PRICE, "SHEEP": SHEEP_PRICE}
 _ANIMAL_LAST_BUY_DAY: dict[str, int] = {"COW": COW_LAST_BUY_DAY, "SHEEP": SHEEP_LAST_BUY_DAY}
 
 # ANIMAL_BUY_ORDER (PolicyConfig.animal_buy_order): the order the shared
-# per-turn cap/room is offered to cow vs sheep. Cows-before-sheep was a
-# hardcoded sequence, not a parameter, before this knob existed, so
-# ("COW", "SHEEP") is DEFAULT-NEUTRAL -- every existing game buys in exactly
-# this order already. Single source of truth for PolicyConfig.
-# animal_buy_order's own default, the same pattern NE_LAND_MIN_DAY above and
-# MAX_HIRES_PER_TURN below use.
+# per-turn cap/room is offered to cow vs sheep. Cows-before-sheep was the
+# pre-STACK3 hardcoded sequence, and ("COW", "SHEEP") was DEFAULT-NEUTRAL at
+# that point -- every existing game bought in exactly this order already.
+# Single source of truth for PolicyConfig.animal_buy_order's own default, the
+# same pattern NE_LAND_MIN_DAY above and MAX_HIRES_PER_TURN below use.
 #
 # Diagnosis (observed strongest public bots, game replays, 2026-09-11): they
-# buy about 4 sheep and 1 cow on day 0 -- sheep-first, not cow-first -- so an
-# eval run flips this to measure that ordering.
-ANIMAL_BUY_ORDER: tuple[str, ...] = ("COW", "SHEEP")
+# buy about 4 sheep and 1 cow on day 0 -- sheep-first, not cow-first. STACK3
+# (release/stack3) ships that ordering as the default.
+ANIMAL_BUY_ORDER: tuple[str, ...] = ("SHEEP", "COW")
 
 
 @dataclass(frozen=True)

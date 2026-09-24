@@ -302,6 +302,10 @@ def test_hand_target_scales_with_active_tile_universe() -> None:
 
 
 def test_hire_count_capped_at_max_hires_per_turn() -> None:
+    # max_hires_per_turn pinned explicitly to 4 (the pre-STACK3 shipped
+    # default) so this stays a check on the clamp MECHANISM, isolated from
+    # STACK3's shipped default of 10 -- see test_max_hires_per_turn_default_
+    # and_override below for the default itself.
     plan = plan_day(
         day=0,
         money=0.0,
@@ -312,17 +316,18 @@ def test_hire_count_capped_at_max_hires_per_turn() -> None:
         hires_today=0,
         unlocked_quadrants=("NW", "NE", "SW", "SE"),
         active_tiles=99,
+        max_hires_per_turn=4,
     )
-    assert plan.hire_count == 4  # hands_target is 12; MAX_HIRES_PER_TURN clamps it
+    assert plan.hire_count == 4  # hands_target is 12; max_hires_per_turn=4 clamps it
 
 
 def test_max_hires_per_turn_default_and_override() -> None:
-    # Diagnosis: the morning crew rebuilds over 3 hours (units on the farm at
-    # hours 0/1/2/3: 1/5/9/11) because MAX_HIRES_PER_TURN=4 caps every day's
-    # ramp-up, regardless of how large the actual shortfall is. active_tiles=80
-    # makes hands_target = round(80/8) == 10 exactly, so hires_today=0 is a
-    # clean "need 10 hires" scenario: the default constant clamps it to 4, and
-    # an explicit override recovers the full 10.
+    # STACK3 (release/stack3) raised MAX_HIRES_PER_TURN from 4 to 10 -- the
+    # market.MAX_ORDERS ceiling itself. active_tiles=99 makes
+    # hands_target = round(99/8) == 12, a clean "need more than the ceiling"
+    # scenario: the default constant clamps it to 10, and an explicit
+    # override above the ceiling recovers the full 12 (plan_day itself does
+    # not enforce the 1-10 range PolicyConfig.__post_init__ does).
     kwargs = dict(
         day=0,
         money=0.0,
@@ -332,14 +337,14 @@ def test_max_hires_per_turn_default_and_override() -> None:
         goose_owned=True,
         hires_today=0,
         unlocked_quadrants=("NW", "NE", "SW", "SE"),
-        active_tiles=80,
+        active_tiles=99,
     )
     default_plan = plan_day(**kwargs)
-    assert default_plan.hire_count == 4
+    assert default_plan.hire_count == 10
     assert default_plan.hire_count == MAX_HIRES_PER_TURN
 
-    overridden_plan = plan_day(**kwargs, max_hires_per_turn=10)
-    assert overridden_plan.hire_count == 10
+    overridden_plan = plan_day(**kwargs, max_hires_per_turn=12)
+    assert overridden_plan.hire_count == 12
 
 
 def test_hire_count_floors_at_zero_when_hires_today_exceeds_target() -> None:
@@ -494,6 +499,12 @@ def test_melon_seed_buy_clamped_by_available_budget() -> None:
 
 
 def test_animals_buy_cows_before_sheep_until_targets() -> None:
+    # animal_buy_order pinned explicitly to ("COW", "SHEEP") so this stays a
+    # check on the ordering MECHANISM, isolated from STACK3's shipped default
+    # of ("SHEEP", "COW") -- see
+    # test_animal_buy_order_default_is_sheep_before_cows below for the
+    # default itself, and test_animal_buy_order_reorders_sheep_before_cows
+    # for the historical mirror of this scenario.
     plan = plan_day(
         day=3,
         money=10000.0,
@@ -507,18 +518,22 @@ def test_animals_buy_cows_before_sheep_until_targets() -> None:
         cows_owned=0,
         sheep_owned=0,
         empty_pastures=15,
+        animal_buy_order=("COW", "SHEEP"),
     )
     animal_buys = [b for b in plan.buys if b[0] == "BUY_ANIMAL"]
     # The shared 2/turn cap is exhausted by cows before sheep gets a look-in.
     assert animal_buys == [["BUY_ANIMAL", "COW", 2]]
 
 
-def test_animal_buy_order_default_is_cows_before_sheep() -> None:
+def test_animal_buy_order_default_is_sheep_before_cows() -> None:
     # Pinned against the module constant, the same pattern as
     # test_ne_land_min_day_default_is_zero_so_shipped_behavior_is_unchanged --
-    # test_animals_buy_cows_before_sheep_until_targets above already proves
-    # this behaviorally; this pins the literal default value itself.
-    assert ANIMAL_BUY_ORDER == ("COW", "SHEEP")
+    # test_animal_buy_order_reorders_sheep_before_cows below already proves
+    # this behaviorally; this pins the literal default value itself. STACK3
+    # (release/stack3) ships sheep-before-cows as the default (was
+    # ("COW", "SHEEP"); see test_animals_buy_cows_before_sheep_until_targets
+    # above for that pre-STACK3 ordering, now pinned explicitly).
+    assert ANIMAL_BUY_ORDER == ("SHEEP", "COW")
 
 
 def test_animal_buy_order_reorders_sheep_before_cows() -> None:
@@ -586,6 +601,9 @@ def test_no_animal_buy_when_no_empty_pastures() -> None:
 
 
 def test_animal_buy_limited_by_empty_pasture_count() -> None:
+    # animal_buy_order pinned explicitly: this test is about the pasture-count
+    # limit, not species ordering, and is isolated from STACK3's shipped
+    # sheep-before-cows default for that reason.
     plan = plan_day(
         day=3,
         money=10000.0,
@@ -599,6 +617,7 @@ def test_animal_buy_limited_by_empty_pasture_count() -> None:
         cows_owned=0,
         sheep_owned=0,
         empty_pastures=1,
+        animal_buy_order=("COW", "SHEEP"),
     )
     animal_buys = [b for b in plan.buys if b[0] == "BUY_ANIMAL"]
     assert animal_buys == [["BUY_ANIMAL", "COW", 1]]
@@ -666,6 +685,9 @@ def test_sheep_purchase_window_closes_after_day_eleven() -> None:
 
 
 def test_day_zero_sequence_includes_animals_between_melon_and_wheat() -> None:
+    # animal_buy_order pinned explicitly: this test is about the overall
+    # day-zero BUY sequence, not species ordering, and is isolated from
+    # STACK3's shipped sheep-before-cows default for that reason.
     plan = plan_day(
         day=0,
         money=5000.0,
@@ -681,6 +703,7 @@ def test_day_zero_sequence_includes_animals_between_melon_and_wheat() -> None:
         cows_owned=0,
         sheep_owned=0,
         empty_pastures=2,
+        animal_buy_order=("COW", "SHEEP"),
     )
     op_order = [b[0] for b in plan.buys]
     assert op_order == [
@@ -941,6 +964,11 @@ def test_land_unlock_hand_burst_default_is_zero_so_shipped_behavior_is_unchanged
 # Recomputing them by hand here (rather than diffing two plan_day calls) is
 # what makes this a no-op proof rather than a self-consistency check: a burst
 # that fired at the default would have to change one of these literals.
+# max_hires_per_turn is pinned to 4 explicitly in every row that does not
+# already override it (one row deliberately raises it to 10) -- this matrix
+# is a no-op proof for LAND_UNLOCK_HAND_BURST specifically, and must stay
+# valid regardless of what MAX_HIRES_PER_TURN itself defaults to (STACK3,
+# release/stack3, raised it from 4 to 10).
 _BURST_NO_OP_MATRIX: list[tuple[str, dict[str, object], int, list[list[object]]]] = [
     (
         # NE purchase turn at the shipped ne_land_min_day of 0: day 0, the
@@ -957,6 +985,7 @@ _BURST_NO_OP_MATRIX: list[tuple[str, dict[str, object], int, list[list[object]]]
             hires_today=0,
             unlocked_quadrants=("NW",),
             active_tiles=24,
+            max_hires_per_turn=4,
         ),
         3,
         [["BUY_LAND"]],
@@ -975,6 +1004,7 @@ _BURST_NO_OP_MATRIX: list[tuple[str, dict[str, object], int, list[list[object]]]
             hires_today=0,
             unlocked_quadrants=("NW", "NE", "SW"),
             active_tiles=72,
+            max_hires_per_turn=4,
         ),
         4,
         [],
@@ -992,6 +1022,7 @@ _BURST_NO_OP_MATRIX: list[tuple[str, dict[str, object], int, list[list[object]]]
             hires_today=5,
             unlocked_quadrants=("NW", "NE"),
             active_tiles=48,
+            max_hires_per_turn=4,
         ),
         1,
         [["BUY_LAND"]],
@@ -1011,6 +1042,7 @@ _BURST_NO_OP_MATRIX: list[tuple[str, dict[str, object], int, list[list[object]]]
             hires_today=0,
             unlocked_quadrants=("NW", "NE"),
             active_tiles=48,
+            max_hires_per_turn=4,
         ),
         4,
         [],
@@ -1029,6 +1061,7 @@ _BURST_NO_OP_MATRIX: list[tuple[str, dict[str, object], int, list[list[object]]]
             hires_today=0,
             unlocked_quadrants=("NW", "NE"),
             active_tiles=48,
+            max_hires_per_turn=4,
         ),
         4,
         [["BUY_LAND"]],
@@ -1068,6 +1101,7 @@ _BURST_NO_OP_MATRIX: list[tuple[str, dict[str, object], int, list[list[object]]]
             unlocked_quadrants=("NW", "NE", "SW"),
             active_tiles=72,
             max_owned_quadrants=4,
+            max_hires_per_turn=4,
         ),
         1,
         [["BUY_LAND"]],
@@ -1088,6 +1122,7 @@ _BURST_NO_OP_MATRIX: list[tuple[str, dict[str, object], int, list[list[object]]]
             unlocked_quadrants=("NW", "NE"),
             active_tiles=48,
             animals_placed=9,
+            max_hires_per_turn=4,
         ),
         2,
         [["BUY_PRODUCT", "WHEAT", 12], ["BUY_LAND"]],
@@ -1117,12 +1152,16 @@ def test_land_unlock_hand_burst_does_not_fire_on_the_turns_around_the_purchase()
     # next, but animals_done still False at day 11 -- sheep's window closes
     # after day 11) and the turn after (SW now owned, so _next_quadrant is
     # None) must both get exactly the base target even at a large burst.
+    # max_hires_per_turn pinned to 4 explicitly (the pre-STACK3 shipped
+    # default) so the clamp literals below stay meaningful regardless of what
+    # MAX_HIRES_PER_TURN itself defaults to.
     common = dict(
         money=20000.0,
         wheat_seeds=0,
         plantable_target_tiles=0,
         wheat_on_hand=50,
         goose_owned=True,
+        max_hires_per_turn=4,
     )
     before = dict(common, day=11, hires_today=5, unlocked_quadrants=("NW", "NE"), active_tiles=48)
     purchase = dict(common, day=12, hires_today=5, unlocked_quadrants=("NW", "NE"), active_tiles=48)
@@ -1154,7 +1193,10 @@ def test_land_unlock_hand_burst_is_clamped_by_max_hires_per_turn() -> None:
     # burst bigger than the per-turn cap cannot place more HIRE orders than
     # the cap allows on the one turn it fires. hires_today is pinned EXACTLY
     # at the base target (6) so the whole hire_count is the burst's doing and
-    # the clamp is the only thing bounding it.
+    # the clamp is the only thing bounding it. max_hires_per_turn is pinned
+    # to 4 explicitly (the pre-STACK3 shipped default) for the single-cap
+    # literals below; the loop further down covers 10 (STACK3's shipped
+    # default) and other caps directly.
     kwargs = dict(
         day=12,
         money=20000.0,
@@ -1166,11 +1208,11 @@ def test_land_unlock_hand_burst_is_clamped_by_max_hires_per_turn() -> None:
         unlocked_quadrants=("NW", "NE"),
         active_tiles=48,
     )
-    assert plan_day(**kwargs).hire_count == 0  # type: ignore[arg-type]
-    assert plan_day(**kwargs, land_unlock_hand_burst=3).hire_count == 3  # type: ignore[arg-type]
-    assert plan_day(**kwargs, land_unlock_hand_burst=4).hire_count == 4  # type: ignore[arg-type]
+    assert plan_day(**kwargs, max_hires_per_turn=4).hire_count == 0  # type: ignore[arg-type]
+    assert plan_day(**kwargs, max_hires_per_turn=4, land_unlock_hand_burst=3).hire_count == 3  # type: ignore[arg-type]
+    assert plan_day(**kwargs, max_hires_per_turn=4, land_unlock_hand_burst=4).hire_count == 4  # type: ignore[arg-type]
     # Past the cap the extra burst is simply unreachable on this turn.
-    assert plan_day(**kwargs, land_unlock_hand_burst=8).hire_count == MAX_HIRES_PER_TURN  # type: ignore[arg-type]
+    assert plan_day(**kwargs, max_hires_per_turn=4, land_unlock_hand_burst=8).hire_count == 4  # type: ignore[arg-type]
 
     for burst in range(0, 9):
         for cap in (1, 2, 4, 10):
@@ -1419,6 +1461,10 @@ def test_strawberry_never_outbids_the_animal_pipeline() -> None:
     # $800 funds exactly two cows and nothing else. The cows must take it and
     # the strawberry line must come away empty -- with the ordering reversed,
     # eight $100 seeds would eat the same budget and starve the ranch.
+    # animal_buy_order pinned explicitly to ("COW", "SHEEP") -- this test is
+    # about the animal-pipeline-vs-strawberry priority, not species ordering,
+    # and is isolated from STACK3's shipped sheep-before-cows default for
+    # that reason.
     contested = _sb_plan(
         money=800.0,
         empty_strawberry_tiles=30,
@@ -1427,6 +1473,7 @@ def test_strawberry_never_outbids_the_animal_pipeline() -> None:
         sheep_owned=0,
         wheat_seeds=24,
         strawberry_seed_budget_share=1.0,
+        animal_buy_order=("COW", "SHEEP"),
     )
     assert ["BUY_ANIMAL", "COW", 2] in contested.buys  # type: ignore[attr-defined]
     assert _sb_buy(contested) is None
@@ -1444,6 +1491,7 @@ def test_strawberry_never_outbids_the_animal_pipeline() -> None:
         sheep_owned=0,
         wheat_seeds=24,
         strawberry_seed_budget_share=1.0,
+        animal_buy_order=("COW", "SHEEP"),
     )
     assert ["BUY_ANIMAL", "COW", 2] in leftover.buys  # type: ignore[attr-defined]
     assert _sb_buy(leftover) == ["BUY_SEED", "STRAWBERRY", 2]

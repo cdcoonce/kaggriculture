@@ -175,7 +175,9 @@ STRAWBERRY_PLANT_CUTOFF_DAY = 12
 # strawberry tile is worth more idle-time than a melon one (it must be planted
 # by day 12 or it silently loses ticks), so the daily cap must not be the
 # binding constraint -- the seed budget in plan.py is, and it self-throttles.
-STRAWBERRY_PLANT_DAILY_CAP = 6
+# STACK3 (release/stack3) raises this from the pre-STACK3 shipped default of
+# 6 to 10, paired with STRAWBERRY_TILE_TARGET=20 in constants.py.
+STRAWBERRY_PLANT_DAILY_CAP = 10
 
 # Priority tier for a fresh PLANT STRAWBERRY task. This is the single source
 # of truth for that tier: PolicyConfig.strawberry_plant_priority (threaded

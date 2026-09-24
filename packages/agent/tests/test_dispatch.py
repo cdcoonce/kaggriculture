@@ -933,8 +933,11 @@ def test_strawberry_zone_falls_through_to_wheat_once_the_daily_cap_is_spent() ->
     # Same trap, the other trigger: inside the window but with today's
     # stagger already spent, the remaining zone tiles must not idle until
     # tomorrow -- wheat's own quota can still use them today.
+    # zone sized to STRAWBERRY_PLANT_DAILY_CAP + 1 (cap tiles planted, one
+    # spare beyond it) so this fixture stays valid regardless of the
+    # constant's value -- STACK3 (release/stack3) raised it from 6 to 10.
     day = 5
-    zone = [(x, 0) for x in range(5)] + [(0, 1), (1, 1)]
+    zone = NW_TILES[: STRAWBERRY_PLANT_DAILY_CAP + 1]
     planted, spare = zone[:STRAWBERRY_PLANT_DAILY_CAP], zone[STRAWBERRY_PLANT_DAILY_CAP]
 
     tiles = make_view().tiles

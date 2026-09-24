@@ -119,9 +119,10 @@ CRASH_TRIGGER_TICKS = 12
 # it -- the zone/reservation, the wheat fall-through, plan_day's seed line,
 # dispatch, and the market fertilizer reserve alike -- sees a zero-tile zone
 # before this day and the configured zone from it on. There is exactly one
-# mechanism, not two. 0 is the shipped default: the mechanic is fully off
-# from turn one, so this is a no-op until an eval run raises it.
-STRAWBERRY_START_DAY = 0
+# mechanism, not two. 0 was the pre-STACK3 shipped default: the mechanic was
+# fully off from turn one, a no-op until an eval run raised it. STACK3
+# (release/stack3) ships the mechanic active from day 8 instead.
+STRAWBERRY_START_DAY = 8
 
 # Wheat fall-through into idle strawberry-zone ground (_zone_fallthrough_
 # tiles below): dispatch.py's own strawberry branch already plants WHEAT on
