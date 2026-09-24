@@ -78,8 +78,9 @@ _WHEAT_RUSH_TILES_DEFAULT = (
 
 # S3W30: CONFIRMED on top of STACK3 in
 # eval/prereg/2026-09-23-second-slot-screen.md (the second-slot screen --
-# SELECTED and CONFIRMED against frozen M3b at band 896000/897000, pooled
-# one-sided 95% own-bank lower bound > $0). Caps the wheat rush well below
+# SELECTED at band 896000 and CONFIRMED at band 897000 against champion at
+# STACK3 defaults: pooled own-bank +$519, one-sided 95% lower bound +$141).
+# Caps the wheat rush well below
 # the uncapped remainder above, freeing crew for the strawberry zone -- the
 # labor-exhaustion diagnosis that document names. release/s3w30eh1 ships
 # this as PolicyConfig()'s default; pass wheat_rush_tiles=
@@ -196,8 +197,8 @@ _MAX_EXTRA_HANDS = 5
 
 # S3W30EH1: CONFIRMED on top of STACK3+W30 in
 # eval/prereg/2026-09-24-eh1-on-w30-margin.md (judged on margin against
-# frozen M3b at band 898000: pooled margin one-sided 95% lower bound > $0,
-# pooled own-bank point estimate >= $0 with its own lower bound > -$500).
+# champion at STACK3+W30 defaults at band 898000: pooled margin +$1,449,
+# one-sided 95% lower bound +$768; pooled own bank +$1,532, lower bound +$637).
 # release/s3w30eh1 ships this as PolicyConfig()'s default; pass
 # extra_hands=0 explicitly to reproduce the pre-S3W30EH1 DEFAULT-NEUTRAL
 # behavior described below.
