@@ -186,7 +186,7 @@ def pasture_tiles(
     return target_tiles(unlocked)[MELON_TILE_TARGET : MELON_TILE_TARGET + target]
 
 
-STRAWBERRY_TILE_TARGET = 0  # shipped default: the zone is empty, so the mechanic is dormant
+STRAWBERRY_TILE_TARGET = 20  # shipped default as of STACK3 (release/stack3): a 20-tile zone
 
 # Strawberry is anchored to a FIXED reference frame for the same reason
 # pastures are (see PASTURE_REFERENCE_QUADRANTS above), and the argument is

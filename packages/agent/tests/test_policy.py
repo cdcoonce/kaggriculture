@@ -12,6 +12,7 @@ from agent.constants import (
     PASTURE_REFERENCE_QUADRANTS,
     QUADRANTS,
     STRAWBERRY_REFERENCE_QUADRANTS,
+    STRAWBERRY_TILE_TARGET,
     melon_tiles,
     pasture_tiles,
     strawberry_tiles,
@@ -570,14 +571,15 @@ def test_shed_crisis_teeth_check_emergency_valve_forces_wool_milk_sells() -> Non
 # --- Strawberry zone ------------------------------------------------------
 
 
-def test_default_config_leaves_the_strawberry_zone_empty() -> None:
-    # The whole mechanic ships dormant. Every strawberry code path is
-    # unreachable at a zero-tile zone, which is what lets the no-op paired
-    # gate below be a real check on the shared dispatch path rather than a
-    # check on freshly-added dead code.
+def test_default_config_sizes_the_strawberry_zone_at_twenty() -> None:
+    # STACK3 (release/stack3) ships the mechanic active with a 20-tile zone
+    # (was a zero-tile, fully-dormant zone pre-STACK3 -- see
+    # test_strawberry_zone_does_not_move_melon_or_pasture below, which still
+    # covers target=0 directly as one point on the curve).
     config = PolicyConfig()
-    assert config.strawberry_tile_target == 0
-    assert strawberry_tiles(STRAWBERRY_REFERENCE_QUADRANTS, target=0) == []
+    assert config.strawberry_tile_target == 20
+    assert config.strawberry_tile_target == STRAWBERRY_TILE_TARGET
+    assert len(strawberry_tiles(STRAWBERRY_REFERENCE_QUADRANTS, target=20)) == 20
 
 
 def test_strawberry_zone_does_not_move_melon_or_pasture() -> None:
@@ -648,13 +650,20 @@ def _zone_built_by_decide(
     back to itself. ``frame_quadrants=None`` does the same for
     ``strawberry_frame_quadrants``.
 
+    ``strawberry_start_day`` is pinned to 0 explicitly (the pre-STACK3
+    shipped default): the raw_obs this builds is always day 0, and STACK3
+    (release/stack3) ships strawberry_start_day=8, which would gate
+    ``target`` down to 0 on every call here and make this helper measure the
+    start-day knob instead of the zone-geometry/frame-selection knobs it
+    exists for.
+
     Spies on BOTH ``policy.strawberry_tiles`` (the fixed-offset formula,
     used only for the default frame) and ``policy.strawberry_tiles_for_
     frame`` (the melon/pasture-aware formula used for any other frame) --
     decide() calls exactly one of the two, so exactly one spy should ever
     fire.
     """
-    overrides: dict[str, Any] = {"strawberry_tile_target": target}
+    overrides: dict[str, Any] = {"strawberry_tile_target": target, "strawberry_start_day": 0}
     if frame_live is not None:
         overrides["strawberry_frame_live"] = frame_live
     if frame_quadrants is not None:
@@ -864,10 +873,14 @@ def test_strawberry_tiles_are_carved_out_of_the_wheat_zone() -> None:
     def wheat_qty(market: list[list[Any]]) -> int:
         return next((int(o[2]) for o in market if o[:2] == ["BUY_SEED", "WHEAT"]), 0)
 
+    # strawberry_start_day pinned to 0 explicitly on the with_berry arm: at
+    # STACK3's shipped default of 8, raw_obs()'s day-0 turn would gate the
+    # zone to 0 regardless of strawberry_tile_target, and this test is about
+    # the tile_target knob, not the start-day one.
     baseline = make_policy()(raw_obs(), None)["market"]
-    with_berry = make_policy(policy_config=PolicyConfig(strawberry_tile_target=6))(raw_obs(), None)[
-        "market"
-    ]
+    with_berry = make_policy(
+        policy_config=PolicyConfig(strawberry_tile_target=6, strawberry_start_day=0)
+    )(raw_obs(), None)["market"]
 
     assert wheat_qty(with_berry) < wheat_qty(baseline), (
         "wheat still claims every tile it did before the strawberry zone existed"
@@ -881,13 +894,22 @@ def test_max_owned_quadrants_threads_from_policy_config_to_the_land_order() -> N
     silently-inert knob, so this asserts on the ACTION the engine would see.
     The shipped default (3) refuses SE; lifting the cap to 4 buys it, and
     changes nothing else about the turn.
+
+    max_hires_per_turn is pinned explicitly on both arms: buying SE grows
+    active_tiles, which moves hands_target, and at STACK3's shipped
+    max_hires_per_turn default of 10 that shift changes hire_count too --
+    an effect of the land purchase this test isn't about. Pinning the same
+    value on both arms isolates max_owned_quadrants as the only knob that
+    can make the two actions differ.
     """
     obs = raw_obs(step=12 * 24, money=10000.0, unlocked_quadrants=("NW", "NE", "SW"))
 
-    default_action = make_policy()(obs, None)
+    default_action = make_policy(policy_config=PolicyConfig(max_hires_per_turn=4))(obs, None)
     assert ["BUY_LAND"] not in default_action["market"]
 
-    uncapped_action = make_policy(policy_config=PolicyConfig(max_owned_quadrants=4))(obs, None)
+    uncapped_action = make_policy(
+        policy_config=PolicyConfig(max_owned_quadrants=4, max_hires_per_turn=4)
+    )(obs, None)
     assert ["BUY_LAND"] in uncapped_action["market"]
     assert default_action["market"] == [o for o in uncapped_action["market"] if o != ["BUY_LAND"]]
 
@@ -937,9 +959,16 @@ def test_a_small_zone_leaves_the_wheat_seed_line_alone() -> None:
     # horizon hands wheat nothing and the two lines stay disjoint by
     # construction -- no tile is counted by both. A small zone must therefore
     # still shrink wheat's claim, exactly as it did before this change.
+    #
+    # strawberry_start_day pinned to 0 on the "small" arm: at STACK3's
+    # shipped default of 8, raw_obs()'s day-0 turn would gate the zone to 0
+    # regardless of strawberry_tile_target, and this test is about the
+    # tile_target knob, not the start-day one.
     baseline = _wheat_seed_qty(make_policy()(raw_obs(), None)["market"])
     small = _wheat_seed_qty(
-        make_policy(policy_config=PolicyConfig(strawberry_tile_target=6))(raw_obs(), None)["market"]
+        make_policy(policy_config=PolicyConfig(strawberry_tile_target=6, strawberry_start_day=0))(
+            raw_obs(), None
+        )["market"]
     )
     assert small < baseline
 
@@ -1047,10 +1076,15 @@ def test_zone_fallthrough_multiplier_threads_from_policy_config_to_the_wheat_see
     isolates the knob rather than an affordability ceiling. Exact quantities
     empirically verified against this fixture before being pinned here.
     """
+    # strawberry_start_day pinned to 0 explicitly: at STACK3's shipped
+    # default of 8, this day-0 obs would gate the zone to 0 regardless of
+    # strawberry_tile_target, and this test is about zone_fallthrough_
+    # multiplier, not the start-day knob.
     obs = raw_obs(step=0, unlocked_quadrants=("NW", "NE"), money=10000.0)
     zone_kwargs: dict[str, Any] = {
         "strawberry_tile_target": 36,
         "strawberry_plant_daily_cap": 11,
+        "strawberry_start_day": 0,
     }
 
     default_qty = _wheat_seed_qty(
@@ -1180,16 +1214,17 @@ def test_one_policy_instance_activates_strawberry_crossing_the_start_day() -> No
     )
 
 
-def test_default_config_keeps_the_strawberry_start_day_at_zero() -> None:
-    # Pinned default: strawberry_start_day=0 is "no gate" -- the mechanic
-    # reads the configured strawberry_tile_target from turn one, exactly as
-    # it did before this knob existed. The measured no-op proof (harness
-    # money gate against a frozen pre-feature baseline, not a unit test) is
-    # what actually holds the champion byte-identical at this default across
-    # a full game; this pins the knob itself so a future edit cannot quietly
-    # move it off zero without a fast test noticing first.
+def test_default_config_keeps_the_strawberry_start_day_at_eight() -> None:
+    # Pinned default: strawberry_start_day=0 was "no gate" pre-STACK3 -- the
+    # mechanic read the configured strawberry_tile_target from turn one,
+    # exactly as it did before this knob existed. STACK3 (release/stack3)
+    # ships the mechanic gated until day 8 instead. This pins the knob
+    # itself so a future edit cannot quietly move it without a fast test
+    # noticing first; the STACK3 confirm evidence
+    # (eval/prereg/2026-09-19-terminal-freeze-vs-m3b.md) is the measured
+    # case for this specific value.
     config = PolicyConfig()
-    assert config.strawberry_start_day == 0
+    assert config.strawberry_start_day == 8
     assert config.strawberry_start_day == policy.STRAWBERRY_START_DAY
 
 
@@ -1338,8 +1373,9 @@ def test_labor_knob_defaults_pin_todays_constants() -> None:
     # resolving to exactly today's hardcoded behavior. Compared against the
     # modules' OWN constants, not bare literals, so an edit to either hardcoded
     # value can never drift silently out of sync with these defaults.
+    # max_hires_per_turn: STACK3 (release/stack3) raised this from 4 to 10.
     config = PolicyConfig()
-    assert config.max_hires_per_turn == 4
+    assert config.max_hires_per_turn == 10
     assert config.max_hires_per_turn == plan.MAX_HIRES_PER_TURN
     assert config.wheat_plant_priority == 3
     assert config.wheat_plant_priority == dispatch.WHEAT_PLANT_PRIORITY
@@ -1386,10 +1422,10 @@ def test_max_hires_per_turn_threads_from_policy_config_to_the_market_list() -> N
     obs = raw_obs(step=12 * 24, money=0.0, unlocked_quadrants=("NW", "NE", "SW", "SE"))
 
     default_action = make_policy()(obs, None)
-    assert default_action["market"] == [["HIRE"]] * 4  # hands_target 12, MAX_HIRES_PER_TURN=4
+    assert default_action["market"] == [["HIRE"]] * 10  # hands_target 12, MAX_HIRES_PER_TURN=10
 
-    overridden_action = make_policy(policy_config=PolicyConfig(max_hires_per_turn=10))(obs, None)
-    assert overridden_action["market"] == [["HIRE"]] * 10
+    overridden_action = make_policy(policy_config=PolicyConfig(max_hires_per_turn=4))(obs, None)
+    assert overridden_action["market"] == [["HIRE"]] * 4
 
 
 def test_hires_beyond_the_market_order_cap_are_dropped_not_deferred() -> None:
@@ -1478,10 +1514,12 @@ def test_opening_knob_defaults_pin_todays_behavior() -> None:
     # test_labor_knob_defaults_pin_todays_constants uses above, so an edit to
     # either hardcoded value can never drift silently out of sync with these
     # defaults.
+    # animal_buy_order: STACK3 (release/stack3) flipped this from
+    # ("COW", "SHEEP") to ("SHEEP", "COW").
     config = PolicyConfig()
     assert config.ne_land_min_day == 0
     assert config.ne_land_min_day == plan.NE_LAND_MIN_DAY
-    assert config.animal_buy_order == ("COW", "SHEEP")
+    assert config.animal_buy_order == ("SHEEP", "COW")
     assert config.animal_buy_order == plan.ANIMAL_BUY_ORDER
 
 
@@ -1548,14 +1586,14 @@ def test_animal_buy_order_threads_from_policy_config_to_the_market_list() -> Non
         obs["farms"][0]["tiles"][y][x] = built_pasture()
 
     default_action = make_policy()(obs, None)
-    assert ["BUY_ANIMAL", "COW", 2] in default_action["market"]
-    assert not any(o[:2] == ["BUY_ANIMAL", "SHEEP"] for o in default_action["market"])
+    assert ["BUY_ANIMAL", "SHEEP", 2] in default_action["market"]
+    assert not any(o[:2] == ["BUY_ANIMAL", "COW"] for o in default_action["market"])
 
-    overridden_action = make_policy(policy_config=PolicyConfig(animal_buy_order=("SHEEP", "COW")))(
+    overridden_action = make_policy(policy_config=PolicyConfig(animal_buy_order=("COW", "SHEEP")))(
         obs, None
     )
-    assert ["BUY_ANIMAL", "SHEEP", 2] in overridden_action["market"]
-    assert not any(o[:2] == ["BUY_ANIMAL", "COW"] for o in overridden_action["market"])
+    assert ["BUY_ANIMAL", "COW", 2] in overridden_action["market"]
+    assert not any(o[:2] == ["BUY_ANIMAL", "SHEEP"] for o in overridden_action["market"])
 
 
 # --- goose_min_day: defer the goose to keep the pre-NE pasture slots
