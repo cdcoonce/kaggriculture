@@ -67,13 +67,26 @@ from agent.view import FarmView, clone_pressure_products, parse_obs
 
 SOFT_BUDGET_SECONDS = 0.5  # v1 logic runs in microseconds; this guards regressions
 
-# No cap by default: the full board (BOARD_SIZE**2 tiles, minus COOP_TILE) can
-# never yield more wheat tiles than this once melon's and pasture's own zones
-# are carved out, so the default preserves today's uncapped remainder for
-# every unlock state.
+# The full board (BOARD_SIZE**2 tiles, minus COOP_TILE) can never yield more
+# wheat tiles than this once melon's and pasture's own zones are carved out,
+# so this is the uncapped remainder for every unlock state -- still available
+# for an explicit override (``wheat_rush_tiles=_WHEAT_RUSH_TILES_DEFAULT``),
+# but no longer what PolicyConfig() itself ships (see WHEAT_RUSH_TILES below).
 _WHEAT_RUSH_TILES_DEFAULT = (
     BOARD_SIZE * BOARD_SIZE - 1 - MELON_TILE_TARGET - (COW_TARGET + SHEEP_TARGET)
 )
+
+# S3W30: CONFIRMED on top of STACK3 in
+# eval/prereg/2026-09-23-second-slot-screen.md (the second-slot screen --
+# SELECTED at band 896000 and CONFIRMED at band 897000 against champion at
+# STACK3 defaults: pooled own-bank +$519, one-sided 95% lower bound +$141).
+# Caps the wheat rush well below
+# the uncapped remainder above, freeing crew for the strawberry zone -- the
+# labor-exhaustion diagnosis that document names. release/s3w30eh1 ships
+# this as PolicyConfig()'s default; pass wheat_rush_tiles=
+# _WHEAT_RUSH_TILES_DEFAULT explicitly to reproduce the pre-S3W30 no-cap
+# behavior.
+WHEAT_RUSH_TILES = 30
 
 # M2c (kaggriculture#59): two-tier shed valve. Absolute-unit thresholds
 # against the engine's default 100-unit shed -- policy.decide scales them by
@@ -182,6 +195,15 @@ _MAX_PLANT_HOUR_CUTOFF = 23
 _MIN_EXTRA_HANDS = 0
 _MAX_EXTRA_HANDS = 5
 
+# S3W30EH1: CONFIRMED on top of STACK3+W30 in
+# eval/prereg/2026-09-24-eh1-on-w30-margin.md (judged on margin against
+# champion at STACK3+W30 defaults at band 898000: pooled margin +$1,449,
+# one-sided 95% lower bound +$768; pooled own bank +$1,532, lower bound +$637).
+# release/s3w30eh1 ships this as PolicyConfig()'s default; pass
+# extra_hands=0 explicitly to reproduce the pre-S3W30EH1 DEFAULT-NEUTRAL
+# behavior described below.
+EXTRA_HANDS = 1
+
 #: land_unlock_hand_burst: the same reasoning as extra_hands just above --
 #: the engine caps nothing (only the rising Fibonacci hire cost within a
 #: day), so this is a deliberately conservative guard against a runaway CLI
@@ -274,7 +296,7 @@ class PolicyConfig:
     # unchanged.
     animal_buy_order: tuple[str, ...] = ANIMAL_BUY_ORDER
 
-    wheat_rush_tiles: int = _WHEAT_RUSH_TILES_DEFAULT
+    wheat_rush_tiles: int = WHEAT_RUSH_TILES
     # Priority tier for a fresh PLANT WHEAT task -- dispatch.py's
     # _field_tasks, threaded through dispatch() the same way
     # strawberry_plant_priority is. Defaults to dispatch.WHEAT_PLANT_PRIORITY,
@@ -381,12 +403,12 @@ class PolicyConfig:
     # 1.8-3.2x. extra_hands hires above plan.py's tile-based hands_target,
     # unconditionally -- threaded through plan_day() the same way
     # max_hires_per_turn is, added AFTER that target's own HANDS_MIN floor
-    # and husbandry bonus so it never interacts with either. DEFAULT-NEUTRAL:
-    # 0 has no prior hardcoded behavior to reproduce (there was never an
-    # implicit "extra hands" term before this knob existed), so hands_target
-    # and every action are bit-for-bit unchanged at the default.
+    # and husbandry bonus so it never interacts with either. 0 was
+    # DEFAULT-NEUTRAL (no prior hardcoded "extra hands" term, so hands_target
+    # and every action were bit-for-bit unchanged at that default) until
+    # release/s3w30eh1 shipped EXTRA_HANDS = 1 above as the default instead.
     # __post_init__ rejects anything outside 0-5 -- see _MAX_EXTRA_HANDS.
-    extra_hands: int = 0
+    extra_hands: int = EXTRA_HANDS
 
     # A ONE-TURN crew burst on the turn plan_day submits a ["BUY_LAND"]
     # order -- added to hands_target for that call only, on top of
