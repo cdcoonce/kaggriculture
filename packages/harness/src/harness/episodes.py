@@ -135,6 +135,15 @@ def resolve_agent(spec: str, agent_config: dict[str, Any] | None = None) -> Any:
         from harness.public_leaders import resolve_public_leader
 
         return resolve_public_leader(spec.removeprefix("public:"))
+    if spec.startswith("file:"):
+        # Arbitrary single-file agent outside the pinned panel (e.g. a local
+        # fork under forks/), loaded with the same get_last_callable +
+        # fresh-namespace-per-resolution semantics as "public:" -- see
+        # harness.public_leaders.resolve_file_agent -- but with no panel
+        # entry and therefore no SHA-256 provenance check.
+        from harness.public_leaders import resolve_file_agent
+
+        return resolve_file_agent(spec.removeprefix("file:"))
     raise ValueError(f"unknown agent spec: {spec!r}")
 
 

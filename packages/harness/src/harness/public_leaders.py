@@ -106,3 +106,23 @@ def resolve_public_leader(agent_id: str) -> Callable[..., Any]:
     # return type instead of silently propagating Any out of this function.
     entrypoint: Callable[..., Any] = get_last_callable(source_text, path=str(agent_path))
     return entrypoint
+
+
+def resolve_file_agent(relpath: str) -> Callable[..., Any]:
+    """Resolve an arbitrary repo-relative single-file agent (the ``file:``
+    spec in ``harness.episodes.resolve_agent``).
+
+    For a local, uncommitted-panel file such as a fork under ``forks/`` that
+    has no ``panel.json`` entry to verify against. Reuses exactly the loading
+    half of ``resolve_public_leader`` above -- ``get_last_callable`` against a
+    brand-new namespace on every call, never cached -- but skips the SHA-256
+    provenance check, since there is no panel entry for an arbitrary path.
+
+    ``relpath`` is resolved against ``Path.cwd()``, mirroring
+    ``_panel_root()`` and ``harness.episodes``'s ``frozen:`` spec: run from
+    the repo root.
+    """
+    path = Path.cwd() / relpath
+    source_text = path.read_text(encoding="utf-8")
+    entrypoint: Callable[..., Any] = get_last_callable(source_text, path=str(path))
+    return entrypoint

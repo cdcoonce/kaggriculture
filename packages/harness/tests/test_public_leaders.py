@@ -158,6 +158,49 @@ class TestProvenance:
         assert tampered_hash in message
 
 
+class TestFileSpec:
+    """The ``file:<repo-relative-path>`` spec (``harness.episodes.
+    resolve_agent`` -> ``harness.public_leaders.resolve_file_agent``): an
+    arbitrary single-file agent outside the pinned panel -- e.g. a local fork
+    under ``forks/`` with no ``panel.json`` entry -- loaded with the same
+    entrypoint-selection and fresh-namespace-per-resolution semantics as
+    ``public:``, but with no SHA-256 provenance check.
+    """
+
+    _RELPATH = "eval/opponents/public-leaders/sokolovsky-v12/main.py"
+
+    def test_resolves_to_whatever_kaggle_environments_would_pick(self) -> None:
+        path = PANEL_ROOT / "sokolovsky-v12" / "main.py"
+        oracle = get_last_callable(path.read_text(encoding="utf-8"), path=str(path))
+
+        fn = resolve_agent(f"file:{self._RELPATH}")
+
+        assert fn.__name__ == oracle.__name__
+
+    def test_fresh_namespace_per_resolution_not_cached(self) -> None:
+        first = resolve_agent(f"file:{self._RELPATH}")
+        second = resolve_agent(f"file:{self._RELPATH}")
+
+        assert first.__globals__ is not second.__globals__
+        assert first.__globals__["_LAST_STEP"] == -1
+
+        # Mutating one resolution's globals must not leak into a resolution
+        # made AFTER the mutation -- the failure mode a cache would produce.
+        first.__globals__["_LAST_STEP"] = "MUTATED-BY-TEST"
+
+        third = resolve_agent(f"file:{self._RELPATH}")
+        assert third.__globals__ is not first.__globals__
+        assert third.__globals__["_LAST_STEP"] == -1
+
+    def test_no_dunder_file_in_resolved_globals(self) -> None:
+        fn = resolve_agent(f"file:{self._RELPATH}")
+        assert "__file__" not in fn.__globals__
+
+    def test_missing_path_raises_file_not_found(self) -> None:
+        with pytest.raises(FileNotFoundError):
+            resolve_agent("file:eval/opponents/public-leaders/does-not-exist/main.py")
+
+
 class TestPublicLeaderSmoke:
     """Requirement 6: one full game per panel id against builtin:starter,
     using the harness's own play_game (same function the gates use). Not the
